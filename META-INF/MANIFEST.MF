@@ -1,0 +1,4 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: graviton.browser
+Main-Class: net.plan99.graviton.Graviton
+

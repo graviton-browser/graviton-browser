@@ -9,13 +9,20 @@ buildscript {
     }
 }
 
+plugins {
+    // id 'com.zyxist.chainsaw' version '0.3.1'
+}
+
 group 'net.plan99.graviton'
-version '0.1-SNAPSHOT'
+version '2'
 
 apply plugin: 'java'
 apply plugin: 'kotlin'
+apply plugin: 'application'
 
-sourceCompatibility = 1.8
+sourceCompatibility = 9
+mainClassName = "net.plan99.graviton.Graviton"
+ext.moduleName = "graviton.browser"
 
 repositories {
     mavenCentral()
@@ -29,6 +36,113 @@ dependencies {
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
+
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+jar {
+    inputs.property("moduleName", moduleName)
+    manifest {
+        attributes(
+                'Automatic-Module-Name': moduleName,
+                'Main-Class': mainClassName,
+                'Class-Path': configurations.runtime.collect { it.getName() }.join(' ')
+        )
+    }
+}
+
+task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':bootstrap:compileKonan')]) {
+    def os = System.properties['os.name'].toLowerCase()
+    if (os.contains('mac'))
+        from 'bootstrap/build/konan/bin/macbook'
+    else if (os.contains('win'))
+        from 'bootstrap/build/konan/bin/mingw'
+    into('build/install/graviton-parent/lib')
+}
+
+task packageMac(type: Exec, dependsOn: [copyBootstrapToLibs]) {
+    workingDir project.projectDir
+    def outDir = "${buildDir}/packaged"
+    outputs.dir(outDir)
+    inputs.files(copyBootstrapToLibs.outputs)
+    inputs.files('package/macosx')
+
+    // Export the version so the package/macosx/Graviton Browser-post-image.sh script
+    // can pick it up and ensure the base version directory is the right number.
+    environment "GRAVITON_VERSION", project.version
+
+    // Unfortunately the --limit-modules feature does NOT WORK, it is just silently ignored
+    // because they reaaaaaaalllly want you to use jlink. Unfortunately jlink is unusable
+    // as it refuses to work if any module is an automatic module, i.e. everything in the
+    // app must have a module-info.java. Unfortunately modularising the Java ecosystem is
+    // going to be very slow going, as the tools barely work, the Java 9 upgrade breaks
+    // everything and nobody really cares.
+    //
+    // So we end up with a bloated JDK anyway, and worse, we can't even cut it down to
+    // size ourselves because the resulting image javapackager makes now combines all the
+    // JARs together into a 'modules' file of unknown format and type. Basically, these
+    // optimisations are still quite new and rough.
+    //
+    // Once Kotlin stdlib has a proper module-info, and once there's some examples showing
+    // how to make modular apps using Kotlin, we can revisit and optimise this by cutting
+    // down the number of JDK modules deployed.
+    commandLine = [
+            'javapackager',
+            '-deploy',
+            '-nosign',
+            '-native', 'dmg',
+            '-outdir', outDir,
+            '-outfile', 'Graviton Browser',
+            '-name', 'Graviton Browser',
+            '-appclass', mainClassName,
+            '-singleton',
+            '-srcdir', 'build/install/graviton-parent/lib',
+            '-Bidentifier=net.plan99.graviton.browser',
+            "-BmainJar=graviton-parent-${project.version}.jar",
+            "-BappVersion=${project.version}",
+            "-Bmac.CFBundleIdentifier=net.plan99.graviton.browser"
+    ]
+
+    // TODO: Signing
+    // TODO: Icons
+}
+
+// Run like this: gradlew "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-10" packageWin
+// on a system with InnoSetup installed.
+task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
+    workingDir project.projectDir
+    def outDir = "${buildDir}/packaged"
+    outputs.dir(outDir)
+    inputs.files(copyBootstrapToLibs.outputs)
+    inputs.files("package/windows")
+    outputs.file("build/packaged/GravitonBrowser.exe")
+
+    // Export it so the InnoSetup pre-processor can use it.
+    environment "GRAVITON_VERSION", project.version
+
+    // TODO: Signing
+    // TODO: Icons
+
+    commandLine = [
+            'javapackager',
+            '-deploy',
+            '-nosign',
+            '-native', 'exe',
+            '-outdir', outDir,
+            '-outfile', 'GravitonBrowser',
+            '-name', 'GravitonBrowser',
+            '-appclass', mainClassName,
+            '-srcdir', 'build/install/graviton-parent/lib',
+            "-BmainJar=graviton-parent-${project.version}.jar",
+            "-BdropinResourcesRoot=build/innosetup",
+            '-Bidentifier=net.plan99.graviton.browser',
+            "-Bappversion=${project.version}",
+            '-BsystemWide=false',   // So UAC/admin privs aren't needed for update
+            '-BinstalldirChooser=false',
+            '-Bvendor=Graviton Team',
+            '-BmenuHint=true',
+            '-Bwin.menuGroup=Graviton Browser',
+            '-v'
+    ]
 }

@@ -28,7 +28,7 @@ entrypoint to the app is not, however, the one jlink produces.
 Bootstrap
 ---------
 
-Instead the directory structure of the browser app looks like this:
+Instead the directory structure of the browser app looks like this::
 
     /graviton
     /1/bin/graviton
@@ -40,7 +40,7 @@ In other words, there is a native executable at the root location, and then seve
 sub-directories with integer names. The native executable at the root scans the directory list at startup and selects
 the directory with the highest name before re-executing the binary found under that location with the same set of
 command line arguments. The native executable is called the *bootstrap* and it does very little, so will need to change
-rarely. It can be written in Kotlin/Native.
+rarely. It is be written in Kotlin/Native and there are different versions for macOS and Windows.
 
 This design means that it's possible for a running instance of the browser to download and unpack new versions of itself
 whilst running. Partially unpacked installations should be put in a directory with a name that starts with a letter,
@@ -48,8 +48,11 @@ and then the directory can be renamed to the final integer name when unpacking a
 can monitor this directory to see if a new version has become available whilst running and notify the user with an
 unobtrusive hint in the user interface, as Chrome does it.
 
-If the user is not an admin user, the bootstrap may search in the users home directory to locate newer versions to run
-as well as the original install location.
+It is assumed the user is either an admin user (on macOS) or that the app was installed to the user's home directory.
+On Windows the installer we provide does not offer any customisation options, thus, it will always be in the user's
+home directory (under the hidden AppData folder).
+
+The ``javapackager`` tool is used to assemble the final download.
 
 Update tracking and batched updates
 -----------------------------------
@@ -112,3 +115,11 @@ hope is it never needs to be updated once created.
 
 This mechanism can be used to change the signing keys that are authorised to push upgrades, as the set of developers
 evolves over time.
+
+JRE minimisation
+----------------
+
+Java 9+ introduces a nice feature; the jlink and javapackager tools can now minimise the JRE by stripping out modules
+that aren't needed. Unfortunately it comes with a huge caveat - this only works for fully modularised apps, and the
+tooling, Gradle and Kotlin support for this is half baked. Building and jlinking a modular Kotlin app is still far from
+easy. For now we will punt this to later in the hope that the ecosystem eventually catches up.

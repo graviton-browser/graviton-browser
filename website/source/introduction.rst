@@ -42,7 +42,8 @@ it is now. Over time hardware got bigger and the JVM got more efficient. So we a
 User experience sketch
 ======================
 
-Graviton exposes a user experience somewhat analagous to a web browser. It features:
+Graviton exposes a dual user experience. For GUI apps it is somewhat analagous to a web browser, but with a greater
+focus on allowing apps to open top level windows (escape the tab). It features:
 
 * A tabbed UI.
 * An "address bar", albeit with some quirks as outlined below.
@@ -63,6 +64,23 @@ intranet/default-page style deployment.
 A basic page / Markdown rendering feature is supported. This enables the root UI of an app that is embedded in a tab to
 be basic instructions or release notes, if the app really doesn't want to be confined to a tab and would rather open its
 own windows.
+
+Command line apps are first class entities in Graviton. There is a command line interface analogous to apt-get, brew,
+and so on that allows you to install command line apps and keep background updated::
+
+    $ graviton alias sketch https://foobar.com/apps/sketch
+    Downloading https://foobar.com/apps/sketch and linking to /usr/local/bin/sketch ...
+    Linked version 3.2
+
+    $ sketch --help
+    Welcome to sketch 3.2
+
+Some time later::
+
+    $ sketch --help
+    <silent delay as the app is updated>
+    Welcome to sketch 3.4
+
 
 Implementation sketch
 =====================

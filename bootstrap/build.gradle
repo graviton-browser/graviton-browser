@@ -1,0 +1,29 @@
+group 'net.plan99.graviton'
+version '0.1-SNAPSHOT'
+
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://dl.bintray.com/jetbrains/kotlin-native-dependencies"
+        }
+    }
+
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-native-gradle-plugin:$kotlin_native_version"
+    }
+}
+
+apply plugin: 'konan'
+
+konanArtifacts {
+    program('bootstrap') {
+        target('macbook') {
+            srcFiles 'src/main/kotlin/mac.kt', 'src/main/kotlin/bootstrap-posix.kt'
+        }
+        target('mingw') {
+            srcFiles 'src/main/kotlin/win.kt'
+            linkerOpts "-Wl,--subsystem,windows"
+        }
+    }
+}
