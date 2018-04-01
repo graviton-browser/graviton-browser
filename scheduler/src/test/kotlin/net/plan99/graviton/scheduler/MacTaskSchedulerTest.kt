@@ -1,5 +1,6 @@
 package net.plan99.graviton.scheduler
 
+import com.google.common.jimfs.Configuration
 import com.google.common.jimfs.Jimfs
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -8,7 +9,7 @@ import java.nio.file.Path
 import java.time.Duration
 
 class MacTaskSchedulerTest {
-    private val jimfs = Jimfs.newFileSystem()
+    private val jimfs = Jimfs.newFileSystem(Configuration.osX())
     private val rootPath = jimfs.rootDirectories.first()
     private val appPath: Path = rootPath.resolve("/Applications/Foobar.app/Contents/Home/Foobar")
     init {
@@ -51,11 +52,11 @@ class MacTaskSchedulerTest {
     fun register() {
         val scheduler = object : MacTaskScheduler(rootPath) {
             override val homeDirectory: String = "/Users/testuser"
-            override fun execute(commandLine: List<String>) {
-                assertEquals(listOf("launchctl", "load", "-w", "/Users/testuser/Library/LaunchAgents/test.name.plist"), commandLine)
+            override fun execute(vararg commandLine: String) {
+                assertEquals(listOf("launchctl", "load", "-w", "/Users/testuser/Library/LaunchAgents/test.name.plist"), commandLine.toList())
             }
         }
-        scheduler.register("test.name", Duration.ofDays(1), appPath, listOf("--background-launch", "--foo-bar"))
+        scheduler.register("test.name", OSScheduledTaskDefinition(appPath, listOf("--background-launch", "--foo-bar")))
         val xml = String(Files.readAllBytes(rootPath.resolve("/Users/testuser/Library/LaunchAgents/test.name.plist")))
         assertEquals(expectedXml, xml)
     }
@@ -65,11 +66,11 @@ class MacTaskSchedulerTest {
         lateinit var actualLaunch: List<String>
         val scheduler = object : MacTaskScheduler(rootPath) {
             override val homeDirectory: String = "/Users/testuser"
-            override fun execute(commandLine: List<String>) {
-                actualLaunch = commandLine
+            override fun execute(vararg commandLine: String) {
+                actualLaunch = commandLine.toList()
             }
         }
-        scheduler.register("test.name", Duration.ofDays(1), appPath, listOf("--background-launch", "--foo-bar"))
+        scheduler.register("test.name", OSScheduledTaskDefinition(appPath, listOf("--background-launch", "--foo-bar")))
         scheduler.deregister("test.name")
         assertEquals(listOf("launchctl", "unload", "-w", "/Users/testuser/Library/LaunchAgents/test.name.plist"), actualLaunch)
     }
