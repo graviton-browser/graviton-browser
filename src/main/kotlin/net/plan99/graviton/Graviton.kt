@@ -5,8 +5,10 @@ import javafx.application.Application
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
 import javafx.stage.Stage
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.time.Instant
 import kotlin.system.exitProcess
 
 class GravitonBrowser : Application() {
@@ -27,6 +29,14 @@ class GravitonBrowser : Application() {
     }
 }
 
+private fun checkForRuntimeUpdate() {
+    File("/tmp/last-run-time").writeText(Instant.now().toString())
+}
+
 fun main(args: Array<String>) {
-    Application.launch(GravitonBrowser::class.java, *args)
+    if (args.isNotEmpty() && args[0] == "--background-update") {
+        checkForRuntimeUpdate()
+    } else {
+        Application.launch(GravitonBrowser::class.java, *args)
+    }
 }

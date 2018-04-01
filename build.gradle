@@ -14,7 +14,7 @@ plugins {
 }
 
 group 'net.plan99.graviton'
-version '2'
+version '1'
 
 apply plugin: 'java'
 apply plugin: 'kotlin'

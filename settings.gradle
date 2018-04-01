@@ -1,3 +1,5 @@
 rootProject.name = 'graviton-parent'
 include 'bootstrap'
+include 'scheduler'
+findProject(':scheduler')?.name = 'graviton-scheduler'
 
