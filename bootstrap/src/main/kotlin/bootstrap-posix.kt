@@ -3,7 +3,7 @@ import platform.posix.*
 import kotlin.math.max
 
 fun main(args: Array<String>) {
-    var highestVersionFound = findHighestVersion()
+    val highestVersionFound = findHighestVersion()
     val exePath = "$fullBinaryPath/$highestVersionFound/Contents/MacOS/Graviton Browser"
     setenv("GRAVITON_PATH", fullBinaryPath, 1)
     setenv("GRAVITON_VERSION", "$highestVersionFound", 1)

@@ -9,15 +9,29 @@ We discuss these ideas in the #graviton-browser channel of the [Kotlin Slack](ht
 
 # What's implemented?
 
-The foundations of a silent Chrome-style daily auto update are laid for macOS and Windows (we assume Linux users will
-sort themselves out via snap, flatpak, apt-get etc). A bootstrap program written in Kotlin/Native scans the install
-directory for versioned directories, picks the highest, and invokes the real program within. This means that it's
-possible to upgrade the browser whilst it's running, thus all upgrades can be perceived as instant, as with Chrome.
+1. The foundations of a silent Chrome-style daily auto update are laid for macOS and Windows (we assume Linux users will
+   sort themselves out via snap, flatpak, apt-get etc). A bootstrap program written in Kotlin/Native scans the install
+   directory for versioned directories, picks the highest, and invokes the real program within. This means that it's
+   possible to upgrade the browser whilst it's running, thus all upgrades can be perceived as instant, as with Chrome.
+2. Packaging using javapackager is also provided for Mac and Windows. Unfortunately we can't use jlink yet, although 
+   the Windows image is optimised slightly using AppCDS.
+3. An abstraction over the Mac and Windows OS task schedulers, which will be used to implement online update.
+4. A command line interface that lets you start any program in Maven Central by coordinate. The goal of this is to both
+   be useful, and to test out the speed of downloading things from Central.
 
-Packaging using javapackager is also provided. Unfortunately we can't use jlink yet, although the Windows image is
-optimised slightly using AppCDS.
+# Usage
 
-Next steps:
+If you want to try the command line launcher:
+
+```
+gradle installDist
+cd build/install/graviton/bin
+./graviton org.jetbrains.kotlin:kotlin-compiler:1.2.31 -help
+```
+
+Any Maven coordinate that has a main class and identifies it in the JAR manifest should work.
+
+# Next steps
 
 * A nice icon
 * Registration of background update tasks
