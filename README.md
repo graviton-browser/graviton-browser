@@ -19,17 +19,33 @@ We discuss these ideas in the #graviton-browser channel of the [Kotlin Slack](ht
 4. A command line interface that lets you start any program in Maven Central by coordinate. The goal of this is to both
    be useful, and to test out the speed of downloading things from Central.
 
-# Usage
+# Usage from the CLI
 
 If you want to try the command line launcher:
 
 ```
 gradle installDist
 cd build/install/graviton/bin
-./graviton org.jetbrains.kotlin:kotlin-compiler:1.2.31 -help
+./graviton org.jetbrains.kotlin:kotlin-compiler -help
 ```
 
-Any Maven coordinate that has a main class and identifies it in the JAR manifest should work.
+Any Maven coordinate that has a main class and identifies it in the JAR manifest should work. You can also specify
+the version. If it's omitted the latest version will be used. Try:
+
+`graviton com.github.ricksbrown:cowsay -f tux --cowthink moo!`
+
+or
+
+`graviton com.github.spotbugs:spotbugs`
+
+to see it run a GUI app.
+
+# GUI shell
+
+There is a graphical shell that lets you start apps and see their output. Start it by running Graviton with no arguments.
+You can then provide a command line like those above in the edit and press enter to run it.
+
+
 
 # Next steps
 

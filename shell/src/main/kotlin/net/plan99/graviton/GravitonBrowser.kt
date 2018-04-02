@@ -1,27 +1,257 @@
 package net.plan99.graviton
 
-import javafx.application.Application
+import javafx.application.Platform
+import javafx.beans.binding.Bindings
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleDoubleProperty
+import javafx.beans.property.StringProperty
+import javafx.geometry.Pos
 import javafx.scene.control.Alert
-import javafx.scene.control.ButtonType
+import javafx.scene.control.TextArea
+import javafx.scene.image.Image
+import javafx.scene.paint.Color
+import javafx.scene.paint.LinearGradient
+import javafx.scene.text.FontWeight
+import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
-import java.nio.file.Files
-import java.nio.file.Paths
-import kotlin.system.exitProcess
+import javafx.stage.StageStyle
+import org.eclipse.aether.transfer.TransferEvent
+import tornadofx.*
+import java.io.OutputStream
+import java.io.PrintStream
+import kotlin.concurrent.thread
 
-class GravitonBrowser : Application() {
-    override fun start(stage: Stage) {
-        val myPath = System.getenv("GRAVITON_PATH")
-        val myVersion = System.getenv("GRAVITON_VERSION")
-        Alert(Alert.AlertType.INFORMATION, "Path: $myPath, Args: ${parameters.raw}, Version: $myVersion", ButtonType.CLOSE).showAndWait()
-        updateLastVersionFile(myPath, myVersion)
+class GravitonBrowser : App(ShellView::class, Styles::class) {
+    init {
+        importStylesheet("/net/plan99/graviton/graviton.css")
     }
 
-    private fun updateLastVersionFile(myPath: String?, myVersion: String?) {
+    override fun start(stage: Stage) {
+        stage.isMaximized = true
+        stage.initStyle(StageStyle.UNIFIED)
+        super.start(stage)
+    }
+}
+
+class ShellView : View("Graviton Browser") {
+    private val codeFetcher = CodeFetcher()
+
+    private val downloadProgress = SimpleDoubleProperty(0.0)
+    private val isDownloading = SimpleBooleanProperty()
+    private lateinit var progressCircle: ProgressCircle
+    private lateinit var messageText1: StringProperty
+    private lateinit var messageText2: StringProperty
+    private lateinit var outputArea: TextArea
+
+    override val root = stackpane {
+        style {
+            fontFamily = "Raleway"
+            fontWeight = FontWeight.EXTRA_LIGHT
+        }
+
+        vbox {
+            stackpane {
+                style {
+                    backgroundColor = multi(LinearGradient.valueOf("white,rgb(218,239,244)"))
+                }
+                vbox {
+                    minHeight = 200.0
+                }
+            }
+            // Background image.
+            imageview {
+                image = Image(resources["art/forest.jpg"])
+                fitWidthProperty().bind(this@stackpane.widthProperty())
+                isPreserveRatio = true
+            }.stackpaneConstraints {
+                alignment = Pos.BOTTOM_CENTER
+            }
+        }.stackpaneConstraints { alignment = Pos.TOP_CENTER }
+
+        progressCircle = ProgressCircle(this, downloadProgress, isDownloading, 350.0)
+
+        vbox {
+            pane { minHeight = 25.0 }
+
+            label("Enter a domain name or coordinate") {
+                style {
+                    fontSize = 25.pt
+                }
+            }
+
+            pane { minHeight = 25.0 }
+
+            textfield {
+                style {
+                    fontSize = 20.pt
+                    alignment = Pos.CENTER
+                }
+                text = "com.github.ricksbrown:cowsay -f tux \"Hello world!\""
+                selectAll()
+                disableProperty().bind(isDownloading)
+                action { onNavigate(text) }
+            }
+
+            pane { minHeight = 25.0 }
+
+            label {
+                messageText1 = textProperty()
+                textAlignment = TextAlignment.CENTER
+            }
+            label {
+                messageText2 = textProperty()
+                textAlignment = TextAlignment.CENTER
+            }
+
+            pane { minHeight = 25.0 }
+
+            outputArea = textarea {
+                styleClass.add("output-area")
+                isWrapText = false
+                opacity = 0.0
+                textProperty().addListener { _, oldValue, newValue ->
+                    if (oldValue.isBlank() && newValue.isNotBlank()) {
+                        opacityProperty().animate(1.0, 0.3.seconds)
+                    } else if (newValue.isBlank() && oldValue.isNotBlank()) {
+                        opacityProperty().animate(0.0, 0.3.seconds)
+                    }
+                }
+                prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
+            }
+
+            maxWidth = 800.0
+            spacing = 5.0
+            alignment = Pos.CENTER
+            //translateY = -70.0
+        }.stackpaneConstraints { alignment = Pos.CENTER }
+
+        label("Background art by Vexels") {
+            style {
+                padding = box(10.px)
+                textFill = Color.GRAY
+            }
+        }.stackpaneConstraints { alignment = Pos.BOTTOM_RIGHT }
+    }
+
+    private fun onNavigate(text: String) {
+        if (text.isBlank()) return
+        val args = text.split(' ')
         try {
-            Files.write(Paths.get(myPath).resolve("last-run-version"), listOf(myVersion))
+            val packageName = args[0]
+            download(args[0]) { classpath ->
+                try {
+                    outputArea.text = ""
+                    val oldstdout = System.out
+                    val oldstderr = System.err
+                    val printStream = PrintStream(object : OutputStream() {
+                        override fun write(b: Int) {
+                            Platform.runLater {
+                                outputArea.text += b.toChar()
+                            }
+                        }
+                    }, true)
+                    System.setOut(printStream)
+                    System.setErr(printStream)
+                    invokeMainClass(classpath, packageName, args.drop(1).toTypedArray()) {
+                        System.setOut(oldstdout)
+                        System.setErr(oldstderr)
+                    }
+                } catch (e: Exception) {
+                    onStartError(e)
+                }
+            }
         } catch (e: Exception) {
-            Alert(Alert.AlertType.ERROR, "Failed to write to app directory: $e", ButtonType.CLOSE).showAndWait()
-            exitProcess(0)
+            onStartError(e)
+        }
+    }
+
+    private fun onStartError(e: Exception) {
+        messageText1.set("Start failed")
+        messageText2.set(e.toString())
+        e.printStackTrace()
+    }
+
+    private fun download(text: String, andThen: (String) -> Unit) {
+        if (false) {
+            mockDownload()
+            return
+        }
+        var totalBytesToDownload = 0L
+        var totalBytesDownloaded = 0L
+        var downloadStarted = false
+        val startTime = System.nanoTime()
+        val subscription = codeFetcher.allTransferEvents.threadBridgeToFx(codeFetcher.eventExecutor).subscribe {
+            // Only care about JAR fetches.
+            val elapsedSecs = (System.nanoTime() - startTime) / 100000000 / 10.0
+            messageText1.set("[$elapsedSecs secs]")
+            messageText2.set(it.data.resource.resourceName.split('/').last())
+            if (it.data.requestType == TransferEvent.RequestType.GET && it.data.resource.resourceName.endsWith(".jar")) {
+                when {
+                    it.type == TransferEvent.EventType.STARTED -> {
+                        if (!downloadStarted) {
+                            downloadProgress.set(0.0)
+                            isDownloading.set(true)
+                            messageText1.set("")
+                            messageText2.set("Please wait ...")
+                        }
+                        totalBytesToDownload += it.data.resource.contentLength
+                    }
+                    it.type == TransferEvent.EventType.FAILED -> {
+                        downloadProgress.set(-1.0)
+                        alert(Alert.AlertType.ERROR, "Error", it.data.exception.message)
+                    }
+                }
+                totalBytesDownloaded += it.data.dataLength
+                val pr = totalBytesDownloaded.toDouble() / totalBytesToDownload.toDouble()
+                downloadProgress.set(pr)
+            }
+        }
+        runAsync {
+            //codeFetcher.clearCache()
+            codeFetcher.downloadAndBuildClasspath(text)
+        } ui { classpath ->
+            subscription.unsubscribe()
+            if (downloadStarted) {
+                downloadProgress.set(1.0)
+                isDownloading.set(false)
+                messageText1.set("")
+                messageText2.set("")
+            }
+            andThen(classpath)
+        }
+    }
+
+    private fun mockDownload() {
+        isDownloading.set(true)
+        downloadProgress.set(0.0)
+        messageText1.set("Mock downloading ..")
+        thread {
+            Thread.sleep(5000)
+            Platform.runLater {
+                downloadProgress.animate(1.0, 5000.millis) {
+                    setOnFinished {
+                        isDownloading.set(false)
+                        messageText1.set("")
+                        messageText2.set("")
+                    }
+                }
+            }
+        }
+    }
+}
+
+class Styles : Stylesheet() {
+    companion object {
+        val shellArea by cssclass()
+        val content by cssclass()
+    }
+
+    init {
+        shellArea {
+            fontFamily = "monospace"
+            content {
+                backgroundColor = multi(Color.gray(1.0, 0.5))
+            }
         }
     }
 }
