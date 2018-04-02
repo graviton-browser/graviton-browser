@@ -20,6 +20,7 @@ fun main(arguments: Array<String>) {
     val cli = CommandLine(GravitonCLI())
     cli.isStopAtPositional = true
     cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
+    // TODO: Set up bash/zsh auto completion.
     cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
 }
 
@@ -75,11 +76,11 @@ class GravitonCLI : Runnable {
     override fun run() {
         if (backgroundUpdate) {
             checkForRuntimeUpdate()
-        } else if (packageName != null) {
+        } else if (packageName != null || clearCache) {
             val codeFetcher = CodeFetcher()
-            if (clearCache) codeFetcher.clearCache()
             codeFetcher.offline = offline
-            invokeCommandLineApp(args ?: emptyArray(), codeFetcher)
+            if (clearCache) codeFetcher.clearCache()
+            if (packageName != null) invokeCommandLineApp(args ?: emptyArray(), codeFetcher)
         } else {
             Application.launch(GravitonBrowser::class.java, *(args ?: emptyArray()))
         }
@@ -102,6 +103,7 @@ private fun downloadWithProgressBar(artifactName: String, downloader: CodeFetche
     var totalDownloaded = 0L
     val pb = ProgressBar("Download $artifactName", -1, 100, System.out, ProgressBarStyle.ASCII)
     var needToStart = true
+    val timeAtStart = System.nanoTime()
     downloader.allTransferEvents.subscribe {
         if (it.type == TransferEvent.EventType.INITIATED) {
             if (needToStart) {
@@ -123,7 +125,11 @@ private fun downloadWithProgressBar(artifactName: String, downloader: CodeFetche
     return try {
         downloader.downloadAndBuildClasspath(packageName)
     } finally {
-        if (!needToStart) pb.stop()
+        if (!needToStart) {
+            pb.stop()
+            val elapsedSec = (System.nanoTime() - timeAtStart) / 100000000 / 10.0
+            println("Downloaded successfully in $elapsedSec seconds")
+        }
     }
 }
 
@@ -158,6 +164,11 @@ private fun invokeCommandLineApp(args: Array<String>, codeFetcher: CodeFetcher) 
     }
     val mainMethod = loadResult.mainClass.getMethod("main", Array<String>::class.java)
     val subArgs = args.drop(1).toTypedArray()
-    mainMethod.invoke(null, subArgs)
+    try {
+        mainMethod.invoke(null, subArgs)
+    } catch (e: Throwable) {
+        (e.cause ?: e).printStackTrace()
+        exitProcess(1)
+    }
 }
 

@@ -1,14 +1,17 @@
 package net.plan99.graviton
 
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
+import org.eclipse.aether.DefaultRepositorySystemSession
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.RepositorySystemSession
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.CollectRequest
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph.Dependency
+import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.LocalRepository
 import org.eclipse.aether.repository.RemoteRepository
+import org.eclipse.aether.repository.RepositoryPolicy
 import org.eclipse.aether.resolution.DependencyRequest
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
@@ -43,7 +46,7 @@ class CodeFetcher {
     }
 
     private val repoSystem: RepositorySystem by lazy {
-        val locator = MavenRepositorySystemUtils.newServiceLocator()
+        val locator: DefaultServiceLocator = MavenRepositorySystemUtils.newServiceLocator()
         locator.addService(RepositoryConnectorFactory::class.java, BasicRepositoryConnectorFactory::class.java)
         locator.addService(TransporterFactory::class.java, FileTransporterFactory::class.java)
         locator.addService(TransporterFactory::class.java, HttpTransporterFactory::class.java)
@@ -51,7 +54,7 @@ class CodeFetcher {
     }
 
     private val session: RepositorySystemSession by lazy {
-        val session = MavenRepositorySystemUtils.newSession()
+        val session: DefaultRepositorySystemSession = MavenRepositorySystemUtils.newSession()
         session.isOffline = offline
         session.transferListener = object : AbstractTransferListener() {
             fun push(event: TransferEvent, type: TransferEvent.EventType) {
@@ -66,6 +69,7 @@ class CodeFetcher {
             override fun transferFailed(event: TransferEvent) = push(event, TransferEvent.EventType.FAILED)
             override fun transferCorrupted(event: TransferEvent) = push(event, TransferEvent.EventType.CORRUPTED)
         }
+        session.checksumPolicy = RepositoryPolicy.CHECKSUM_POLICY_IGNORE
         val localRepo = LocalRepository(cachePath.toFile())
         session.localRepositoryManager = repoSystem.newLocalRepositoryManager(session, localRepo)
         session
