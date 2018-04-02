@@ -36,3 +36,9 @@ val currentOperatingSystem: OperatingSystem by lazy {
         else -> OperatingSystem.UNKNOWN
     }
 }
+
+val Throwable.rootCause: Throwable get() {
+    var t: Throwable = this
+    while (t.cause != null) t = t.cause!!
+    return t
+}

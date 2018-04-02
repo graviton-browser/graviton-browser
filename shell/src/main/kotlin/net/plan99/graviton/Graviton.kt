@@ -6,6 +6,9 @@ import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
 import javafx.stage.Stage
 import me.tongfei.progressbar.ProgressBar
+import me.tongfei.progressbar.ProgressBarStyle
+import org.eclipse.aether.RepositoryException
+import org.eclipse.aether.transfer.MetadataNotFoundException
 import org.eclipse.aether.transfer.TransferEvent
 import java.io.File
 import java.net.URL
@@ -17,17 +20,28 @@ import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.system.exitProcess
 
-fun main(args: Array<String>) {
+fun main(arguments: Array<String>) {
+    var args = arguments
     if (args.isNotEmpty()) {
         if (args[0] == "--background-update") {
             checkForRuntimeUpdate()
-        } else if (args[0].split(':').size >= 3) {
-            commandLineInvoke(args)
-        } else {
-            println("Usage: graviton group-id:artifact-id[:version]")
-            exitProcess(1)
+            exitProcess(0)
         }
-        exitProcess(0)
+        val codeFetcher = CodeFetcher()
+        fun dropArg() { args = args.drop(1).toTypedArray() }
+        while (args.isNotEmpty()) {
+            if (args[0] == "--clear-cache") {
+                codeFetcher.clearCache()
+                dropArg()
+            } else if (args[0] == "--offline") {
+                codeFetcher.offline = true
+                dropArg()
+            } else if (args[0].split(':').size >= 2) {
+                invokeCommandLineApp(args, codeFetcher)
+            } else break
+        }
+        println("Usage: graviton [--clear-cache] [--offline] group-id:artifact-id[:version] app-arg-1 app-arg-2...")
+        exitProcess(1)
     }
     Application.launch(GravitonBrowser::class.java, *args)
 }
@@ -58,34 +72,40 @@ private fun checkForRuntimeUpdate() {
 private fun downloadWithProgressBar(artifactName: String, downloader: CodeFetcher, packageName: String): String {
     var totalBytesToDownload = 0L
     var totalDownloaded = 0L
-    val pb = ProgressBar("Download $artifactName", -1, 100)
+    val pb = ProgressBar("Download $artifactName", -1, 100, System.out, ProgressBarStyle.ASCII)
     var needToStart = true
     downloader.allTransferEvents.subscribe {
-        if (it.type == TransferEvent.EventType.STARTED) {
+        if (it.type == TransferEvent.EventType.INITIATED) {
             if (needToStart) {
                 pb.start()
                 needToStart = false
             }
+        } else if (it.type == TransferEvent.EventType.STARTED) {
             totalBytesToDownload += it.data.resource.contentLength
-            pb.maxHint(100)
+            pb.maxHint(totalBytesToDownload / 1024)
         }
-        totalDownloaded += it.data.dataLength
-        pb.stepTo(100 * (totalDownloaded / totalBytesToDownload))
-        pb.extraMessage = "${it.data.requestType.name}: ${it.data.resource.file.name}"
+        if (it.type == TransferEvent.EventType.FAILED || it.type == TransferEvent.EventType.CORRUPTED) {
+            pb.stop()
+        } else {
+            totalDownloaded += it.data.dataLength
+            pb.stepTo(totalDownloaded / 1024)
+            pb.extraMessage = "${it.data.requestType.name}: ${it.data.resource.file.name}"
+        }
     }
-    val classpath = downloader.downloadAndBuildClasspath(packageName)
-    if (!needToStart) pb.stop()
-    return classpath
+    return try {
+        downloader.downloadAndBuildClasspath(packageName)
+    } finally {
+        if (!needToStart) pb.stop()
+    }
 }
+
 private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
     val mainClassName: String get() = appManifest.mainAttributes.getValue("Main-Class")
     val mainClass: Class<*> get() = Class.forName(mainClassName, true, classloader)
-
 }
 
-private fun buildClassLoaderFor(packageName: String): AppLoadResult {
+private fun buildClassLoaderFor(packageName: String, downloader: CodeFetcher): AppLoadResult {
     val artifactName = packageName.split(':')[1]
-    val downloader = CodeFetcher()
     val classpath = downloadWithProgressBar(artifactName, downloader, packageName)
     val files = classpath.split(':').map { File(it) }
     val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
@@ -95,9 +115,19 @@ private fun buildClassLoaderFor(packageName: String): AppLoadResult {
     return AppLoadResult(classloader, manifest)
 }
 
-private fun commandLineInvoke(args: Array<String>) {
+private fun invokeCommandLineApp(args: Array<String>, codeFetcher: CodeFetcher) {
     val packageName = args[0]
-    val loadResult = buildClassLoaderFor(packageName)
+    val loadResult = try {
+        buildClassLoaderFor(packageName, codeFetcher)
+    } catch (e: RepositoryException) {
+        val rootCause = e.rootCause
+        if (rootCause is MetadataNotFoundException) {
+            println("Sorry, no package with those coordinates is known.")
+        } else {
+            println("Fetch error: ${rootCause.message}")
+        }
+        exitProcess(1)
+    }
     val mainMethod = loadResult.mainClass.getMethod("main", Array<String>::class.java)
     val subArgs = args.drop(1).toTypedArray()
     mainMethod.invoke(null, subArgs)

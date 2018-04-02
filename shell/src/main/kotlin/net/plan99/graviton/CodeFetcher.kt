@@ -36,6 +36,10 @@ class CodeFetcher {
     init {
         // Ensure the local Maven repo exists.
         Files.createDirectories(cachePath)
+
+        // TODO: Use ~/.m2 if it exists rather than our Graviton-specific repository location.
+        // ~/.m2 is not really following normal OS conventions on most platforms, but Java devs should be able to reuse
+        // their existing package caches if they have one.
     }
 
     private val repoSystem: RepositorySystem by lazy {
@@ -48,6 +52,7 @@ class CodeFetcher {
 
     private val session: RepositorySystemSession by lazy {
         val session = MavenRepositorySystemUtils.newSession()
+        session.isOffline = offline
         session.transferListener = object : AbstractTransferListener() {
             fun push(event: TransferEvent, type: TransferEvent.EventType) {
                 _eventExecutor.submit {
@@ -78,6 +83,8 @@ class CodeFetcher {
     val allTransferEvents: EventStream<Event> = _allTransferEvents
     /** A stream of streams. Each new stream represents a new transfer. */
     val transferStreams: EventStream<EventStream<Event>> = EventSource()
+    /** If set to true, Aether will be configured to not use the network. */
+    var offline: Boolean = false
 
     init {
         val transferEventStreams = HashMap<TransferResource, EventStream<Event>>()
@@ -99,12 +106,14 @@ class CodeFetcher {
     }
 
     /**
-     * Returns a classpath for the given resolved and dependency-downloaded package.
+     * Returns a classpath for the given resolved and dependency-downloaded package. If only two parts of the coordinate
+     * are specified, the latest version is assumed.
      *
-     * @param packageName Package name in standard groupId:artifactId:version form.
+     * @param packageName Package name in standard groupId:artifactId:version or groupId:artifactId form.
      */
     fun downloadAndBuildClasspath(packageName: String): String {
-        val dependency = Dependency(DefaultArtifact(packageName), "runtime")
+        val name = if (packageName.split(':').size == 2) "$packageName:LATEST" else packageName
+        val dependency = Dependency(DefaultArtifact(name), "runtime")
         val mavenCentral = RemoteRepository.Builder("central", "default", "https://repo1.maven.org/maven2/").build()
         val collectRequest = CollectRequest().also {
             it.root = dependency
