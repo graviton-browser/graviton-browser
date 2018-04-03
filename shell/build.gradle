@@ -25,13 +25,8 @@ repositories {
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
-    // Eclipse Aether: a library for working with Maven repositories.
-    compile "org.eclipse.aether:aether-api:$aether_version"
-    compile "org.eclipse.aether:aether-impl:$aether_version"
-    compile "org.eclipse.aether:aether-connector-basic:$aether_version"
-    compile "org.eclipse.aether:aether-transport-http:$aether_version"
-    compile "org.eclipse.aether:aether-transport-file:$aether_version"  // TODO: Do we need this?
-    compile "org.apache.maven:maven-aether-provider:3.3.9"
+    // Maven Resolver: a library for working with Maven repositories.
+    compile "org.apache.maven.resolver:maven-resolver:1.1.1"
 
     // SLF4J - abstraction over logging frameworks.
     compile "org.slf4j:slf4j-api:$slf4j_version"
