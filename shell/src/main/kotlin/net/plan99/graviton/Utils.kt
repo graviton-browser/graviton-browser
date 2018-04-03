@@ -17,7 +17,13 @@ enum class OperatingSystem {
     },
     LINUX {
         override val appCacheDirectory: Path
-            get() = TODO("not implemented")  // Should probably be $XDG_CONFIG_HOME/graviton-cache
+            get() {
+                return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
+                    Paths.get(System.getProperty("user.home"), ".cache", "GravitonBrowser")
+                } else {
+                    Paths.get(System.getenv("XDG_CACHE_HOME"), "GravitonBrowser")
+                }
+            }
     },
     UNKNOWN {
         override val appCacheDirectory: Path
