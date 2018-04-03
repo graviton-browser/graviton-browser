@@ -185,15 +185,20 @@ class ShellView : View("Graviton Browser") {
             val elapsedSecs = (System.nanoTime() - startTime) / 100000000 / 10.0
             messageText1.set("[$elapsedSecs secs]")
             messageText2.set(it.data.resource.resourceName.split('/').last())
+
+            if (it.type == TransferEvent.EventType.INITIATED) {
+                if (!downloadStarted) {
+                    downloadProgress.set(0.0)
+                    isDownloading.set(true)
+                    messageText1.set("")
+                    messageText2.set("Please wait ...")
+                    downloadStarted = true
+                }
+            }
+
             if (it.data.requestType == TransferEvent.RequestType.GET && it.data.resource.resourceName.endsWith(".jar")) {
                 when {
                     it.type == TransferEvent.EventType.STARTED -> {
-                        if (!downloadStarted) {
-                            downloadProgress.set(0.0)
-                            isDownloading.set(true)
-                            messageText1.set("")
-                            messageText2.set("Please wait ...")
-                        }
                         totalBytesToDownload += it.data.resource.contentLength
                     }
                     it.type == TransferEvent.EventType.FAILED -> {
@@ -207,7 +212,6 @@ class ShellView : View("Graviton Browser") {
             }
         }
         runAsync {
-            //codeFetcher.clearCache()
             codeFetcher.downloadAndBuildClasspath(text)
         } ui { classpath ->
             subscription.unsubscribe()
