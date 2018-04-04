@@ -27,7 +27,7 @@ class GravitonCLI : Runnable {
     var packageName: Array<String>? = null
 
     @CommandLine.Parameters(arity = "0..1", description = ["Arguments to pass to the invoked program"])
-    var args: Array<String>? = null
+    var args: Array<String> = emptyArray()
 
     @CommandLine.Option(names = ["--clear-cache"], description = ["Deletes the contents of the app cache directory before starting."])
     var clearCache: Boolean = false
@@ -51,19 +51,20 @@ class GravitonCLI : Runnable {
                 try {
                     val artifactName = packageName[0].split(':')[1]
                     val classpath = downloadWithProgressBar(artifactName, codeFetcher, packageName[0])
-                    invokeMainClass(classpath, packageName[0],args ?: emptyArray()).join()
+                    invokeMainClass(classpath, packageName[0], args).join()
                 } catch (original: Throwable) {
                     val e = original.rootCause
                     if (e is MetadataNotFoundException) {
                         println("Sorry, that package is unknown. Check for typos? (${e.metadata})")
+                    } else if (e is IndexOutOfBoundsException) {
+                        println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
                     } else {
                         println(e.message)
                     }
                 }
             }
         } else {
-            Application.launch(GravitonBrowser::class.java, *(args
-                    ?: emptyArray()))
+            Application.launch(GravitonBrowser::class.java, *args)
         }
     }
 

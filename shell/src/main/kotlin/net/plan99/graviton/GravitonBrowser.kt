@@ -16,6 +16,7 @@ import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import org.eclipse.aether.transfer.TransferEvent
+import picocli.CommandLine
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -28,7 +29,10 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
 
     override fun start(stage: Stage) {
         stage.isMaximized = true
-        stage.initStyle(StageStyle.UNIFIED)
+        if (currentOperatingSystem == OperatingSystem.MAC) {
+            // This looks nice on OS X but not so great on other platforms.
+            stage.initStyle(StageStyle.UNIFIED)
+        }
         super.start(stage)
     }
 }
@@ -135,10 +139,17 @@ class ShellView : View("Graviton Browser") {
 
     private fun onNavigate(text: String) {
         if (text.isBlank()) return
-        val args = text.split(' ')
+
+        val options = GravitonCLI()
+        val cli = CommandLine(options)
+        cli.isStopAtPositional = true
+        cli.parse(*text.split(' ').toTypedArray())
         try {
-            val packageName = args[0]
-            download(args[0]) { classpath ->
+            // TODO: Rewrite this to use coroutines.
+            if (options.clearCache) codeFetcher.clearCache()
+            val packageName = (options.packageName ?: return)[0]
+
+            download(packageName) { classpath ->
                 try {
                     outputArea.text = ""
                     val oldstdout = System.out
@@ -152,7 +163,7 @@ class ShellView : View("Graviton Browser") {
                     }, true)
                     System.setOut(printStream)
                     System.setErr(printStream)
-                    invokeMainClass(classpath, packageName, args.drop(1).toTypedArray()) {
+                    invokeMainClass(classpath, packageName, options.args) {
                         System.setOut(oldstdout)
                         System.setErr(oldstderr)
                     }
@@ -185,15 +196,20 @@ class ShellView : View("Graviton Browser") {
             val elapsedSecs = (System.nanoTime() - startTime) / 100000000 / 10.0
             messageText1.set("[$elapsedSecs secs]")
             messageText2.set(it.data.resource.resourceName.split('/').last())
+
+            if (it.type == TransferEvent.EventType.INITIATED) {
+                if (!downloadStarted) {
+                    downloadProgress.set(0.0)
+                    isDownloading.set(true)
+                    messageText1.set("")
+                    messageText2.set("Please wait ...")
+                    downloadStarted = true
+                }
+            }
+
             if (it.data.requestType == TransferEvent.RequestType.GET && it.data.resource.resourceName.endsWith(".jar")) {
                 when {
                     it.type == TransferEvent.EventType.STARTED -> {
-                        if (!downloadStarted) {
-                            downloadProgress.set(0.0)
-                            isDownloading.set(true)
-                            messageText1.set("")
-                            messageText2.set("Please wait ...")
-                        }
                         totalBytesToDownload += it.data.resource.contentLength
                     }
                     it.type == TransferEvent.EventType.FAILED -> {
@@ -207,7 +223,6 @@ class ShellView : View("Graviton Browser") {
             }
         }
         runAsync {
-            //codeFetcher.clearCache()
             codeFetcher.downloadAndBuildClasspath(text)
         } ui { classpath ->
             subscription.unsubscribe()
