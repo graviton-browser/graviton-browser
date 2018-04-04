@@ -11,6 +11,9 @@ build/
 # CMake
 cmake-build-debug/
 cmake-build-release/
+KotlinCMakeModule
+bootstrap/CMakeLists.txt
+bootstrap/kotlin_native_model.json
 
 # Mongo Explorer plugin:
 .idea/**/mongoSettings.xml

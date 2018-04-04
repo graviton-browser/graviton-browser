@@ -23,3 +23,5 @@ val fullBinaryPath: String get() {
         return pathBuf.toKString().chop().chop()
     }
 }
+
+val exeFile: String get() = "Contents/MacOS/Graviton Browser"

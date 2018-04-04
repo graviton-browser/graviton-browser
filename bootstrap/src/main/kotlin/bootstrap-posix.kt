@@ -4,7 +4,8 @@ import kotlin.math.max
 
 fun main(args: Array<String>) {
     val highestVersionFound = findHighestVersion()
-    val exePath = "$fullBinaryPath/$highestVersionFound/Contents/MacOS/Graviton Browser"
+    val exeDir = "$fullBinaryPath/$highestVersionFound"
+    val exePath = "$exeDir/$exeFile"
     setenv("GRAVITON_PATH", fullBinaryPath, 1)
     setenv("GRAVITON_VERSION", "$highestVersionFound", 1)
     if (execl(exePath, exePath, *args, null) == -1)

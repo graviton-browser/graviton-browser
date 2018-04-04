@@ -59,6 +59,8 @@ task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':
         from 'bootstrap/build/konan/bin/macbook'
     else if (os.contains('win'))
         from 'bootstrap/build/konan/bin/mingw'
+    else if (os.contains('linux'))
+        from 'bootstrap/build/konan/bin/linux'
     into('build/install/graviton-parent/lib')
 }
 
@@ -146,4 +148,33 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-Bwin.menuGroup=Graviton Browser',
             '-v'
     ]
+}
+
+task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
+    workingDir project.projectDir
+    def outDir = "${buildDir}/packaged"
+    outputs.dir(outDir)
+    inputs.files(copyBootstrapToLibs.outputs)
+    inputs.files('package/linux')
+
+    environment "GRAVITON_VERSION", project.version
+
+    commandLine = [
+            'javapackager',
+            '-deploy',
+            '-nosign',
+            '-native', 'package',
+            '-outdir', outDir,
+            '-outfile', 'GravitonBrowser',
+            '-name', 'GravitonBrowser',
+            '-appclass', mainClassName,
+            '-srcdir', 'build/install/graviton-parent/lib',
+            '-Bidentifier=net.plan99.graviton.browser',
+            "-BmainJar=graviton-parent-${project.version}.jar",
+            "-BappVersion=${project.version}"
+    ]
+
+    // TODO: Signing
+    // TODO: Icons
+
 }
