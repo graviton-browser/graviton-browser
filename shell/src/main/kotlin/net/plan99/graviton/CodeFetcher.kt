@@ -36,6 +36,7 @@ import java.util.concurrent.Executors
 class CodeFetcher {
     /** The location on disk where the local Maven repository is. */
     val cachePath: Path = currentOperatingSystem.appCacheDirectory
+
     init {
         // Ensure the local Maven repo exists.
         Files.createDirectories(cachePath)
@@ -44,6 +45,9 @@ class CodeFetcher {
         // ~/.m2 is not really following normal OS conventions on most platforms, but Java devs should be able to reuse
         // their existing package caches if they have one.
     }
+
+    /** Disabling SSL fetches from Maven repos can double the speed of downloading :( */
+    var useSSL: Boolean = true
 
     private val repoSystem: RepositorySystem by lazy {
         val locator: DefaultServiceLocator = MavenRepositorySystemUtils.newServiceLocator()
@@ -72,6 +76,11 @@ class CodeFetcher {
         session.checksumPolicy = RepositoryPolicy.CHECKSUM_POLICY_IGNORE
         val localRepo = LocalRepository(cachePath.toFile())
         session.localRepositoryManager = repoSystem.newLocalRepositoryManager(session, localRepo)
+        session.setConfigProperties(mapOf(
+                "aether.metadataResolver.threads" to 20,
+                "aether.connector.basic.threads" to 20
+        ))
+
         session
     }
 
@@ -118,10 +127,11 @@ class CodeFetcher {
     fun downloadAndBuildClasspath(packageName: String): String {
         val name = if (packageName.split(':').size == 2) "$packageName:LATEST" else packageName
         val dependency = Dependency(DefaultArtifact(name), "runtime")
-        val mavenCentral = RemoteRepository.Builder("central", "default", "https://repo1.maven.org/maven2/").build()
-        val collectRequest = CollectRequest().also {
-            it.root = dependency
-            it.addRepository(mavenCentral)
+        val collectRequest = CollectRequest().apply {
+            root = dependency
+            val protocol = if (useSSL) "https" else "http"
+            withRepo("jcenter", "$protocol://jcenter.bintray.com/")
+            withRepo("central", "$protocol://repo1.maven.org/maven2/")
         }
         val collectDependencies = repoSystem.collectDependencies(session, collectRequest)
         val node = collectDependencies.root
@@ -129,5 +139,9 @@ class CodeFetcher {
         val classPathGenerator = PreorderNodeListGenerator()
         node.accept(classPathGenerator)
         return classPathGenerator.classPath
+    }
+
+    private fun CollectRequest.withRepo(id: String, url: String) {
+        addRepository(RemoteRepository.Builder(id, "default", url).build())
     }
 }

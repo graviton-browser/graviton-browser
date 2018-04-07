@@ -44,6 +44,9 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--profile-downloads"], description = ["If larger than one downloads the coordinates the given number of times and prints statistics"], hidden = true)
     var profileDownloads: Int = -1
 
+    @CommandLine.Option(names = ["--no-ssl"], description = ["If set, SSL encryption to the Maven repositories will be disabled. This can make downloads much faster, but also less safe."])
+    var noSSL: Boolean = false
+
     override fun run() {
         val packageName = packageName
         if (backgroundUpdate) {
@@ -58,6 +61,7 @@ class GravitonCLI : Runnable {
     private fun handleCommandLineInvocation(packageName: Array<String>?) {
         val codeFetcher = CodeFetcher()
         codeFetcher.offline = offline
+        codeFetcher.useSSL = !noSSL
         if (clearCache)
             codeFetcher.clearCache()
 
