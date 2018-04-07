@@ -1,5 +1,6 @@
 buildscript {
     ext.kotlin_version = '1.2.31'
+    ext.maven_resolver_groupid = 'org.apache.maven:maven-resolver'
     ext.maven_resolver_version = '1.1.1'
     ext.slf4j_version = '1.8.0-beta2'
 
@@ -18,21 +19,13 @@ apply plugin: 'kotlin'
 
 sourceCompatibility = 1.8
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
     // Maven Resolver: a library for working with Maven repositories.
-    compile "org.apache.maven.resolver:maven-resolver-api:$maven_resolver_version"
-    compile "org.apache.maven.resolver:maven-resolver-impl:$maven_resolver_version"
-    compile "org.apache.maven.resolver:maven-resolver-connector-basic:$maven_resolver_version"
-    compile "org.apache.maven.resolver:maven-resolver-transport-http:$maven_resolver_version"
-    compile "org.apache.maven.resolver:maven-resolver-transport-file:$maven_resolver_version"
-    compile "org.apache.maven.resolver:maven-resolver-util:$maven_resolver_version"
-    compile "org.apache.maven.resolver:maven-resolver-spi:$maven_resolver_version"
+    // We use a forked version that has upstream PR #10 merged in, which gives parallel dependency resolution.
+    // This makes project fetch about twice as fast.
+    compile 'com.github.mikehearn:maven-resolver:e688237ce5'
     compile "org.apache.maven:maven-resolver-provider:3.5.0"
 
     // SLF4J - abstraction over logging frameworks.
