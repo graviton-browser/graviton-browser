@@ -6,6 +6,7 @@ import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import org.eclipse.aether.transfer.TransferEvent
 import picocli.CommandLine
+import kotlin.system.exitProcess
 
 @CommandLine.Command(
         name = "graviton",
@@ -39,32 +40,58 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--background-update"], hidden = true)
     var backgroundUpdate: Boolean = false
 
+    // Just for development.
+    @CommandLine.Option(names = ["--profile-downloads"], description = ["If larger than one downloads the coordinates the given number of times and prints statistics"], hidden = true)
+    var profileDownloads: Int = -1
+
     override fun run() {
         val packageName = packageName
         if (backgroundUpdate) {
             checkForRuntimeUpdate()
         } else if (packageName != null || clearCache) {
-            val codeFetcher = CodeFetcher()
-            codeFetcher.offline = offline
-            if (clearCache) codeFetcher.clearCache()
-            if (packageName != null) {
-                try {
-                    val artifactName = packageName[0].split(':')[1]
-                    val classpath = downloadWithProgressBar(artifactName, codeFetcher, packageName[0])
-                    invokeMainClass(classpath, packageName[0], args).join()
-                } catch (original: Throwable) {
-                    val e = original.rootCause
-                    if (e is MetadataNotFoundException) {
-                        println("Sorry, that package is unknown. Check for typos? (${e.metadata})")
-                    } else if (e is IndexOutOfBoundsException) {
-                        println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
-                    } else {
-                        println(e.message)
-                    }
-                }
-            }
+            handleCommandLineInvocation(packageName)
         } else {
             Application.launch(GravitonBrowser::class.java, *args)
+        }
+    }
+
+    private fun handleCommandLineInvocation(packageName: Array<String>?) {
+        val codeFetcher = CodeFetcher()
+        codeFetcher.offline = offline
+        if (clearCache)
+            codeFetcher.clearCache()
+
+        if (packageName == null) return
+        if (profileDownloads > 1) downloadWithProfiling(packageName, codeFetcher)
+        downloadAndRun(packageName, codeFetcher)
+    }
+
+    private fun downloadWithProfiling(packageName: Array<String>, codeFetcher: CodeFetcher) {
+        val stopwatch = Stopwatch()
+        repeat(profileDownloads) {
+            codeFetcher.clearCache()
+            val artifactName = packageName[0].split(':')[1]
+            downloadWithProgressBar(artifactName, codeFetcher, packageName[0])
+        }
+        val totalSec = stopwatch.elapsedInSec
+        println("Total runtime was $totalSec, for an average of ${totalSec / profileDownloads} seconds per run.")
+        exitProcess(0)
+    }
+
+    private fun downloadAndRun(packageName: Array<String>, codeFetcher: CodeFetcher) {
+        try {
+            val artifactName = packageName[0].split(':')[1]
+            val classpath = downloadWithProgressBar(artifactName, codeFetcher, packageName[0])
+            invokeMainClass(classpath, packageName[0], args).join()
+        } catch (original: Throwable) {
+            val e = original.rootCause
+            if (e is MetadataNotFoundException) {
+                println("Sorry, that package is unknown. Check for typos? (${e.metadata})")
+            } else if (e is IndexOutOfBoundsException) {
+                println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
+            } else {
+                println(e.message)
+            }
         }
     }
 
@@ -100,15 +127,12 @@ private fun downloadWithProgressBar(artifactName: String, downloader: CodeFetche
         }
     }
     try {
-        val cp = downloader.downloadAndBuildClasspath(packageName)
-        if (didDownload) {
-            val elapsedSec = (System.nanoTime() - timeAtStart) / 100000000 / 10.0
-            println("Downloaded successfully in $elapsedSec seconds")
-        }
-        return cp
+        return downloader.downloadAndBuildClasspath(packageName)
     } finally {
         if (didDownload) {
             pb.stop()
+            val elapsedSec = (System.nanoTime() - timeAtStart) / 100000000 / 10.0
+            println("Downloaded successfully in $elapsedSec seconds")
         }
     }
 }

@@ -48,3 +48,8 @@ val Throwable.rootCause: Throwable get() {
     while (t.cause != null) t = t.cause!!
     return t
 }
+
+class Stopwatch {
+    private val start = System.nanoTime()
+    val elapsedInSec: Double get() = (System.nanoTime() - start) / 100000000 / 10.0
+}
