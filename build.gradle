@@ -61,7 +61,7 @@ task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':
         from 'bootstrap/build/konan/bin/mingw'
     else if (os.contains('linux'))
         from 'bootstrap/build/konan/bin/linux'
-    into('build/install/graviton-parent/lib')
+    into('build/install/graviton/lib')
 }
 
 task packageMac(type: Exec, dependsOn: [copyBootstrapToLibs]) {
@@ -100,9 +100,9 @@ task packageMac(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-name', 'Graviton Browser',
             '-appclass', mainClassName,
             '-singleton',
-            '-srcdir', 'build/install/graviton-parent/lib',
+            '-srcdir', 'build/install/graviton/lib',
             '-Bidentifier=net.plan99.graviton.browser',
-            "-BmainJar=graviton-parent-${project.version}.jar",
+            "-BmainJar=graviton-${project.version}.jar",
             "-BappVersion=${project.version}",
             "-Bmac.CFBundleIdentifier=net.plan99.graviton.browser"
     ]
@@ -136,8 +136,8 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-outfile', 'GravitonBrowser',
             '-name', 'GravitonBrowser',
             '-appclass', mainClassName,
-            '-srcdir', 'build/install/graviton-parent/lib',
-            "-BmainJar=graviton-parent-${project.version}.jar",
+            '-srcdir', 'build/install/graviton/lib',
+            "-BmainJar=graviton-${project.version}.jar",
             "-BdropinResourcesRoot=build/innosetup",
             '-Bidentifier=net.plan99.graviton.browser',
             "-Bappversion=${project.version}",
@@ -163,15 +163,20 @@ task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             'javapackager',
             '-deploy',
             '-nosign',
-            '-native', 'package',
+            '-native', 'deb',
             '-outdir', outDir,
             '-outfile', 'GravitonBrowser',
             '-name', 'GravitonBrowser',
             '-appclass', mainClassName,
-            '-srcdir', 'build/install/graviton-parent/lib',
+            '-srcdir', 'build/install/graviton/lib',
             '-Bidentifier=net.plan99.graviton.browser',
-            "-BmainJar=graviton-parent-${project.version}.jar",
-            "-BappVersion=${project.version}"
+            "-BmainJar=graviton-${project.version}.jar",
+            "-BappVersion=${project.version}",
+            "-Bcategory=Network",
+            "-Bemail=mike@plan99.net",
+            "-Bcopyright=Graviton",
+            "-BlicenseType=Apache 2",
+            "-Bvendor=Graviton"
     ]
 
     // TODO: Signing
