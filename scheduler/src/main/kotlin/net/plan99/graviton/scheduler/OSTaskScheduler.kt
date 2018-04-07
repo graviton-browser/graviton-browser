@@ -26,10 +26,11 @@ abstract class OSTaskScheduler {
         /** Returns an [OSTaskScheduler] for the current OS or null if this OS is not supported. */
         @JvmStatic
         fun get(): OSTaskScheduler? {
-            val osName = System.getProperty("os.name")
+            val osName = System.getProperty("os.name").toLowerCase()
             return when {
                 osName.contains("win") -> WindowsTaskScheduler()
                 osName.contains("mac") -> MacTaskScheduler()
+                osName.contains("linux") -> LinuxTaskScheduler()
                 else -> null
             }
         }
