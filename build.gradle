@@ -24,8 +24,12 @@ sourceCompatibility = 9
 mainClassName = "net.plan99.graviton.Graviton"
 ext.moduleName = "graviton.browser"
 
-repositories {
-    mavenCentral()
+allprojects {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
 }
 
 dependencies {
@@ -61,6 +65,7 @@ task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':
         from 'bootstrap/build/konan/bin/mingw'
     else if (os.contains('linux'))
         from 'bootstrap/build/konan/bin/linux'
+    from 'LICENSE'
     into('build/install/graviton/lib')
 }
 
@@ -166,7 +171,7 @@ task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-native', 'deb',
             '-outdir', outDir,
             '-outfile', 'GravitonBrowser',
-            '-name', 'GravitonBrowser',
+            '-name', 'Graviton Browser',
             '-appclass', mainClassName,
             '-srcdir', 'build/install/graviton/lib',
             '-Bidentifier=net.plan99.graviton.browser',
@@ -175,8 +180,9 @@ task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             "-Bcategory=Network",
             "-Bemail=mike@plan99.net",
             "-Bcopyright=Graviton",
-            "-BlicenseType=Apache 2",
-            "-Bvendor=Graviton"
+            "-BlicenseType=Apache-2.0",
+            "-BlicenseFile=LICENSE",
+            "-Bvendor=Mike Hearn"
     ]
 
     // TODO: Signing
