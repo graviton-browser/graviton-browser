@@ -46,7 +46,7 @@ adaptations, the user experience will get a lot better. As such there is no brig
 Graviton app. We call this :doc:`incremental-adaptation`.
 
 **Is this real?** Not exactly, but from tiny acorns great oaks can grow! It's not usable today but why not help us make
-*it real? Check out the `task list <https://github.com/mikehearn/graviton-browser/issues>`_.
+it real? Check out the `task list <https://github.com/mikehearn/graviton-browser/issues>`_.
 
 User experience sketch
 ======================
