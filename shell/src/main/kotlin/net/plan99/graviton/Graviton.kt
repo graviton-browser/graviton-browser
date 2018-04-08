@@ -17,6 +17,11 @@ import kotlin.concurrent.thread
 private val log = KotlinLogging.logger {}
 
 fun main(arguments: Array<String>) {
+    if (arguments.isNotEmpty() && arguments[0] == "--uninstall") {
+        lastRun()
+        return
+    }
+
     val myPath: String? = System.getenv("GRAVITON_PATH")
     val myVersion: String? = System.getenv("GRAVITON_VERSION")
     if (myPath != null && myVersion != null) {
@@ -30,6 +35,7 @@ fun main(arguments: Array<String>) {
     // TODO: Set up bash/zsh auto completion.
     cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
 }
+
 
 private fun getTermWidth(): Int {
     return try {
@@ -65,6 +71,8 @@ private fun startupChecks(myPath: String, myVersion: String) {
     }
 }
 
+private val taskName = "net.plan99.graviton.update"
+
 private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
     log.info { "First run, attempting to register scheduled task" }
     val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
@@ -72,15 +80,21 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
         log.info { "No support for task scheduling on this OS: $currentOperatingSystem" }
         return
     }
+    val executePath = when (currentOperatingSystem) {
+        OperatingSystem.MAC -> myPath / "MacOS" / "Graviton Browser"
+        OperatingSystem.WIN -> myPath / "GravitonBrowser.exe"
+        OperatingSystem.LINUX -> myPath / "GravitonBrowser"
+        OperatingSystem.UNKNOWN -> return
+    }
     val scheduledTask = OSScheduledTaskDefinition(
-            executePath = myPath / "MacOS" / "Graviton Browser",
+            executePath = executePath,
             arguments = listOf("--background-update"),
             frequency = Duration.ofDays(1),
             description = "Graviton background upgrade task. If you disable this, Graviton Browser may become insecure.",
             networkSensitive = true
     )
     try {
-        val taskName = "net.plan99.graviton.update"
+        // TODO: For some reason the Windows setup always throws an error from schtasks, but always seems to work anyway.
         scheduler.register(taskName, scheduledTask)
         log.info { "Registered background task successfully with name '$taskName'" }
     } catch (e: Exception) {
@@ -91,6 +105,16 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
             e.printStackTrace(PrintWriter(it))
         }
     }
+}
+
+private fun lastRun() {
+    log.info { "Uninstallation requested, removing scheduled task" }
+    val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
+    if (scheduler == null) {
+        log.info { "No support for task scheduling on this OS: $currentOperatingSystem" }
+        return
+    }
+    scheduler.deregister(taskName)
 }
 
 fun doBackgroundUpdate() {

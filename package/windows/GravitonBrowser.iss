@@ -43,17 +43,25 @@ Source: "GravitonBrowser\*"; DestDir: "{app}\{#GRAVITON_VERSION}"; Flags: ignore
 Source: "GravitonBrowser\app\bootstrap.exe"; DestDir: "{app}"; DestName: "GravitonBrowser.exe"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe"; IconFilename: "{app}\GravitonBrowser.ico"; Check: returnTrue()
-Name: "{commondesktop}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe";  IconFilename: "{app}\GravitonBrowser.ico"; Check: returnFalse()
+Name: "{group}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe"; IconFilename: "{app}\{#GRAVITON_VERSION}\GravitonBrowser.ico"; Check: returnTrue()
+Name: "{commondesktop}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe";  IconFilename: "{app}\{#GRAVITON_VERSION}\GravitonBrowser.ico"; Check: returnFalse()
 
 
 [Run]
-Filename: "{app}\GravitonBrowser.exe"; Parameters: "-Xappcds:generatecache"; Check: returnFalse()
-Filename: "{app}\GravitonBrowser.exe"; Description: "{cm:LaunchProgram,GravitonBrowser}"; Parameters: "-from-installer"; Flags: nowait postinstall skipifsilent; Check: returnTrue()
-Filename: "{app}\GravitonBrowser.exe"; Parameters: "-install -svcName ""GravitonBrowser"" -svcDesc ""GravitonBrowser"" -mainExe ""GravitonBrowser.exe""  "; Check: returnFalse()
+Filename: "{app}\GravitonBrowser.exe"; Parameters: "-Xappcds:generatecache";
+Filename: "{app}\GravitonBrowser.exe"; Description: "{cm:LaunchProgram,GravitonBrowser}"; Parameters: "-from-installer"; Flags: nowait postinstall skipifsilent
+; Filename: "{app}\GravitonBrowser.exe"; Parameters: "-install -svcName ""GravitonBrowser"" -svcDesc ""GravitonBrowser"" -mainExe ""GravitonBrowser.exe""  "; Check: returnFalse()
+Filename: "{app}\GravitonBrowser.exe"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "{app}\GravitonBrowser.exe "; Parameters: "-uninstall -svcName GravitonBrowser -stopOnUninstall"; Check: returnFalse()
+; Filename: "{app}\GravitonBrowser.exe "; Parameters: "-uninstall -svcName GravitonBrowser -stopOnUninstall"; Check: returnFalse()
+Filename: "{app}\GravitonBrowser.exe"; Parameters: "--uninstall"
+
+[UninstallDelete]
+Type: files; Name: "{app}\last-run-version"
+Type: files; Name: "{app}\task-scheduler-error-log.txt"
+Type: filesandordirs; Name: "{app}\Cache"
+Type: filesandordirs; Name: "{app}\{#GRAVITON_VERSION}\*"
 
 [Code]
 function returnTrue(): Boolean;

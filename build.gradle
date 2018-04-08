@@ -143,7 +143,6 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-appclass', mainClassName,
             '-srcdir', 'build/install/graviton/lib',
             "-BmainJar=graviton-${project.version}.jar",
-            "-BdropinResourcesRoot=build/innosetup",
             '-Bidentifier=net.plan99.graviton.browser',
             "-Bappversion=${project.version}",
             '-BsystemWide=false',   // So UAC/admin privs aren't needed for update
@@ -155,6 +154,7 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
     ]
 }
 
+// TODO: Use the bootstrapper tool. Lay out files in numbered directories.
 task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
     workingDir project.projectDir
     def outDir = "${buildDir}/packaged"
@@ -182,7 +182,8 @@ task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             "-Bcopyright=Graviton",
             "-BlicenseType=Apache-2.0",
             "-BlicenseFile=LICENSE",
-            "-Bvendor=Mike Hearn"
+            "-Bvendor=Mike Hearn",
+            "-v"
     ]
 
     // TODO: Signing
