@@ -31,6 +31,7 @@ abstract class OSTaskScheduler {
             return when {
                 osName.contains("win") -> WindowsTaskScheduler()
                 osName.contains("mac") -> MacTaskScheduler()
+                osName.contains("linux") -> LinuxTaskScheduler()
                 else -> null
             }
         }
