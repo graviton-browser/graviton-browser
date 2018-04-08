@@ -7,12 +7,15 @@ to the now deprecated Java Web Start, applets, and javapackager style bundled di
 * Internal apps in industrial and enterprise scenarios, e.g. finance and trading applications where web apps are often
   not preferred for productivity/usability/security and other reasons. Slick updates and a deploy-once runtime are
   useful here.
-* Hobbyist and learner apps where users do not want the overhead of complex deployment, but do want to publish their
-  apps. They aren't attempting to maximise the user acquisition funnel so don't mind telling users to download an app
-  browser component. These are people who distribute JARs or only source code today.
-* Eventually, the hobbyist Java gaming community.
+* Hobbyist and learner apps where users do not want the overhead of the complex web frontend stack or desktop deployment,
+  but do want to publish their apps. They aren't attempting to maximise the user acquisition funnel so don't mind
+  telling users to download an app browser component. These are people who distribute JARs or only source code today.
+* The Java gaming community.
+* People who want to write cross platform command line apps.
 * IoT devices that struggle to provide secure administration interfaces, given the demands of web browser makers to use
   web PKI SSL and the poor fit of SSL with embedded web servers that do not have domain names.
+* People who want to write apps in languages other than JavaScript, although we plan for JS to be a first class citizen
+  along with all other mainstream languages (via the Truffle project).
 
 We feel these market segments are under-served by web browser developers.
 
@@ -31,13 +34,19 @@ modules via Sulong. This gives us a direct equivalent to WebAssembly.
 
 **Aren't JVMs bloated and sluggish?** Historically yes. We aren't worried about this though for three reasons. (1) Our competition
 isn't expertly written C++ apps but web apps, which are even worse. (2) The bulk of the JVM's reputation for sluggishness
-comes from startup time and memory usage, all of which are being tackled by the JVM team through recently added features like ahead of time
-compilation, AppCDS (class data pre-computation and sharing), GCs that don't pause the application and other such
-features. (3) The JVM's reputation largely dates from the late 1990's and early 2000's when hardware wasn't as good as
-it is now. Over time hardware got bigger and the JVM got more efficient. So we aren't worried about this so much anymore.
+comes from startup time and memory usage, not peak runtime performance. All of these are being tackled by the JVM team
+through recently added features like ahead of time compilation, AppCDS (class data pre-computation and sharing), GCs
+that don't pause the application and other such features. (3) The JVM's reputation largely dates from the late 1990's
+and early 2000's when hardware wasn't as good as it is now. Over time hardware got bigger and the JVM got more
+efficient. So we aren't worried about this so much anymore.
 
-**Is this real?** Not at the moment. Why not help us make it real? Check out the
-`task list <https://github.com/mikehearn/graviton-browser/labels/task>`_.
+**Do apps need to be written specifically for it?** No, Graviton can download and run ordinary Java apps with a main
+method that have been uploaded to a Maven repository or github. There are many such apps already. But with small
+adaptations, the user experience will get a lot better. As such there is no bright line between a JVM app and a
+Graviton app. We call this :doc:`incremental-adaptation`.
+
+**Is this real?** Not exactly, but from tiny acorns great oaks can grow! It's not usable today but why not help us make
+*it real? Check out the `task list <https://github.com/mikehearn/graviton-browser/issues>`_.
 
 User experience sketch
 ======================
@@ -45,7 +54,6 @@ User experience sketch
 Graviton exposes a dual user experience. For GUI apps it is somewhat analagous to a web browser, but with a greater
 focus on allowing apps to open top level windows (escape the tab). It features:
 
-* A tabbed UI.
 * An "address bar", albeit with some quirks as outlined below.
 * Streaming, instant-on apps with no permission requests or signing requirements for the default case.
 * Automatic and silent app updates, in the same manner as a web app.
@@ -59,7 +67,8 @@ that offline support can work well, that demos are not unnecessarily affected by
 between preparation and presentation.
 
 Graviton may understand and use mDNS to enable network administrators to publish discoverable apps, as an alternative to
-intranet/default-page style deployment.
+intranet/default-page style deployment. The shell app ("new tab page" equivalent) is very customisable, rebrandable and
+even entirely replaceable. Unlike web browser makers we do not have any website market share to defend.
 
 A basic page / Markdown rendering feature is supported. This enables the root UI of an app that is embedded in a tab to
 be basic instructions or release notes, if the app really doesn't want to be confined to a tab and would rather open its
@@ -85,36 +94,49 @@ Some time later::
 Implementation sketch
 =====================
 
-**Top level UI**.  The root tabbed window is a JavaFX app that may use TornadoFX.
+**Top level UI**. The shell is a maximised window that presents an attractive and personal start screen. The main UI
+element is an address bar that accepts _coordinates_. These are (for now) Maven coordinates like ``com.foo:bar``, typically
+no version number will be specified although one can be given. The background showcases a variety of vector art from
+the openly licensed art community and it changes with each update. A change of background art acts as a subtle hint to
+the user that the browser has updated.
 
-It uses the SubScene component to allow embedding of sub-apps within a tab view. This implies that embedded JavaFX apps
-do not start from an Application object, as they would if they were bundled standalone. Rather, Graviton provides its
-own equivalent that exposes host services.
+When the user presses enter, download progress is shown until the app is ready for launch. If the app prints to stdout
+or stderr then this is captured and made available via a "Show console" expando, which hides the output by default for
+any app that appears to depend on JavaFX or Swing.
 
-This implies apps must be designed to run in Graviton. Existing apps can be easily adapted to run inside the sandbox,
-but it isn't as simple as "drop in a JAR". This allows us to impose browser style just-in-time permissioning, PowerBoxes
-and other security approaches that have been tried and tested in other platforms, but which may not be an exact fit for
-the desktop application model. A GravitonApp base class may be the way to go here.
+Below the address bar is a store-like area where recently used apps are presented, along with apps that may be being
+advertised on the local network e.g. corporate / IoT apps, and any spare slots are used for featured apps that showcase
+the platform.
 
-**App streaming.** Apps are modules compressed with pack200 (Jigsaw or OSGi, tbd). They load and run in an isolated sandbox
-using the standard JVM security management and classloading APIS. They are intended to load fast so a module should be,
-on average, not larger than the size of the average web page. There is tooling such as a Gradle plugin that checks this
-and warns the developer if their module graphs exceed this size. That ensures app loading speed can be competitive with
-the web. An async version of ServiceLoader or a similar API exposed via the GravitonApp entrypoint can be used to get a
-similar experience to the page-style incremental loading experience - that is, whilst one part of the app has loaded,
-other parts may be loading asynchronously.
+**URL handler.** Graviton will register a URL handler so apps are invokable from web pages. Such apps will receive a
+warning if they haven't opted in to sandboxing.
 
-It would once have been hard to get an incremental loading experience with Java because JVM apps tended to be larger
-than web pages (bytecode is slightly more verbose than JavaScript despite being binary). In practice network speeds are
-now very high and web pages have become so bloated that it should be easy to match their size with pack200 compression.
+**Incremental adaptation.** Because the shell is resolving and invoking main classes from Maven coordinates, it is capable
+of running any ordinary Java app that has a main method. By implementing a series of small, simple tweaks to an app,
+it can be made to run better, faster and more safely inside Graviton. See :doc:`incremental-adaptation` for more details.
 
-**Network connectivity and discovery.** HTTP caching and loading is used for module fetch. We do not attempt to replace
-HTTP(/2) for this project. OkHttp has a local cache implementation that may be useful, or the new HTTP API in Java 10
-may be sufficient. If the remote server supports HTTP2 then an open long-lived connection is built by the browser and
-provided to the app, which it can then use for communication back to the server.
+**App streaming.** The average web page is 2mb in size. Experimentation shows that many apps can easily be
+made to fit within this size budget using pack200 compression and by not re-downloading commonly used dependencies.
+Making an app feel like a web page is partly about download optimisation and we have many planned or already implemented:
 
-Client/server communications is left out of scope for this project, but must be able to run over HTTP 1 and 2. It is
-expected that apps will bring in their own abstractions over HTTP as SPA web apps do.
+1. Parallel resolution of the dependency tree.
+2. Local caching of artifacts, so commonly used libraries are not re-downloaded repeatedly.
+3. Pre-generation of a dependency tree file, so a POM walk isn't necessary.
+4. Proxies for common Maven repos that respond to failed download attempts by fetching the requested artifacts and
+   recompressing with pack200, thus automatically optimising distribution of apps that are being frequently requested.
+5. Early launch - monitoring a "training run" of the app and observing when classloading activity pauses for a few
+   seconds. Any modules accessed before that time are assumed to be needed and will be resolved before startup, any
+   modules accessed after that will be downloaded whilst the app is running. An attempt to access a class in a module
+   that wasn't loaded yet will hang until loading completes. In this way apps can be adjusted to stream features in
+   the background.
+6. Pre-fetch of commonly used libraries so apps don't pay any download cost for them.
+7. Identification of artifacts by secure hash rather than just coordinates.
+
+All these adaptations can be made easy with Maven and Gradle plugins.
+
+**Network connectivity and discovery.** Client/server communications is left out of scope for this project, but must be
+able to run over HTTP 1 and 2. It is expected that apps will bring in their own abstractions over HTTP as SPA web apps
+do.
 
 mDNS/Bonjour discovery is used to locate domain names and apps that are advertising themselves on the local network.
 Whilst this would be ineffective for very large enterprise networks that are multi-segment and do not support broadcast,
@@ -122,32 +144,21 @@ it is sufficient for IoT devices to advertise themselves (e.g. printers, wifi ho
 factory floor applications, smaller offices, and so on. mDNS/Bonjour names look like this "foobar.local" where the name
 is chosen by the app itself.
 
-For larger networks ordinary domain names can be used to identify and start apps.
+For larger networks, Graviton supports a variety of "well known" (i.e. hard coded) domain names that may be pointed at
+internal Maven repositories. By linking continuous integration systems to an internal Artifactory or Nexus deployment,
+code will be automatically pushed direct from source repositories through to the desktops in a smooth and silent manner.
 
 A server may present a self signed certificate if it was reached via mDNS. This certificate is then remembered and may
 not change in future without generating a giant red scary warning page. This is different to how web browsers use SSL
 and is intended to make life easier for internal app developers and embedded devices that struggle to obtain a web PKI
 certificate today.
 
-Given a domain name a "well known" URL is constructed and then fed to an HTTP library to initiate module fetch.
-
-In future the DAT protocol may be interesting as an additional protocol, if consumer use cases turn out to be more
-popular than hoped for.
-
-**Module repository storage.** A Maven repository format is probably sufficient. Whilst not designed for app streaming and
-with improvable efficiency, it is probably not required given the general bloat of the modern web, and a better
-repository format can be left out of scope.
-
-An ideal module system would hard-code the SHA checksums of the dependent modules. This would allow global deduplication
-in the HTTP cache, independent of origin, meaning widely used frameworks would impose essentially no overhead and
-avoiding the problem web apps have of triggering requests to dozens of servers and CDNs whose only real purpose is to
-provide a widely agreed name for the same resource that isn't the app origin. Jigsaw embeds checksums of the modules a
-module was compiled against, but I'm not sure it's a secure hash.
+In future the peer to peer DAT protocol may be interesting as an additional protocol, if consumer use cases turn
+out to be more popular than hoped for.
 
 **Online update of Graviton itself.** Enterprises are getting more accepting of what they sometimes call "evergreen"
-software i.e. software that silently updates itself outside of IT control. Graviton by default reuses the Google Chrome
-auto-update engines, Omaha on Windows and the equivalent on macOS. Therefore, users are never aware of the update
-process of the browser itself.
+software i.e. software that silently updates itself outside of IT control. Graviton implements the same techniques as
+Google Chrome does to keep itself and the underlying JRE fresh.
 
 The browser-style UI design and silent auto update implies that apps may be exposed to breaking changes in the Java
 platform as it evolves. Is this a critical problem? Perhaps. With a "pause" feature as outlined above for app updates,
@@ -165,15 +176,12 @@ impossible to distribute in this way, we should be in a much better situation w.
 past.
 
 **Multi-language support.** Graviton is not Kotlin or JavaFX specific. It should come with the Graal compiler and Truffle
-backends, as GraalVM itself does. In this way apps should be authorable in JavaScript, Python, Ruby and so on, if they
-depend on the right runtime modules that Graal can recognise.
+backends, as GraalVM itself does. In this way apps should be authorable in JavaScript, Python, Ruby, C++, Rust, Haskell
+and so on, if they depend on the right runtime modules that Graal can recognise.
 
 Graal is on the verge of offering several features that are of particular interest:
 
-* Support for NodeJS modules. Node apps already work, but when loading GraalJS via their API you don't get that API
-  included - this is silly and I expect it will be fixed soon. Thus a subset of the Node API would be available to
-  Graviton apps, and NPM modules could be easily made to work, providing a smooth on ramp for JavaScript developers who
-  wish for a more rigorous API and better UI toolkit than HTML.
+* Support for JavaScript modules.
 
 * Ability to impose execution time limits and interrupt execution asynchronously, to break infinite loops. This is
   effectively a compiler-supported version of the deprecated Thread.stop()  and is useful for browser style code
@@ -185,20 +193,25 @@ Graal is on the verge of offering several features that are of particular intere
 
 **EGL and advanced graphics.** The Java game dev community is surprisingly large and successful - consider that Minecraft
 came out of it. They would be a great market segment to target and a potentially enthusiastic userbase. For this to work
-they need access to OpenGL contexts. An initial version of Graviton could offer an API to open a new OpenGL window and
-expose the handle back such that it could be combined with JMonkeyEngine, LWJGL and other popular game engines. Chrome
-uses an open source layer to implement EGL on top of Direct3D which improves support on Windows, and it could be
-integrated into Graviton. Once this work is done an eGL surface for JavaFX apps should be relatively straightforward for
-experienced systems/graphics programmers.
+they need access to OpenGL contexts. A simple starting point is to let them run unsandboxed in a separate JVM instance.
+Later versions of Graviton could offer an API to open a new OpenGL window and expose the handle back such that it could
+be combined with JMonkeyEngine, LWJGL and other popular game engines. Chrome uses an open source layer to implement
+EGL on top of Direct3D which improves support on Windows, and it could be integrated into Graviton. Once this work is
+done an eGL surface for JavaFX apps should be relatively straightforward for experienced systems/graphics programmers.
 
 **Active Directory and other SSO integration.** Internet Explorer and some other browsers allow for automatic remote
 sign-in based on local credentials, when the network is properly configured. It'd be nice to have this too.
+
+**Integration with native desktop IPC.** Graviton apps should be able to expose control surfaces via platform native
+OO IPC mechanisms, in particular, COM and DBUS. This would allow scripting and interaction with Graviton apps from
+tools like MS Office macros.
 
 Implementation plan
 ===================
 
 Because none of us have any spare time, project planning and small iterations are critical. The goal is to reach the
-above featureset eventually, but maybe not fast.
+above featureset eventually, but maybe not fast. Fortunately this sort of project is mostly made of small tasks that
+incrementally improve things, so it's ideal for open source development.
 
 Many tasks can be done in parallel. Tasks are tracked using GitHub issues with labels indicating top level parallelism.
 Here are some proposed tracks.
@@ -208,7 +221,6 @@ Browser and runtime updates
 
 Silent background upgrades of the runtime (JVM+app browser) itself. See ":doc:`browser-update`" for more detailed design
 discussion.
-
 
 Module loading
 --------------
