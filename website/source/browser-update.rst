@@ -11,6 +11,7 @@ Goals
 * Chrome-style silent upgrade of the browser platform.
 * The browser can be upgraded whilst it's running, without any user intervention or disruption.
 * Updates can be applied even when the browser is not running.
+* Most updates do not require platform-specific rebuilds.
 
 Non-goals
 =========
@@ -54,6 +55,8 @@ home directory (under the hidden AppData folder).
 
 The ``javapackager`` tool is used to assemble the final download.
 
+.. note:: This section is **implemented**.
+
 Update tracking and batched updates
 -----------------------------------
 
@@ -74,7 +77,7 @@ the browser be able to read and upgrade data files from any prior version of its
 Background updates
 ------------------
 
-The browser runtime accepts a command line flag ``--check-for-updates`` which causes it to poll a remote server
+The browser runtime accepts a command line flag ``--background-update`` which causes it to poll a remote server
 to see if new versions are available instead of starting the normal codepaths. If the running version is the latest
 version, it exits silently. Otherwise it begins a background download of an update, and proceeds to create a new directory
 with the new version inside it so it will be picked up next time the browser is started.

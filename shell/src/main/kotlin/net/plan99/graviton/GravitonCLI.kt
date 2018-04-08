@@ -50,7 +50,7 @@ class GravitonCLI : Runnable {
     override fun run() {
         val packageName = packageName
         if (backgroundUpdate) {
-            checkForRuntimeUpdate()
+            doBackgroundUpdate()
         } else if (packageName != null || clearCache) {
             handleCommandLineInvocation(packageName)
         } else {

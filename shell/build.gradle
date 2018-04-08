@@ -20,16 +20,21 @@ apply plugin: 'kotlin'
 sourceCompatibility = 1.8
 
 dependencies {
+    // Kotlin - standard library for the Kotlin language
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 
-    // Maven Resolver: a library for working with Maven repositories.
+    // Maven Resolver - a library for working with Maven repositories.
     // We use a forked version that has upstream PR #10 merged in, which gives parallel dependency resolution.
     // This makes project fetch about twice as fast.
     compile 'com.github.mikehearn:maven-resolver:e688237ce5'
     compile "org.apache.maven:maven-resolver-provider:3.5.0"
 
-    // SLF4J - abstraction over logging frameworks.
+    // Graviton Scheduler - an interface to operating system cron functionalities.
+    compile project(":graviton-scheduler")
+
+    // SLF4J and Kotlin Logging - abstraction over logging implementations.
     compile "org.slf4j:slf4j-api:$slf4j_version"
+    compile "io.github.microutils:kotlin-logging:1.4.9"
     compile "org.slf4j:slf4j-simple:$slf4j_version"
 
     // ReactFX - reactive programming.
@@ -44,6 +49,7 @@ dependencies {
     // TornadoFX - a Kotlin UI framework based on JavaFX.
     compile "no.tornado:tornadofx:1.7.15"
 
+    // JUnit - helpful unit testing framework.
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 

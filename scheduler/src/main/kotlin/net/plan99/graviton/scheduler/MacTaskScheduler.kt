@@ -35,8 +35,8 @@ open class MacTaskScheduler(private val rootPath: Path = Paths.get("/")) : OSTas
     private val agentsPath: Path get() = rootPath.resolve("$homeDirectory/Library/LaunchAgents")
 
     internal fun formatXML(taskName: String, frequency: Duration, executePath: Path, arguments: List<String>): String {
-        val validName = taskName.all { it == '.' || it.isLowerCase() && !it.isWhitespace() }
-        require(validName) { "taskName should be a reverse DNS name like net.plan99.foo.bar" }
+        val validName = taskName.all { (it == '.' || it.isLetterOrDigit()) && !it.isWhitespace() }
+        require(validName) { "taskName should be a reverse DNS name like net.plan99.foo.bar, was '$taskName'" }
         val argXml = arguments.joinToString("\n        ") { "<string>$it</string>" }
         return xml
                 .replace("%TASK_NAME%", taskName)
