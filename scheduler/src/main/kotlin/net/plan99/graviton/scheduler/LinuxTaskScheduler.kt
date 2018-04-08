@@ -5,6 +5,7 @@ import java.nio.file.Paths
 import java.time.Duration
 
 /**
+ * Schedules a task on Linux using crontab.
  *
  * @author Anindya Chatterjee
  */
@@ -13,11 +14,11 @@ class LinuxTaskScheduler : OSTaskScheduler() {
     override fun register(taskName: String, task: OSScheduledTaskDefinition) {
         require(Files.isRegularFile(task.executePath)) { "Cannot access ${task.executePath}" }
         val cronExpression = task.frequency.toCronExpression()
-        execute("/bin/bash", "-c", "(crontab -l ; echo \"$cronExpression ${task.executePath}  #$taskName\") 2>&1 | grep -v \"no crontab\" | sort | uniq | crontab -")
+        execute("/bin/bash", "-c", "(crontab -l ; echo \"$cronExpression ${task.executePath}  #$taskName\") 2>&1 | grep -v \"no crontab\" | uniq | crontab -")
     }
 
     override fun deregister(taskName: String) {
-        execute("/bin/bash", "-c", "crontab -l | grep -v '#$taskName' | sort | uniq | crontab -")
+        execute("/bin/bash", "-c", "crontab -l | grep -v '#$taskName' | uniq | crontab -")
     }
 
     companion object {
@@ -35,6 +36,10 @@ class LinuxTaskScheduler : OSTaskScheduler() {
     }
 }
 
+/**
+ * Converts a [Duration] to an unix-style crontab expression.
+ *
+ * */
 internal fun Duration.toCronExpression(): String {
     var timeSet = false
     val expression = StringBuilder()
