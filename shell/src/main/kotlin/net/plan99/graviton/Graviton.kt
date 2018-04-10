@@ -13,6 +13,7 @@ import java.nio.file.Paths
 import java.time.Duration
 import java.time.Instant
 import kotlin.concurrent.thread
+import kotlin.system.exitProcess
 
 private val log = KotlinLogging.logger {}
 
@@ -34,6 +35,8 @@ fun main(arguments: Array<String>) {
     cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
     // TODO: Set up bash/zsh auto completion.
     cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
+
+    exitProcess(0)   // Kill any non-daemon threads that are hanging around and making a mess.
 }
 
 

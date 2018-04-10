@@ -1,7 +1,5 @@
 buildscript {
     ext.kotlin_version = '1.2.31'
-    ext.maven_resolver_groupid = 'org.apache.maven:maven-resolver'
-    ext.maven_resolver_version = '1.1.1'
     ext.slf4j_version = '1.8.0-beta2'
 
     repositories {
@@ -26,7 +24,18 @@ dependencies {
     // Maven Resolver - a library for working with Maven repositories.
     // We use a forked version that has upstream PR #10 merged in, which gives parallel dependency resolution.
     // This makes project fetch about twice as fast.
-    compile 'com.github.mikehearn:maven-resolver:e688237ce5'
+    if (true) {
+        compile 'com.github.mikehearn:maven-resolver:1e2ed26e5c6b7f439882339deae8ff4effec50ac'
+    } else {
+        def maven_resolver_version = "1.1.2-SNAPSHOT"
+        compile "org.apache.maven.resolver:maven-resolver-api:$maven_resolver_version"
+        compile "org.apache.maven.resolver:maven-resolver-impl:$maven_resolver_version"
+        compile "org.apache.maven.resolver:maven-resolver-connector-basic:$maven_resolver_version"
+        compile "org.apache.maven.resolver:maven-resolver-transport-http:$maven_resolver_version"
+        compile "org.apache.maven.resolver:maven-resolver-transport-file:$maven_resolver_version"
+        compile "org.apache.maven.resolver:maven-resolver-util:$maven_resolver_version"
+        compile "org.apache.maven.resolver:maven-resolver-spi:$maven_resolver_version"
+    }
     compile "org.apache.maven:maven-resolver-provider:3.5.0"
 
     // Graviton Scheduler - an interface to operating system cron functionalities.
