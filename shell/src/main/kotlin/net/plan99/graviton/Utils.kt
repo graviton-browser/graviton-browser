@@ -18,6 +18,7 @@ enum class OperatingSystem {
             get() = Paths.get(System.getProperty("user.home"), "Library", "Caches", "Graviton Browser")
     },
     WIN {
+        override val classPathDelimiter: Char = ';'
         override val appCacheDirectory: Path
             get() = Paths.get(System.getenv("LOCALAPPDATA"), "GravitonBrowser", "Cache")
     },
@@ -37,6 +38,7 @@ enum class OperatingSystem {
     };
 
     abstract val appCacheDirectory: Path
+    open val classPathDelimiter: Char = ':'
 }
 
 /** Whichever [OperatingSystem] we are executing on, based on the "os.name" property, or [OperatingSystem.UNKNOWN]. */

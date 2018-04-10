@@ -42,10 +42,15 @@ private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Ma
 }
 
 private fun buildClassLoaderFor(packageName: String, classpath: String): AppLoadResult {
-    val files = classpath.split(':').map { File(it) }
-    val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
-    // Chain to the parent classloader so our internals don't interfere with the application.
-    val classloader = URLClassLoader(packageName, urls, Thread.currentThread().contextClassLoader.parent)
-    val manifest = JarFile(files[0]).use { it.manifest }
-    return AppLoadResult(classloader, manifest)
+    try {
+        val classpathDelimiter = currentOperatingSystem.classPathDelimiter
+        val files = classpath.split(classpathDelimiter).map { File(it) }
+        val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
+        // Chain to the parent classloader so our internals don't interfere with the application.
+        val classloader = URLClassLoader(packageName, urls, Thread.currentThread().contextClassLoader.parent)
+        val manifest = JarFile(files[0]).use { it.manifest }
+        return AppLoadResult(classloader, manifest)
+    } catch (e: Exception) {
+        throw RuntimeException("Failed to build classloader given class path: $classpath", e)
+    }
 }
