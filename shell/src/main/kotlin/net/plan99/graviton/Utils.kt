@@ -24,8 +24,9 @@ enum class OperatingSystem {
         override val classPathDelimiter: Char = ';'
         private val localAppData get() = System.getenv("LOCALAPPDATA").toPath()
         private val myLocalAppData get() = localAppData / "GravitonBrowser"
+        // If you add new directories here, remember to update GravitonBrowser.iss to ensure the uninstaller removes them.
         override val appCacheDirectory: Path get() = myLocalAppData / "Cache"
-        override val loggingDirectory: Path get() = myLocalAppData
+        override val loggingDirectory: Path get() = myLocalAppData / "Logs"
     },
     LINUX {
         override val appCacheDirectory: Path

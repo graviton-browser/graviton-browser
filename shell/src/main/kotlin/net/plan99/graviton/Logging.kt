@@ -93,7 +93,6 @@ fun setupLogging(logToConsole: Boolean) {
         if (logToConsole)
             addWriter(NicerConsoleWriter)
         formatPattern("{date:yyyy-MM-dd HH:mm:ss} {level} [{thread}] {class_name}.{method}()\\n{message}")
-        writingThread(true)
         activate()
     }
     // Point java.util.logging (used by TornadoFX at least) at SLF4J, and from there, to TinyLog.

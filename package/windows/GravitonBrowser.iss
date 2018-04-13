@@ -61,6 +61,7 @@ Filename: "{app}\GravitonBrowser.exe"; Parameters: "--uninstall"
 Type: files; Name: "{app}\last-run-version"
 Type: files; Name: "{app}\task-scheduler-error-log.txt"
 Type: filesandordirs; Name: "{app}\Cache"
+Type: filesandordirs; Name: "{app}\Logs"
 Type: filesandordirs; Name: "{app}\{#GRAVITON_VERSION}\*"
 
 [Code]

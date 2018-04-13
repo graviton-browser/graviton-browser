@@ -5,13 +5,11 @@ import net.plan99.graviton.scheduler.OSScheduledTaskDefinition
 import net.plan99.graviton.scheduler.OSTaskScheduler
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
-import java.io.File
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Duration
-import java.time.Instant
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
@@ -124,6 +122,6 @@ private fun lastRun() {
 }
 
 fun doBackgroundUpdate() {
-    File("/tmp/last-run-time").writeText(Instant.now().toString())
+    mainLog.info("Background update has been invoked.")
     // TODO: Finish this off.
 }
