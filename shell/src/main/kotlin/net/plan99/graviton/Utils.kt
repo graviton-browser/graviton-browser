@@ -1,5 +1,7 @@
 package net.plan99.graviton
 
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -57,6 +59,12 @@ val Throwable.rootCause: Throwable get() {
     var t: Throwable = this
     while (t.cause != null) t = t.cause!!
     return t
+}
+
+fun Throwable.asString(): String {
+    val sw = StringWriter()
+    printStackTrace(PrintWriter(sw))
+    return sw.toString()
 }
 
 /** Uses [System.nanoTime] to measure elapsed time and exposes it in seconds to 1/10th of a second precision. */

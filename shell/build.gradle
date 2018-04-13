@@ -1,6 +1,7 @@
 buildscript {
     ext.kotlin_version = '1.2.31'
     ext.slf4j_version = '1.8.0-beta2'
+    ext.jna_version = '4.5.1'
 
     repositories {
         mavenCentral()
@@ -60,6 +61,10 @@ dependencies {
 
     // JUnit - helpful unit testing framework.
     testCompile group: 'junit', name: 'junit', version: '4.12'
+
+    // JNA - easy native access without using JNI
+    compile "net.java.dev.jna:jna:$jna_version"
+    compile "net.java.dev.jna:jna-platform:$jna_version"
 }
 
 compileKotlin {

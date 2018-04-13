@@ -18,25 +18,33 @@ import kotlin.system.exitProcess
 private val log = KotlinLogging.logger {}
 
 fun main(arguments: Array<String>) {
-    if (arguments.isNotEmpty() && arguments[0] == "--uninstall") {
-        lastRun()
-        return
+    try {
+        if (arguments.isNotEmpty() && arguments[0] == "--uninstall") {
+            lastRun()
+            return
+        }
+
+        val myPath: String? = System.getenv("GRAVITON_PATH")
+        val myVersion: String? = System.getenv("GRAVITON_VERSION")
+        if (myPath != null && myVersion != null) {
+            // This will execute asynchronously.
+            startupChecks(myPath, myVersion)
+        }
+
+        val cli = CommandLine(GravitonCLI())
+        cli.isStopAtPositional = true
+        cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
+        // TODO: Set up bash/zsh auto completion.
+        cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
+
+        exitProcess(0)   // Kill any non-daemon threads that are hanging around and making a mess.
+    } catch (e: Throwable) {
+        log.error("Failed to start up", e)
+        e.printStackTrace()
+        if (currentOperatingSystem == OperatingSystem.WIN) {
+            windowsAlertBox("Failed to start up", e.asString())
+        }
     }
-
-    val myPath: String? = System.getenv("GRAVITON_PATH")
-    val myVersion: String? = System.getenv("GRAVITON_VERSION")
-    if (myPath != null && myVersion != null) {
-        // This will execute asynchronously.
-        startupChecks(myPath, myVersion)
-    }
-
-    val cli = CommandLine(GravitonCLI())
-    cli.isStopAtPositional = true
-    cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
-    // TODO: Set up bash/zsh auto completion.
-    cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
-
-    exitProcess(0)   // Kill any non-daemon threads that are hanging around and making a mess.
 }
 
 
@@ -74,7 +82,7 @@ private fun startupChecks(myPath: String, myVersion: String) {
     }
 }
 
-private val taskName = "net.plan99.graviton.update"
+private const val taskName = "net.plan99.graviton.update"
 
 private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
     log.info { "First run, attempting to register scheduled task" }
