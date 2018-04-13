@@ -16,32 +16,46 @@ operator fun Path.div(other: String): Path = resolve(other)
 /** The supported operating systems we are on and OS-specific settings. */
 enum class OperatingSystem {
     MAC {
-        override val appCacheDirectory: Path
-            get() = Paths.get(System.getProperty("user.home"), "Library", "Caches", "Graviton Browser")
+        private val library = System.getProperty("user.home").toPath() / "Library"
+        override val appCacheDirectory: Path get() = library / "Caches" / "Graviton Browser"
+        override val loggingDirectory: Path get() = library / "Logs" / "Graviton Browser"
     },
     WIN {
         override val classPathDelimiter: Char = ';'
-        override val appCacheDirectory: Path
-            get() = Paths.get(System.getenv("LOCALAPPDATA"), "GravitonBrowser", "Cache")
+        private val localAppData get() = System.getenv("LOCALAPPDATA").toPath()
+        private val myLocalAppData get() = localAppData / "GravitonBrowser"
+        override val appCacheDirectory: Path get() = myLocalAppData / "Cache"
+        override val loggingDirectory: Path get() = myLocalAppData
     },
     LINUX {
         override val appCacheDirectory: Path
             get() {
                 return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
-                    Paths.get(System.getProperty("user.home"), ".cache", "GravitonBrowser")
+                    System.getProperty("user.home").toPath() / ".cache" / "GravitonBrowser"
                 } else {
-                    Paths.get(System.getenv("XDG_CACHE_HOME"), "GravitonBrowser")
+                    System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
                 }
             }
+
+        // TODO: Test
+        override val loggingDirectory: Path
+            get() = Paths.get("/var/log/GravitonBrowser").createDirectories()
     },
     UNKNOWN {
-        override val appCacheDirectory: Path
-            get() = error("Unreachable")
+        override val appCacheDirectory: Path get() = unreachable()
+        override val loggingDirectory: Path get() = unreachable()
     };
 
     abstract val appCacheDirectory: Path
+    abstract val loggingDirectory: Path
     open val classPathDelimiter: Char = ':'
 }
+
+/** Creates the given path if necessary as a directory and returns it */
+fun Path.createDirectories(): Path = Files.createDirectories(this)
+
+/** Throws an exception indicating this code path should never be called. */
+fun unreachable(): Nothing = error("Unreachable")
 
 /** Whichever [OperatingSystem] we are executing on, based on the "os.name" property, or [OperatingSystem.UNKNOWN]. */
 val currentOperatingSystem: OperatingSystem by lazy {

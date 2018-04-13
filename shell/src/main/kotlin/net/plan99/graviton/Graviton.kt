@@ -1,9 +1,9 @@
 @file:JvmName("Graviton")
 package net.plan99.graviton
 
-import mu.KotlinLogging
 import net.plan99.graviton.scheduler.OSScheduledTaskDefinition
 import net.plan99.graviton.scheduler.OSTaskScheduler
+import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import java.io.File
 import java.io.PrintWriter
@@ -15,20 +15,16 @@ import java.time.Instant
 import kotlin.concurrent.thread
 import kotlin.system.exitProcess
 
-private val log = KotlinLogging.logger {}
+val GRAVITON_PATH: String? = System.getenv("GRAVITON_PATH")
+val GRAVITON_VERSION: String? = System.getenv("GRAVITON_VERSION")
+
+val mainLog get() = LoggerFactory.getLogger("main")
 
 fun main(arguments: Array<String>) {
     try {
         if (arguments.isNotEmpty() && arguments[0] == "--uninstall") {
             lastRun()
             return
-        }
-
-        val myPath: String? = System.getenv("GRAVITON_PATH")
-        val myVersion: String? = System.getenv("GRAVITON_VERSION")
-        if (myPath != null && myVersion != null) {
-            // This will execute asynchronously.
-            startupChecks(myPath, myVersion)
         }
 
         val cli = CommandLine(GravitonCLI())
@@ -39,14 +35,13 @@ fun main(arguments: Array<String>) {
 
         exitProcess(0)   // Kill any non-daemon threads that are hanging around and making a mess.
     } catch (e: Throwable) {
-        log.error("Failed to start up", e)
+        mainLog.error("Failed to start up", e)
         e.printStackTrace()
         if (currentOperatingSystem == OperatingSystem.WIN) {
             windowsAlertBox("Failed to start up", e.asString())
         }
     }
 }
-
 
 private fun getTermWidth(): Int {
     return try {
@@ -65,7 +60,7 @@ private fun getTermWidth(): Int {
     }
 }
 
-private fun startupChecks(myPath: String, myVersion: String) {
+fun startupChecks(myPath: String, myVersion: String) {
     // Do it in the background to keep the slow file IO away from blocking startup.
     thread(start = true) {
         try {
@@ -77,7 +72,7 @@ private fun startupChecks(myPath: String, myVersion: String) {
             Files.write(versionPath, listOf(myVersion))
         } catch (e: Exception) {
             // Log but don't block startup.
-            log.error(e) { "Failed to do background startup checks" }
+            mainLog.error("Failed to do background startup checks", e)
         }
     }
 }
@@ -85,10 +80,10 @@ private fun startupChecks(myPath: String, myVersion: String) {
 private const val taskName = "net.plan99.graviton.update"
 
 private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
-    log.info { "First run, attempting to register scheduled task" }
+    mainLog.info("First run, attempting to register scheduled task")
     val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
     if (scheduler == null) {
-        log.info { "No support for task scheduling on this OS: $currentOperatingSystem" }
+        mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
         return
     }
     val executePath = when (currentOperatingSystem) {
@@ -107,7 +102,7 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
     try {
         // TODO: For some reason the Windows setup always throws an error from schtasks, but always seems to work anyway.
         scheduler.register(taskName, scheduledTask)
-        log.info { "Registered background task successfully with name '$taskName'" }
+        mainLog.info("Registered background task successfully with name '$taskName'")
     } catch (e: Exception) {
         // If we failed to register the task we will store the error to a dedicated file, which will act
         // as a marker to retry next time.
@@ -119,10 +114,10 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
 }
 
 private fun lastRun() {
-    log.info { "Uninstallation requested, removing scheduled task" }
+    mainLog.info("Uninstallation requested, removing scheduled task")
     val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
     if (scheduler == null) {
-        log.info { "No support for task scheduling on this OS: $currentOperatingSystem" }
+        mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
         return
     }
     scheduler.deregister(taskName)

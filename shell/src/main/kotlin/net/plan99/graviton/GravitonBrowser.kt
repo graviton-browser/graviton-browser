@@ -38,6 +38,8 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
 }
 
 class ShellView : View("Graviton Browser") {
+    companion object : Logging()
+
     private val codeFetcher = CodeFetcher()
 
     private val downloadProgress = SimpleDoubleProperty(0.0)
@@ -144,42 +146,40 @@ class ShellView : View("Graviton Browser") {
         val cli = CommandLine(options)
         cli.isStopAtPositional = true
         cli.parse(*text.split(' ').toTypedArray())
-        try {
-            // TODO: Rewrite this to use coroutines.
-            if (options.clearCache) codeFetcher.clearCache()
-            val packageName = (options.packageName ?: return)[0]
+        if (options.clearCache) codeFetcher.clearCache()
+        val packageName = (options.packageName ?: return)[0]
 
-            download(packageName) { classpath ->
-                try {
-                    outputArea.text = ""
-                    val oldstdout = System.out
-                    val oldstderr = System.err
-                    val printStream = PrintStream(object : OutputStream() {
-                        override fun write(b: Int) {
-                            Platform.runLater {
-                                outputArea.text += b.toChar()
-                            }
+        download(packageName) { classpath ->
+            try {
+                outputArea.text = ""
+                val oldstdout = System.out
+                val oldstderr = System.err
+                val printStream = PrintStream(object : OutputStream() {
+                    override fun write(b: Int) {
+                        Platform.runLater {
+                            outputArea.text += b.toChar()
                         }
-                    }, true)
-                    System.setOut(printStream)
-                    System.setErr(printStream)
-                    invokeMainClass(classpath, packageName, options.args) {
-                        System.setOut(oldstdout)
-                        System.setErr(oldstderr)
                     }
-                } catch (e: Exception) {
-                    onStartError(e)
+                }, true)
+                System.setOut(printStream)
+                System.setErr(printStream)
+                invokeMainClass(classpath, packageName, options.args) {
+                    System.setOut(oldstdout)
+                    System.setErr(oldstderr)
                 }
+            } catch (e: Exception) {
+                onStartError(e)
             }
-        } catch (e: Exception) {
-            onStartError(e)
         }
     }
 
-    private fun onStartError(e: Exception) {
+    private fun onStartError(e: Throwable) {
+        // TODO: Handle errors much better than just splatting the exception name onto the screen!
+        isDownloading.set(false)
+        downloadProgress.set(0.0)
         messageText1.set("Start failed")
         messageText2.set(e.toString())
-        e.printStackTrace()
+        logger.error("Start failed", e)
     }
 
     private fun download(text: String, andThen: (String) -> Unit) {
@@ -222,10 +222,16 @@ class ShellView : View("Graviton Browser") {
                 downloadProgress.set(pr)
             }
         }
+
         runAsync {
-            codeFetcher.downloadAndBuildClasspath(text)
+            try {
+                codeFetcher.downloadAndBuildClasspath(text)
+            } finally {
+                subscription.unsubscribe()
+            }
+        } fail { throwable ->
+            onStartError(throwable)
         } ui { classpath ->
-            subscription.unsubscribe()
             if (downloadStarted) {
                 downloadProgress.set(1.0)
                 isDownloading.set(false)

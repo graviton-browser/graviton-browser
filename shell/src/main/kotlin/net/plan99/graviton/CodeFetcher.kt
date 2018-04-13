@@ -1,13 +1,15 @@
 package net.plan99.graviton
 
-import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
+import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.DefaultRepositorySystemSession
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.RepositorySystemSession
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.CollectRequest
+import org.eclipse.aether.collection.CollectResult
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph.Dependency
+import org.eclipse.aether.graph.DependencyNode
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.LocalRepository
 import org.eclipse.aether.repository.RemoteRepository
@@ -34,6 +36,8 @@ import java.util.concurrent.Executors
  * and returns calculated classpaths.
  */
 class CodeFetcher {
+    companion object : Logging()
+
     /** The location on disk where the local Maven repository is. */
     val cachePath: Path = currentOperatingSystem.appCacheDirectory
 
@@ -62,6 +66,7 @@ class CodeFetcher {
         session.isOffline = offline
         session.transferListener = object : AbstractTransferListener() {
             fun push(event: TransferEvent, type: TransferEvent.EventType) {
+                debug { "$type: $event" }
                 _eventExecutor.submit {
                     _allTransferEvents.push(Event(event, type))
                 }
@@ -113,9 +118,9 @@ class CodeFetcher {
 
     fun clearCache() {
         // TODO: This should synchronise with the repository manager to ensure nothing is downloading at the time.
-        if (!cachePath.toFile().deleteRecursively()) {
-            throw Exception("Failed to clear disk cache")
-        }
+        info { "Clearing cache" }
+        if (!cachePath.toFile().deleteRecursively())
+            error { "Failed to clear disk cache" }
     }
 
     /**
@@ -125,6 +130,7 @@ class CodeFetcher {
      * @param packageName Package name in standard groupId:artifactId:version or groupId:artifactId form.
      */
     fun downloadAndBuildClasspath(packageName: String): String {
+        info { "Request to download and build classpath for $packageName" }
         val name = if (packageName.split(':').size == 2) "$packageName:LATEST" else packageName
         val dependency = Dependency(DefaultArtifact(name), "runtime")
         val collectRequest = CollectRequest().apply {
@@ -133,12 +139,16 @@ class CodeFetcher {
             withRepo("jcenter", "$protocol://jcenter.bintray.com/")
             withRepo("central", "$protocol://repo1.maven.org/maven2/")
         }
-        val collectDependencies = repoSystem.collectDependencies(session, collectRequest)
-        val node = collectDependencies.root
-        repoSystem.resolveDependencies(session, DependencyRequest(node, null))
+        val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
+        val node: DependencyNode = collectDependencies.root
+        stopwatch("Dependency resolution") {
+            repoSystem.resolveDependencies(session, DependencyRequest(node, null))
+        }
         val classPathGenerator = PreorderNodeListGenerator()
         node.accept(classPathGenerator)
-        return classPathGenerator.classPath
+        val classPath = classPathGenerator.classPath
+        info { "Classpath: $classPath" }
+        return classPath
     }
 
     private fun CollectRequest.withRepo(id: String, url: String) {

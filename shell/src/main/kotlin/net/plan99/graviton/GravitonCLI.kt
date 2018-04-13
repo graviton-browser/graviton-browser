@@ -47,8 +47,20 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--no-ssl"], description = ["If set, SSL encryption to the Maven repositories will be disabled. This can make downloads much faster, but also less safe."])
     var noSSL: Boolean = false
 
+    @CommandLine.Option(names = ["--verbose"], description = ["Enable logging"])
+    var verboseLogging: Boolean = false
+
     override fun run() {
         val packageName = packageName
+        setupLogging(verboseLogging)
+        // TODO: Enable coloured output on Windows 10+, so client apps can use ANSI escapes without fear.
+        if (GRAVITON_PATH != null && GRAVITON_VERSION != null) {
+            // This will execute asynchronously.
+            startupChecks(GRAVITON_PATH, GRAVITON_VERSION)
+            val ls = System.lineSeparator()
+            mainLog.info("$ls${ls}Starting Graviton $GRAVITON_VERSION$ls$ls")
+            mainLog.info("Path is $GRAVITON_PATH")
+        }
         if (backgroundUpdate) {
             doBackgroundUpdate()
         } else if (packageName != null || clearCache) {
