@@ -27,7 +27,9 @@ open class AppLauncher(private val options: GravitonCLI,
                        private val events: CodeFetcher.Events,
                        private val stdOutStream: PrintStream = System.out,
                        private val stdErrStream: PrintStream = System.err) {
-    class StartException(message: String) : Exception(message)
+    class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
+        constructor(message: String) : this(message, null)
+    }
 
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
@@ -51,9 +53,9 @@ open class AppLauncher(private val options: GravitonCLI,
         } catch (e: RepositoryException) {
             val rootCause = e.rootCause
             if (rootCause is MetadataNotFoundException) {
-                throw InvokeException("Sorry, no package with those coordinates is known.", e)
+                throw StartException("Sorry, no package with those coordinates is known.", e)
             } else {
-                throw InvokeException("Fetch error: ${rootCause.message}", e)
+                throw StartException("Fetch error: ${rootCause.message}", e)
             }
         }
         val mainClass = loadResult.mainClass
@@ -69,7 +71,7 @@ open class AppLauncher(private val options: GravitonCLI,
             val block = primaryStage == null
             invokeMainMethod(fetch.name.toString(), options.args, loadResult, mainClass, stdOutStream, stdErrStream, andWait = block)
         } else {
-            throw InvokeException("This application is not an executable program.")
+            throw StartException("This application is not an executable program.")
         }
     }
 
