@@ -11,7 +11,8 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.time.Duration
 import kotlin.concurrent.thread
-import kotlin.system.exitProcess
+
+val startupStopwatch = Stopwatch()
 
 val GRAVITON_PATH: String? = System.getenv("GRAVITON_PATH")
 val GRAVITON_VERSION: String? = System.getenv("GRAVITON_VERSION")
@@ -20,6 +21,7 @@ val mainLog get() = LoggerFactory.getLogger("main")
 
 /** Global access to parsed command line flags. */
 val commandLineArguments = GravitonCLI()
+
 
 fun main(arguments: Array<String>) {
     try {
@@ -33,8 +35,6 @@ fun main(arguments: Array<String>) {
         cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
         // TODO: Set up bash/zsh auto completion.
         cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
-
-        exitProcess(0)   // Kill any non-daemon threads that are hanging around and making a mess.
     } catch (e: Throwable) {
         mainLog.error("Failed to start up", e)
         e.printStackTrace()

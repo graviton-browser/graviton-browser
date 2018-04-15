@@ -16,7 +16,6 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
-import picocli.CommandLine
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -143,10 +142,7 @@ class ShellView : View("Graviton Browser") {
 
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
-        val options = GravitonCLI()
-        val cli = CommandLine(options)
-        cli.isStopAtPositional = true
-        cli.parse(*text.split(' ').toTypedArray())
+        val options = GravitonCLI.parse(text)
 
         // These callbacks will run on the FX event thread.
         val events = object : CodeFetcher.Events {
@@ -186,7 +182,8 @@ class ShellView : View("Graviton Browser") {
         // Now start a coroutine that will run everything on the FX thread other than background tasks.
         launch(JavaFx) {
             try {
-                AppLauncher(options, primaryStage, JavaFx, events, printStream, printStream).start()
+                val appManager = HistoryManager.create()
+                AppLauncher(options, appManager, primaryStage, JavaFx, events, printStream, printStream).start()
             } catch (e: Throwable) {
                 onStartError(e)
             }

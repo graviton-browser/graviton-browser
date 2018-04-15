@@ -20,6 +20,16 @@ import kotlin.system.exitProcess
         versionProvider = GravitonCLI.VersionProvider::class
 )
 class GravitonCLI : Runnable {
+    companion object {
+        fun parse(text: String): GravitonCLI {
+            val options = GravitonCLI()
+            val cli = CommandLine(options)
+            cli.isStopAtPositional = true
+            cli.parse(*text.split(' ').toTypedArray())
+            return options
+        }
+    }
+
     @CommandLine.Parameters(
             arity = "0..1",
             description = [
@@ -55,6 +65,9 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--default-coordinate"], description = ["The default launch coordinate put in the address bar of the browser shell, may contain command line arguments"])
     var defaultCoordinate: String = "com.github.ricksbrown:cowsay -f tux \"Hello world!\""
 
+    @CommandLine.Option(names = ["--refresh", "-r"], description = ["Re-check with the servers to see if a newer version is available. A new version check occurs every 24 hours by default."])
+    var refresh: Boolean = false
+
     override fun run() {
         val packageName = packageName
         setupLogging(verboseLogging)
@@ -78,9 +91,9 @@ class GravitonCLI : Runnable {
     private fun handleCommandLineInvocation(coordinates: String) {
         runBlocking {
             if (profileDownloads > 1) downloadWithProfiling(coordinates)
-
-            val launcher = AppLauncher(this@GravitonCLI, null, this.coroutineContext, createProgressBar())
             try {
+                val manager = HistoryManager.create()
+                val launcher = AppLauncher(this@GravitonCLI, manager, null, this.coroutineContext, createProgressBar())
                 launcher.start()
             } catch (original: Throwable) {
                 val e = original.rootCause

@@ -157,7 +157,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext) {
      * @param packageName Package name as a coordinate fragment.
      */
     suspend fun downloadAndBuildClasspath(packageName: String): Result {
-        val name = calculateFullyQualifiedCoordinate(packageName)
+        val name = checkLatestVersion(packageName)
         info { "Request to download and build classpath for $name" }
         val artifact = DefaultArtifact(name)
         val dependency = Dependency(artifact, "runtime")
@@ -182,18 +182,9 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext) {
         return Result(classPath, artifact)
     }
 
-    private suspend fun calculateFullyQualifiedCoordinate(packageName: String): String {
+    private suspend fun checkLatestVersion(packageName: String): String {
         // Parse the coordinate fragment the user entered.
         val components = packageName.split(':').toMutableList()
-
-        // TODO: Detect if the group ID was entered the "wrong" way around (i.e. normal web style).
-        // We can do this using the TLD suffix list. If the user did that, let's flip it first.
-
-        // If there's no : anywhere in it, it's just a reverse domain name, then assume the artifact ID is the
-        // same as the last component of the group ID.
-        if (components.size == 1) {
-            components += components[0].split('.').last()
-        }
 
         // If there's no version, perform a version range request to find the latest version.
         if (components.size == 2) {

@@ -11,6 +11,7 @@ import java.io.File
 import java.io.PrintStream
 import java.net.URL
 import java.net.URLClassLoader
+import java.time.Instant
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.concurrent.thread
@@ -22,11 +23,14 @@ import kotlin.coroutines.experimental.CoroutineContext
  * it does many slow background tasks, you do not have to think about blocking operations or background sync.
  */
 open class AppLauncher(private val options: GravitonCLI,
+                       private val historyManager: HistoryManager,
                        private val primaryStage: Stage? = null,
                        private val coroutineContext: CoroutineContext,
                        private val events: CodeFetcher.Events,
                        private val stdOutStream: PrintStream = System.out,
                        private val stdErrStream: PrintStream = System.err) {
+    companion object : Logging()
+
     class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
         constructor(message: String) : this(message, null)
     }
@@ -39,14 +43,31 @@ open class AppLauncher(private val options: GravitonCLI,
     suspend fun start() {
         val codeFetcher = CodeFetcher(coroutineContext)
         codeFetcher.events = events
-
-        val packageName = (options.packageName ?: throw StartException("No coordinates specified"))[0]
-
         if (options.clearCache)
             codeFetcher.clearCache()
         codeFetcher.useSSL = !(commandLineArguments.noSSL || options.noSSL)
 
-        val fetch: CodeFetcher.Result = codeFetcher.downloadAndBuildClasspath(packageName)
+        val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
+        val historyLookup: HistoryEntry? = if (!options.refresh) {
+            // The user has probably specified a coordinate fragment, missing the artifact name or version number.
+            // If we never saw this input before, we'll just continue and clean it up later. If we resolved it
+            // before to a specific artifact coordinate, we'll look it up again from our history file. That'll
+            // let us skip the latest version check. Put another way, this step gives us the following policy:
+            //
+            // - Check for new versions ONLY every AppManager.refreshInterval seconds
+            // - But allow the user to always specify a newer version by hand
+            historyManager.search(userInput)
+        } else null
+
+        // The history entry contains the classpath to avoid a local POM walk, which is slow (about 0.2 seconds for
+        // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
+        val fetch: CodeFetcher.Result = if (historyLookup != null) {
+            info { "Used previously resolved coordinates $historyLookup" }
+            CodeFetcher.Result(historyLookup.classPath, historyLookup.resolvedArtifact)
+        } else {
+            val packageName: String = calculateCoordinates(userInput)
+            codeFetcher.downloadAndBuildClasspath(packageName)
+        }
 
         val loadResult = try {
             buildClassLoaderFor(fetch)
@@ -58,6 +79,10 @@ open class AppLauncher(private val options: GravitonCLI,
                 throw StartException("Fetch error: ${rootCause.message}", e)
             }
         }
+
+        // Update the last used timestamp.
+        historyManager.recordHistoryEntry(HistoryEntry(userInput, Instant.now(), fetch.name, fetch.classPath))
+
         val mainClass = loadResult.mainClass
         val jfxApplicationClass = loadResult.jfxApplicationClass
         // We try to run a JavaFX app first, to bypass the main method and give a smoother transition.
@@ -73,6 +98,23 @@ open class AppLauncher(private val options: GravitonCLI,
         } else {
             throw StartException("This application is not an executable program.")
         }
+    }
+
+    private fun calculateCoordinates(userInput: String): String {
+        var packageName: String = userInput
+
+        // TODO: Detect if the group ID was entered the "wrong" way around (i.e. normal web style).
+        // We can do this using the TLD suffix list. If the user did that, let's flip it first.
+
+        // If there's no : anywhere in it, it's just a reverse domain name, then assume the artifact ID is the
+        // same as the last component of the group ID.
+        val components = packageName.split(':').toMutableList()
+        if (components.size == 1) {
+            components += components[0].split('.').last()
+        }
+        packageName = components.joinToString(":")
+
+        return packageName
     }
 
     private fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: Array<String>, artifactName: String) {
@@ -122,6 +164,10 @@ open class AppLauncher(private val options: GravitonCLI,
         val t = thread(contextClassLoader = loadResult.classloader, name = "Main thread for $artifactName") {
             // TODO: Stop the program quitting itself.
             try {
+                // For me it takes about 0.5 seconds to reach here with a non-optimised build and 0.4 with a jlinked
+                // build, but we're hardly using jlink right now. To get faster I bet we need to AOT most of java.base
+                //
+                // println("Took ${startupStopwatch.elapsedInSec} seconds to reach main()")
                 mainMethod.invoke(null, subArgs)
             } finally {
                 System.setOut(oldstdout)

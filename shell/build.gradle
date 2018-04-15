@@ -66,6 +66,10 @@ dependencies {
 
     // JUnit - helpful unit testing framework.
     testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
+
+    // JimFS - in memory file system useful for test mocks.
+    testCompile "com.google.jimfs:jimfs:1.1"
 
     // JNA - easy native access without using JNI
     compile "net.java.dev.jna:jna:$jna_version"
