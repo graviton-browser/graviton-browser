@@ -50,6 +50,9 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--verbose"], description = ["Enable logging"])
     var verboseLogging: Boolean = false
 
+    @CommandLine.Option(names = ["--default-coordinate"], description = ["The default launch coordinate put in the address bar of the browser shell, may contain command line arguments"])
+    var defaultCoordinate: String = "com.github.ricksbrown:cowsay -f tux \"Hello world!\""
+
     override fun run() {
         val packageName = packageName
         setupLogging(verboseLogging)
@@ -98,7 +101,7 @@ class GravitonCLI : Runnable {
         try {
             val artifactName = packageName[0].split(':')[1]
             val classpath = downloadWithProgressBar(artifactName, codeFetcher, packageName[0])
-            invokeMainClass(classpath, packageName[0], args).join()
+            startApp(classpath, packageName[0], args, null, null)
         } catch (original: Throwable) {
             val e = original.rootCause
             if (e is MetadataNotFoundException) {

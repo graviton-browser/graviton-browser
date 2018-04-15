@@ -20,7 +20,7 @@ import java.io.PrintStream
  */
 open class Logging {
     @Suppress("LeakingThis")
-    val logger: Logger = LoggerFactory.getLogger(this::class.java.enclosingClass)
+    val logger: Logger = LoggerFactory.getLogger(this::class.java.enclosingClass ?: this::class.java)
 
     inline fun debug(message: () -> String) = if (logger.isDebugEnabled) logger.debug(message()) else Unit
     inline fun info(message: () -> String) = if (logger.isInfoEnabled) logger.info(message()) else Unit

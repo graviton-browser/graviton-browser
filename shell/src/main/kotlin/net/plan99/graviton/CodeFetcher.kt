@@ -131,13 +131,12 @@ class CodeFetcher {
      */
     fun downloadAndBuildClasspath(packageName: String): String {
         info { "Request to download and build classpath for $packageName" }
+        // TODO: Use a VersionRange request instead of LATEST, which isn't always set.
         val name = if (packageName.split(':').size == 2) "$packageName:LATEST" else packageName
         val dependency = Dependency(DefaultArtifact(name), "runtime")
         val collectRequest = CollectRequest().apply {
             root = dependency
-            val protocol = if (useSSL) "https" else "http"
-            withRepo("jcenter", "$protocol://jcenter.bintray.com/")
-            withRepo("central", "$protocol://repo1.maven.org/maven2/")
+            configureRepositories()
         }
         val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
         val node: DependencyNode = collectDependencies.root
@@ -151,7 +150,31 @@ class CodeFetcher {
         return classPath
     }
 
-    private fun CollectRequest.withRepo(id: String, url: String) {
-        addRepository(RemoteRepository.Builder(id, "default", url).build())
+    private fun CollectRequest.configureRepositories() {
+        fun withRepo(id: String, url: String) = addRepository(RemoteRepository.Builder(id, "default", url).build())
+
+        val protocol = if (useSSL) "https" else "http"
+        withRepo("jcenter", "$protocol://jcenter.bintray.com/")
+        withRepo("central", "$protocol://repo1.maven.org/maven2/")
+        withRepo("jitpack", "$protocol://jitpack.io")
+        // Add a local repository that users can deploy to if they want to rapidly iterate on an installation.
+        // This repo is not the same thing as a "local repository" confusingly enough, they have slightly
+        // different layouts and metadata. To use, add something like this to your pom:
+        //
+        //     <distributionManagement>
+        //        <snapshotRepository>
+        //            <id>dev-local</id>
+        //            <url>file:///Users/mike/.m2/dev-local</url>
+        //            <name>My local deployment repository</name>
+        //        </snapshotRepository>
+        //    </distributionManagement>
+        //
+        // Packages placed here are always re-fetched, bypassing the local cache.
+        val m2Local = (currentOperatingSystem.homeDirectory / ".m2" / "dev-local").toUri().toString()
+        addRepository(
+                RemoteRepository.Builder("dev-local", "default", m2Local)
+                        .setPolicy(RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_ALWAYS, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
+                        .build()
+        )
     }
 }

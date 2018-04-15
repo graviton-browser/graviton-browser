@@ -117,22 +117,7 @@ it can be made to run better, faster and more safely inside Graviton. See :doc:`
 
 **App streaming.** The average web page is 2mb in size. Experimentation shows that many apps can easily be
 made to fit within this size budget using pack200 compression and by not re-downloading commonly used dependencies.
-Making an app feel like a web page is partly about download optimisation and we have many planned or already implemented:
-
-1. Parallel resolution of the dependency tree.
-2. Local caching of artifacts, so commonly used libraries are not re-downloaded repeatedly.
-3. Pre-generation of a dependency tree file, so a POM walk isn't necessary.
-4. Proxies for common Maven repos that respond to failed download attempts by fetching the requested artifacts and
-   recompressing with pack200, thus automatically optimising distribution of apps that are being frequently requested.
-5. Early launch - monitoring a "training run" of the app and observing when classloading activity pauses for a few
-   seconds. Any modules accessed before that time are assumed to be needed and will be resolved before startup, any
-   modules accessed after that will be downloaded whilst the app is running. An attempt to access a class in a module
-   that wasn't loaded yet will hang until loading completes. In this way apps can be adjusted to stream features in
-   the background.
-6. Pre-fetch of commonly used libraries so apps don't pay any download cost for them.
-7. Identification of artifacts by secure hash rather than just coordinates.
-
-All these adaptations can be made easy with Maven and Gradle plugins.
+Please see :doc:`code-fetching` for more information on how code is fetched and kept fresh.
 
 **Network connectivity and discovery.** Client/server communications is left out of scope for this project, but must be
 able to run over HTTP 1 and 2. It is expected that apps will bring in their own abstractions over HTTP as SPA web apps

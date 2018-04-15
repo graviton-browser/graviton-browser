@@ -16,7 +16,7 @@ operator fun Path.div(other: String): Path = resolve(other)
 /** The supported operating systems we are on and OS-specific settings. */
 enum class OperatingSystem {
     MAC {
-        private val library = System.getProperty("user.home").toPath() / "Library"
+        private val library = homeDirectory / "Library"
         override val appCacheDirectory: Path get() = library / "Caches" / "Graviton Browser"
         override val loggingDirectory: Path get() = library / "Logs" / "Graviton Browser"
     },
@@ -29,18 +29,15 @@ enum class OperatingSystem {
         override val loggingDirectory: Path get() = myLocalAppData / "Logs"
     },
     LINUX {
-        override val appCacheDirectory: Path
-            get() {
-                return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
-                    System.getProperty("user.home").toPath() / ".cache" / "GravitonBrowser"
-                } else {
-                    System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
-                }
+        private val appDirectory: Path get() {
+            return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
+                homeDirectory / ".cache" / "GravitonBrowser"
+            } else {
+                System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
             }
-
-        // TODO: Test
-        override val loggingDirectory: Path
-            get() = Paths.get("/var/log/GravitonBrowser").createDirectories()
+        }
+        override val appCacheDirectory: Path get() = appDirectory / "repository"
+        override val loggingDirectory: Path get() = appDirectory / "logs"
     },
     UNKNOWN {
         override val appCacheDirectory: Path get() = unreachable()
@@ -50,6 +47,7 @@ enum class OperatingSystem {
     abstract val appCacheDirectory: Path
     abstract val loggingDirectory: Path
     open val classPathDelimiter: Char = ':'
+    open val homeDirectory: Path = System.getProperty("user.home").toPath()
 }
 
 /** Creates the given path if necessary as a directory and returns it */

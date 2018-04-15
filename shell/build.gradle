@@ -69,6 +69,8 @@ dependencies {
     compile "net.java.dev.jna:jna:$jna_version"
     compile "net.java.dev.jna:jna-platform:$jna_version"
 
+    // FastClasspathScanner - fast search engine over a set of JARs
+    compile "io.github.lukehutch:fast-classpath-scanner:2.18.2"
 }
 
 compileKotlin {

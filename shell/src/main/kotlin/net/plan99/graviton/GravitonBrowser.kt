@@ -6,7 +6,6 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.StringProperty
 import javafx.geometry.Pos
-import javafx.scene.control.Alert
 import javafx.scene.control.TextArea
 import javafx.scene.image.Image
 import javafx.scene.paint.Color
@@ -15,6 +14,7 @@ import javafx.scene.text.FontWeight
 import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
 import javafx.stage.StageStyle
+import org.eclipse.aether.transfer.ArtifactNotFoundException
 import org.eclipse.aether.transfer.TransferEvent
 import picocli.CommandLine
 import tornadofx.*
@@ -92,7 +92,7 @@ class ShellView : View("Graviton Browser") {
                     fontSize = 20.pt
                     alignment = Pos.CENTER
                 }
-                text = "com.github.ricksbrown:cowsay -f tux \"Hello world!\""
+                text = commandLineArguments.defaultCoordinate
                 selectAll()
                 disableProperty().bind(isDownloading)
                 action { onNavigate(text) }
@@ -151,26 +151,23 @@ class ShellView : View("Graviton Browser") {
 
         download(packageName) { classpath ->
             try {
-                outputArea.text = ""
-                val oldstdout = System.out
-                val oldstderr = System.err
-                val printStream = PrintStream(object : OutputStream() {
-                    override fun write(b: Int) {
-                        Platform.runLater {
-                            outputArea.text += b.toChar()
-                        }
-                    }
-                }, true)
-                System.setOut(printStream)
-                System.setErr(printStream)
-                invokeMainClass(classpath, packageName, options.args) {
-                    System.setOut(oldstdout)
-                    System.setErr(oldstderr)
-                }
+                redirectIOAndStart(classpath, packageName, options)
             } catch (e: Exception) {
                 onStartError(e)
             }
         }
+    }
+
+    private fun redirectIOAndStart(classpath: String, packageName: String, options: GravitonCLI) {
+        outputArea.text = ""
+        val printStream = PrintStream(object : OutputStream() {
+            override fun write(b: Int) {
+                Platform.runLater {
+                    outputArea.text += b.toChar()
+                }
+            }
+        }, true)
+        startApp(classpath, packageName, options.args, currentStage, printStream)
     }
 
     private fun onStartError(e: Throwable) {
@@ -214,7 +211,9 @@ class ShellView : View("Graviton Browser") {
                     }
                     it.type == TransferEvent.EventType.FAILED -> {
                         downloadProgress.set(-1.0)
-                        alert(Alert.AlertType.ERROR, "Error", it.data.exception.message)
+                        if (it.data.exception !is ArtifactNotFoundException) {
+                            warn { it.data.exception.message ?: it.data.exception.toString() }
+                        }
                     }
                 }
                 totalBytesDownloaded += it.data.dataLength
