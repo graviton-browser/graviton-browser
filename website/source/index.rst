@@ -42,3 +42,4 @@ and cron respectively).
    browser-update
    command-line
    incremental-adaptation
+   code-fetching
