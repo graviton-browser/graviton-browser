@@ -1,9 +1,11 @@
 package net.plan99.graviton
 
+import kotlinx.coroutines.experimental.runBlocking
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.eclipse.aether.DefaultRepositorySystemSession
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.RepositorySystemSession
+import org.eclipse.aether.artifact.Artifact
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.CollectRequest
 import org.eclipse.aether.collection.CollectResult
@@ -15,31 +17,31 @@ import org.eclipse.aether.repository.LocalRepository
 import org.eclipse.aether.repository.RemoteRepository
 import org.eclipse.aether.repository.RepositoryPolicy
 import org.eclipse.aether.resolution.DependencyRequest
+import org.eclipse.aether.resolution.VersionRangeRequest
+import org.eclipse.aether.resolution.VersionRangeResult
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transfer.AbstractTransferListener
 import org.eclipse.aether.transfer.TransferEvent
-import org.eclipse.aether.transfer.TransferResource
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
 import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator
-import org.reactfx.EventSource
-import org.reactfx.EventStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
-import java.util.concurrent.Executor
-import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.coroutines.experimental.CoroutineContext
 
 /**
  * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
  * and returns calculated classpaths.
  */
-class CodeFetcher {
+open class CodeFetcher(private val coroutineContext: CoroutineContext) {
     companion object : Logging()
 
     /** The location on disk where the local Maven repository is. */
-    val cachePath: Path = currentOperatingSystem.appCacheDirectory
+    private val cachePath: Path = currentOperatingSystem.appCacheDirectory
 
     init {
         // Ensure the local Maven repo exists.
@@ -64,20 +66,7 @@ class CodeFetcher {
     private val session: RepositorySystemSession by lazy {
         val session: DefaultRepositorySystemSession = MavenRepositorySystemUtils.newSession()
         session.isOffline = offline
-        session.transferListener = object : AbstractTransferListener() {
-            fun push(event: TransferEvent, type: TransferEvent.EventType) {
-                debug { "$type: $event" }
-                _eventExecutor.submit {
-                    _allTransferEvents.push(Event(event, type))
-                }
-            }
-            override fun transferInitiated(event: TransferEvent) = push(event, TransferEvent.EventType.INITIATED)
-            override fun transferStarted(event: TransferEvent) = push(event, TransferEvent.EventType.STARTED)
-            override fun transferSucceeded(event: TransferEvent) = push(event, TransferEvent.EventType.SUCCEEDED)
-            override fun transferProgressed(event: TransferEvent) = push(event, TransferEvent.EventType.PROGRESSED)
-            override fun transferFailed(event: TransferEvent) = push(event, TransferEvent.EventType.FAILED)
-            override fun transferCorrupted(event: TransferEvent) = push(event, TransferEvent.EventType.CORRUPTED)
-        }
+        session.transferListener = TransferListener()
         session.checksumPolicy = RepositoryPolicy.CHECKSUM_POLICY_IGNORE
         val localRepo = LocalRepository(cachePath.toFile())
         session.localRepositoryManager = repoSystem.newLocalRepositoryManager(session, localRepo)
@@ -89,32 +78,68 @@ class CodeFetcher {
         session
     }
 
-    private val _eventExecutor = Executors.newSingleThreadExecutor {
-        Thread(it, "Aether Downloader Event Dispatch").also { it.isDaemon = true }
-    }
-    /** The executor on which stream events are dispatched. Use it with [EventStream.threadBridge] */
-    val eventExecutor: Executor = _eventExecutor
+    private inner class TransferListener : AbstractTransferListener() {
+        val didDownload = AtomicBoolean(false)
+        private val totalBytesToDownload = AtomicLong(0L)
+        private val totalDownloaded = AtomicLong(0L)
 
-    class Event(val data: TransferEvent, val type: TransferEvent.EventType)
-    private val _allTransferEvents = EventSource<Event>()
-    /** A stream of transfer events related to different downloads all mixed together. */
-    val allTransferEvents: EventStream<Event> = _allTransferEvents
-    /** A stream of streams. Each new stream represents a new transfer. */
-    val transferStreams: EventStream<EventStream<Event>> = EventSource()
+        private fun isBoring(event: TransferEvent): Boolean {
+            val name = event.resource.resourceName
+            return name.endsWith(".xml") || name.endsWith(".pom") || name.endsWith(".md5") || name.endsWith(".sha1")
+        }
+
+        override fun transferInitiated(event: TransferEvent) {
+            // Don't notify about maven-metadata.xml files as they are frequently checked as part of version probes.
+            if (event.resource.resourceName.endsWith(".xml")) return
+
+            if (!didDownload.getAndSet(true)) {
+                runBlocking(coroutineContext) {
+                    events?.onStartedDownloading(event.resource.file.name)
+                }
+            }
+        }
+
+        override fun transferStarted(event: TransferEvent) {
+            info { "Transfer started: $event" }
+            if (isBoring(event)) return
+            totalBytesToDownload.addAndGet(event.resource.contentLength)
+        }
+
+        override fun transferSucceeded(event: TransferEvent) {
+            info { "Transfer succeeded: $event" }
+        }
+
+        override fun transferProgressed(event: TransferEvent) {
+            debug { "Transfer progressed: $event" }
+            if (!isBoring(event)) {
+                totalDownloaded.addAndGet(event.dataLength.toLong())
+            }
+            runBlocking(coroutineContext) {
+                events?.onFetch(event.resource.file.name, totalBytesToDownload.get(), totalDownloaded.get())
+            }
+        }
+
+        override fun transferFailed(event: TransferEvent) {
+            debug { "Transfer failed: $event" }
+        }
+
+        override fun transferCorrupted(event: TransferEvent) = transferFailed(event)
+    }
+
+    interface Events {
+        /** Called exactly once, if we decide we need to do any network transfers of non-trivial files (like JARs). */
+        suspend fun onStartedDownloading(name: String) {}
+
+        suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {}
+
+        /** If [onStartedDownloading] was called, this is called when we are finished or have failed. */
+        suspend fun onStoppedDownloading() {}
+    }
+
+    var events: Events? = null
+
     /** If set to true, Aether will be configured to not use the network. */
     var offline: Boolean = false
-
-    init {
-        val transferEventStreams = HashMap<TransferResource, EventStream<Event>>()
-        allTransferEvents.subscribe {
-            val source = transferEventStreams.getOrPut(it.data.resource) { EventSource() } as EventSource<Event>
-            if (it.type == TransferEvent.EventType.INITIATED)
-                (transferStreams as EventSource<EventStream<Event>>).push(source)
-            source.push(it)
-            if (it.type == TransferEvent.EventType.FAILED || it.type == TransferEvent.EventType.CORRUPTED)
-                transferEventStreams.remove(it.data.resource)
-        }
-    }
 
     fun clearCache() {
         // TODO: This should synchronise with the repository manager to ensure nothing is downloading at the time.
@@ -123,40 +148,82 @@ class CodeFetcher {
             error { "Failed to clear disk cache" }
     }
 
+    data class Result(val classPath: String, val name: Artifact)
+
     /**
      * Returns a classpath for the given resolved and dependency-downloaded package. If only two parts of the coordinate
      * are specified, the latest version is assumed.
      *
-     * @param packageName Package name in standard groupId:artifactId:version or groupId:artifactId form.
+     * @param packageName Package name as a coordinate fragment.
      */
-    fun downloadAndBuildClasspath(packageName: String): String {
-        info { "Request to download and build classpath for $packageName" }
-        // TODO: Use a VersionRange request instead of LATEST, which isn't always set.
-        val name = if (packageName.split(':').size == 2) "$packageName:LATEST" else packageName
-        val dependency = Dependency(DefaultArtifact(name), "runtime")
-        val collectRequest = CollectRequest().apply {
-            root = dependency
-            configureRepositories()
+    suspend fun downloadAndBuildClasspath(packageName: String): Result {
+        val name = calculateFullyQualifiedCoordinate(packageName)
+        info { "Request to download and build classpath for $name" }
+        val artifact = DefaultArtifact(name)
+        val dependency = Dependency(artifact, "runtime")
+        val collectRequest = CollectRequest()
+        collectRequest.root = dependency
+        defaultRepositories.forEach { collectRequest.addRepository(it) }
+        lateinit var node: DependencyNode
+        background {
+            stopwatch("Dependency resolution") {
+                val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
+                node = collectDependencies.root
+                repoSystem.resolveDependencies(session, DependencyRequest(node, null))
+            }
         }
-        val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
-        val node: DependencyNode = collectDependencies.root
-        stopwatch("Dependency resolution") {
-            repoSystem.resolveDependencies(session, DependencyRequest(node, null))
+        if ((session.transferListener as TransferListener).didDownload.get()) {
+            events?.onStoppedDownloading()
         }
         val classPathGenerator = PreorderNodeListGenerator()
         node.accept(classPathGenerator)
         val classPath = classPathGenerator.classPath
         info { "Classpath: $classPath" }
-        return classPath
+        return Result(classPath, artifact)
     }
 
-    private fun CollectRequest.configureRepositories() {
-        fun withRepo(id: String, url: String) = addRepository(RemoteRepository.Builder(id, "default", url).build())
+    private suspend fun calculateFullyQualifiedCoordinate(packageName: String): String {
+        // Parse the coordinate fragment the user entered.
+        val components = packageName.split(':').toMutableList()
+
+        // TODO: Detect if the group ID was entered the "wrong" way around (i.e. normal web style).
+        // We can do this using the TLD suffix list. If the user did that, let's flip it first.
+
+        // If there's no : anywhere in it, it's just a reverse domain name, then assume the artifact ID is the
+        // same as the last component of the group ID.
+        if (components.size == 1) {
+            components += components[0].split('.').last()
+        }
+
+        // If there's no version, perform a version range request to find the latest version.
+        if (components.size == 2) {
+            // [0,) is magic syntax meaning: any version from 0 to infinity, i.e. all versions.
+            val artifact = DefaultArtifact((components + "[0,)").joinToString(":"))
+            val request = VersionRangeRequest(artifact, defaultRepositories, null)
+            val result: VersionRangeResult = background {
+                stopwatch("Latest version lookup for " + components.joinToString(":")) {
+                    repoSystem.resolveVersionRange(session, request)
+                }
+            }
+            if (result.highestVersion == null)
+                throw result.exceptions.first()
+            components += result.highestVersion.toString()
+        }
+
+        return components.joinToString(":")
+    }
+
+    private val defaultRepositories: ArrayList<RemoteRepository> by lazy {
+        val repos = arrayListOf<RemoteRepository>()
+        fun repo(id: String, url: String) {
+            repos += RemoteRepository.Builder(id, "default", url).build()
+        }
 
         val protocol = if (useSSL) "https" else "http"
-        withRepo("jcenter", "$protocol://jcenter.bintray.com/")
-        withRepo("central", "$protocol://repo1.maven.org/maven2/")
-        withRepo("jitpack", "$protocol://jitpack.io")
+        repo("jcenter", "$protocol://jcenter.bintray.com/")
+        repo("central", "$protocol://repo1.maven.org/maven2/")
+        repo("jitpack", "$protocol://jitpack.io")
+
         // Add a local repository that users can deploy to if they want to rapidly iterate on an installation.
         // This repo is not the same thing as a "local repository" confusingly enough, they have slightly
         // different layouts and metadata. To use, add something like this to your pom:
@@ -171,10 +238,10 @@ class CodeFetcher {
         //
         // Packages placed here are always re-fetched, bypassing the local cache.
         val m2Local = (currentOperatingSystem.homeDirectory / ".m2" / "dev-local").toUri().toString()
-        addRepository(
-                RemoteRepository.Builder("dev-local", "default", m2Local)
-                        .setPolicy(RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_ALWAYS, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
-                        .build()
-        )
+        repos += RemoteRepository.Builder("dev-local", "default", m2Local)
+                .setPolicy(RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_ALWAYS, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
+                .build()
+
+        repos
     }
 }

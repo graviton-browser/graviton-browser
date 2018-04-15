@@ -22,6 +22,8 @@ sourceCompatibility = 1.8
 dependencies {
     // Kotlin - standard library for the Kotlin language
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-javafx:0.22.5"
 
     // Maven Resolver - a library for working with Maven repositories.
     if (true) {
@@ -71,6 +73,9 @@ dependencies {
 
     // FastClasspathScanner - fast search engine over a set of JARs
     compile "io.github.lukehutch:fast-classpath-scanner:2.18.2"
+
+    // YamlBeans - easy serialisation to and from the human-friendly Yaml text format.
+    compile "com.esotericsoftware.yamlbeans:yamlbeans:1.13"
 }
 
 compileKotlin {
@@ -85,5 +90,11 @@ jar {
         attributes(
             'Implementation-Version': "${project.parent.version}"
         )
+    }
+}
+
+kotlin {
+    experimental {
+        coroutines "enable"
     }
 }

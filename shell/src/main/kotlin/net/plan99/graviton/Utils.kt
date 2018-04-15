@@ -1,5 +1,8 @@
 package net.plan99.graviton
 
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.CoroutineStart
+import kotlinx.coroutines.experimental.withContext
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -85,3 +88,9 @@ class Stopwatch {
     private val start = System.nanoTime()
     val elapsedInSec: Double get() = (System.nanoTime() - start) / 100000000 / 10.0
 }
+
+/**
+ * A simple alias to make it clearer what's going on - it's used for "slow" code that shouldn't block the UI thread.
+ * The contents of the code block are run in the background and the coroutine is suspended until the block finishes.
+ */
+suspend fun <T> background(block: suspend () -> T): T = withContext(CommonPool, CoroutineStart.DEFAULT, block)

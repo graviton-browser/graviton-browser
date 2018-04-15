@@ -19,7 +19,7 @@ class InvokeException(message: String, cause: Throwable?) : Exception(message, c
     constructor(message: String) : this(message, null)
 }
 
-fun startApp(classpath: String, artifactName: String, args: Array<String>, primaryStage: Stage?, outputStream: PrintStream?) {
+fun startApp(classpath: String, artifactName: String, args: Array<String>, primaryStage: Stage?, outStream: PrintStream?) {
     val loadResult = try {
         buildClassLoaderFor(artifactName, classpath)
     } catch (e: RepositoryException) {
@@ -40,13 +40,13 @@ fun startApp(classpath: String, artifactName: String, args: Array<String>, prima
     if (jfxApplicationClass != null) {
         invokeJavaFXApplication(jfxApplicationClass, primaryStage, args, artifactName)
     } else if (mainClass != null) {
-        invokeMainMethod(artifactName, args, loadResult, mainClass, outputStream)
+        invokeMainMethod(artifactName, args, loadResult, mainClass, outStream, andWait = primaryStage == null)
     } else {
         throw InvokeException("This application is not an executable program.")
     }
 }
 
-fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: Array<String>, artifactName: String) {
+private fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: Array<String>, artifactName: String) {
     if (primaryStage == null) {
         // Being started from the command line, JavaFX wasn't set up yet.
         Application.launch(jfxApplicationClass, *args)
@@ -78,8 +78,9 @@ private fun Any.unbindAllProperties() {
              .forEach { it.unbind() }
 }
 
-private fun invokeMainMethod(artifactName: String, args: Array<String>, loadResult: AppLoadResult, mainClass: Class<*>, outputStream: PrintStream?) {
+private fun invokeMainMethod(artifactName: String, args: Array<String>, loadResult: AppLoadResult, mainClass: Class<*>, outputStream: PrintStream?, andWait: Boolean) {
     val mainMethod = mainClass.getMethod("main", Array<String>::class.java)
+    mainLog.info("Invoking $mainMethod")
     val subArgs = args.drop(1).toTypedArray()
     // Start in a separate thread, so we can continue to intercept IO and render it to the shell.
     // That feature will probably go away soon and we'll get pickier about which thread we run the
@@ -91,7 +92,7 @@ private fun invokeMainMethod(artifactName: String, args: Array<String>, loadResu
         System.setOut(outputStream)
         System.setErr(outputStream)
     }
-    thread(contextClassLoader = loadResult.classloader, name = "Main thread for $artifactName") {
+    val t = thread(contextClassLoader = loadResult.classloader, name = "Main thread for $artifactName") {
         // TODO: Stop the program quitting itself.
         try {
             mainMethod.invoke(null, subArgs)
@@ -102,6 +103,7 @@ private fun invokeMainMethod(artifactName: String, args: Array<String>, loadResu
             }
         }
     }
+    if (andWait) t.join()
 }
 
 private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
