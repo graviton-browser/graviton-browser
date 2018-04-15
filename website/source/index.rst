@@ -36,9 +36,10 @@ and cron respectively).
 
 .. toctree::
    :maxdepth: 2
-   :caption: Design docs
+   :caption: Project
 
    introduction
+   newsletters
    browser-update
    command-line
    incremental-adaptation
