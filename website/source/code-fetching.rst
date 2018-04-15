@@ -43,16 +43,18 @@ Making an app start as fast as a web page is partly about download optimisation 
 
 1. Parallel resolution of the dependency tree (DONE).
 2. Local caching of artifacts, so commonly used libraries are not re-downloaded repeatedly (DONE).
-3. Pre-generation of a dependency tree file, so a POM walk isn't necessary.
-4. Proxies for common Maven repos that respond to failed download attempts by fetching the requested artifacts and
+3. Only re-check for new versions once a day (DONE).
+4. Cache the resolved classpath so it doesn't have to be re-calculated on each use (DONE).
+5. Pre-generation of a dependency tree file, so a POM walk isn't necessary.
+6. Proxies for common Maven repos that respond to failed download attempts by fetching the requested artifacts and
    recompressing with pack200, thus automatically optimising distribution of apps that are being frequently requested.
-5. Early launch - monitoring a "training run" of the app and observing when classloading activity pauses for a few
+7. Early launch - monitoring a "training run" of the app and observing when classloading activity pauses for a few
    seconds. Any modules accessed before that time are assumed to be needed and will be resolved before startup, any
    modules accessed after that will be downloaded whilst the app is running. An attempt to access a class in a module
    that wasn't loaded yet will hang until loading completes. In this way apps can be adjusted to stream features in
    the background.
-6. Pre-fetch of commonly used libraries so apps don't pay any download cost for them.
-7. Identification of artifacts by secure hash rather than just coordinates.
+8. Pre-fetch of commonly used libraries so apps don't pay any download cost for them.
+9. Identification of artifacts by secure hash rather than just coordinates.
 
 All the app-specific adaptations can be made easy with Maven and Gradle plugins.
 
