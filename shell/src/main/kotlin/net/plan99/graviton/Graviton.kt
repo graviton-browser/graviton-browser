@@ -122,8 +122,3 @@ private fun lastRun() {
     }
     scheduler.deregister(taskName)
 }
-
-fun doBackgroundUpdate() {
-    mainLog.info("Background update has been invoked.")
-    // TODO: Finish this off.
-}

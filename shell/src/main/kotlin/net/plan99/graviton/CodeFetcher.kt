@@ -67,7 +67,12 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext) {
         val session: DefaultRepositorySystemSession = MavenRepositorySystemUtils.newSession()
         session.isOffline = offline
         session.transferListener = TransferListener()
+        // The separate checksum files are of questionable use in an SSL world and slow down the transfer quite
+        // a bit, so we toss them here.
         session.checksumPolicy = RepositoryPolicy.CHECKSUM_POLICY_IGNORE
+        // Graviton does its own lookup caching on top of CodeFetcher so we want to always poll the remote servers
+        // when asked if there's a new version.
+        session.updatePolicy = RepositoryPolicy.UPDATE_POLICY_ALWAYS
         val localRepo = LocalRepository(cachePath.toFile())
         session.localRepositoryManager = repoSystem.newLocalRepositoryManager(session, localRepo)
         session.setConfigProperties(mapOf(

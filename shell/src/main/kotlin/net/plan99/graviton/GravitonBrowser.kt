@@ -46,6 +46,8 @@ class ShellView : View("Graviton Browser") {
     private lateinit var messageText2: StringProperty
     private lateinit var outputArea: TextArea
 
+    private val historyManager by lazy { HistoryManager.create() }
+
     // Build up the UI layouts and widgets using the TornadoFX DSL.
     override val root = stackpane {
         style {
@@ -182,8 +184,7 @@ class ShellView : View("Graviton Browser") {
         // Now start a coroutine that will run everything on the FX thread other than background tasks.
         launch(JavaFx) {
             try {
-                val appManager = HistoryManager.create()
-                AppLauncher(options, appManager, primaryStage, JavaFx, events, printStream, printStream).start()
+                AppLauncher(options, historyManager, primaryStage, JavaFx, events, printStream, printStream).start()
             } catch (e: Throwable) {
                 onStartError(e)
             }

@@ -6,6 +6,7 @@ import me.tongfei.progressbar.ProgressBar
 import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import picocli.CommandLine
+import java.time.Duration
 import kotlin.coroutines.experimental.coroutineContext
 import kotlin.math.max
 import kotlin.system.exitProcess
@@ -20,7 +21,7 @@ import kotlin.system.exitProcess
         versionProvider = GravitonCLI.VersionProvider::class
 )
 class GravitonCLI : Runnable {
-    companion object {
+    companion object : Logging() {
         fun parse(text: String): GravitonCLI {
             val options = GravitonCLI()
             val cli = CommandLine(options)
@@ -157,6 +158,20 @@ class GravitonCLI : Runnable {
     class VersionProvider : CommandLine.IVersionProvider {
         override fun getVersion(): Array<String> {
             return arrayOf(javaClass.`package`.implementationVersion.let { if (it.isNullOrBlank()) "DEV" else it })
+        }
+    }
+
+    private fun doBackgroundUpdate() {
+        runBlocking {
+            stopwatch("Background update") {
+                try {
+                    val codeFetcher = CodeFetcher(coroutineContext)
+                    val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))
+                    historyManager.refreshRecentlyUsedApps(codeFetcher)
+                } catch (e: Throwable) {
+                    mainLog.error("Background update failed", e)
+                }
+            }
         }
     }
 }

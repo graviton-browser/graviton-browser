@@ -30,7 +30,7 @@ class HistoryManagerTest {
         assertEquals(example1.resolvedArtifact, manager.search("com.github.spotbugs")?.resolvedArtifact)
         // Overflow the history list.
         repeat(manager.maxHistorySize + 1) {
-            manager.recordHistoryEntry(example2.copy(userInput = "$it"))
+            manager.recordHistoryEntry(example2.copy(coordinateFragment = "$it"))
         }
         assertEquals(manager.maxHistorySize, manager.history.size)
         // Now example 1 can't be found anymore, it's gone.
@@ -47,11 +47,11 @@ class HistoryManagerTest {
         // Check if we re-record the entry, it re-arranges the history list
         val e = manager.recordHistoryEntry(example1)
         assertEquals(e, manager.history[0])
-        assertEquals(e.lastRunTime, manager.clock.instant())
+        assertEquals(e.lastRefreshTime, manager.clock.instant())
         assertEquals(2, manager.history.size)
         // Now check we stop getting cached results when the entry expires.
-        assertEquals(e.resolvedArtifact, manager.search(e.userInput)?.resolvedArtifact)
+        assertEquals(e.resolvedArtifact, manager.search(e.coordinateFragment)?.resolvedArtifact)
         manager.clock = Clock.offset(clock, Duration.ofDays(2))
-        assertNull(manager.search(e.userInput))
+        assertNull(manager.search(e.coordinateFragment))
     }
 }

@@ -32,9 +32,7 @@ open class Logging {
     }
 
     /**
-     * A convenience wrapper to make logging the length of time tasks took easy. Give it a task description that
-     * sounds OK with "took X seconds" appended to the end and it'll log how long it took to the nearest 10th of
-     * a second, or just log the message if it didn't take any time at all.
+     * A convenience wrapper to make logging the length of time tasks took easy.
      */
     inline fun <T> stopwatch(msg: String, level: Level = Level.INFO, block: () -> T): T {
         val sw = Stopwatch()
@@ -42,7 +40,7 @@ open class Logging {
             return block()
         } finally {
             val elapsed = sw.elapsedInSec
-            val l = if (elapsed > 0.0) "$msg took ${sw.elapsedInSec} seconds" else msg
+            val l = if (elapsed > 0.0) "$msg took ${sw.elapsedInSec} seconds" else "$msg completed immediately."
             when (level) {
                 Level.ERROR -> logger.error(l)
                 Level.WARN -> logger.warn(l)
