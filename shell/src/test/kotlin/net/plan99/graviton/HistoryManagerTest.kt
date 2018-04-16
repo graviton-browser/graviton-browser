@@ -10,7 +10,7 @@ import java.time.ZoneId
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class AppManagerTest {
+class HistoryManagerTest {
     val example1 = HistoryEntry("com.github.spotbugs", Instant.now(), DefaultArtifact("com.github.spotbugs:spotbugs:jar:1.2.3"), "zzz.jar:xxx.jar")
     val example2 = HistoryEntry("net.plan99.graviton:ex", Instant.now(), DefaultArtifact("net.plan99.graviton:ex:jar:1.2.1"), "a.jar:b.jar")
 

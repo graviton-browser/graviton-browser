@@ -22,7 +22,6 @@ val mainLog get() = LoggerFactory.getLogger("main")
 /** Global access to parsed command line flags. */
 val commandLineArguments = GravitonCLI()
 
-
 fun main(arguments: Array<String>) {
     try {
         if (arguments.isNotEmpty() && arguments[0] == "--uninstall") {
