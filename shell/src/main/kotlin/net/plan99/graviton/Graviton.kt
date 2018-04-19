@@ -100,13 +100,13 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
             networkSensitive = true
     )
     try {
+        Files.deleteIfExists(taskSchedulerErrorFile)
         // TODO: For some reason the Windows setup always throws an error from schtasks, but always seems to work anyway.
         scheduler.register(taskName, scheduledTask)
         mainLog.info("Registered background task successfully with name '$taskName'")
     } catch (e: Exception) {
         // If we failed to register the task we will store the error to a dedicated file, which will act
         // as a marker to retry next time.
-        Files.deleteIfExists(taskSchedulerErrorFile)
         taskSchedulerErrorFile.toFile().writer().use {
             e.printStackTrace(PrintWriter(it))
         }

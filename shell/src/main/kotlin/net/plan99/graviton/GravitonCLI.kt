@@ -69,6 +69,9 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--refresh", "-r"], description = ["Re-check with the servers to see if a newer version is available. A new version check occurs every 24 hours by default."])
     var refresh: Boolean = false
 
+    @CommandLine.Option(names = ["--cache-path"], description = ["If specified, overrides the default cache directory."])
+    var cachePath: String = currentOperatingSystem.appCacheDirectory.toString()
+
     override fun run() {
         val packageName = packageName
         setupLogging(verboseLogging)
@@ -139,7 +142,7 @@ class GravitonCLI : Runnable {
     }
 
     private suspend fun downloadWithProfiling(coordinates: String) {
-        val codeFetcher = CodeFetcher(coroutineContext)
+        val codeFetcher = CodeFetcher(coroutineContext, cachePath.toPath())
         codeFetcher.offline = offline
         codeFetcher.useSSL = !noSSL
         if (clearCache)
@@ -165,7 +168,7 @@ class GravitonCLI : Runnable {
         runBlocking {
             stopwatch("Background update") {
                 try {
-                    val codeFetcher = CodeFetcher(coroutineContext)
+                    val codeFetcher = CodeFetcher(coroutineContext, cachePath.toPath())
                     val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))
                     historyManager.refreshRecentlyUsedApps(codeFetcher)
                 } catch (e: Throwable) {

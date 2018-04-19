@@ -2,6 +2,7 @@ package net.plan99.graviton
 
 import kotlinx.coroutines.experimental.runBlocking
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
+import org.conscrypt.Conscrypt
 import org.eclipse.aether.DefaultRepositorySystemSession
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.RepositorySystemSession
@@ -28,6 +29,7 @@ import org.eclipse.aether.transport.http.HttpTransporterFactory
 import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.Security
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -37,11 +39,9 @@ import kotlin.coroutines.experimental.CoroutineContext
  * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
  * and returns calculated classpaths.
  */
-open class CodeFetcher(private val coroutineContext: CoroutineContext) {
+open class CodeFetcher(private val coroutineContext: CoroutineContext,
+                       private val cachePath: Path) {
     companion object : Logging()
-
-    /** The location on disk where the local Maven repository is. */
-    private val cachePath: Path = currentOperatingSystem.appCacheDirectory
 
     init {
         // Ensure the local Maven repo exists.
@@ -50,6 +50,10 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext) {
         // TODO: Use ~/.m2 if it exists rather than our Graviton-specific repository location.
         // ~/.m2 is not really following normal OS conventions on most platforms, but Java devs should be able to reuse
         // their existing package caches if they have one.
+
+        // Override built-in security using Open/BoringSSL via the Conscrypt provider. The index here is 1-based.
+        // This essentally eliminates the overhead of enabling SSL using JSSE and doubles download performance.
+        Security.insertProviderAt(Conscrypt.newProvider(), 1)
     }
 
     /** Disabling SSL fetches from Maven repos can double the speed of downloading :( */

@@ -9,6 +9,7 @@ buildscript {
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.google.gradle:osdetector-gradle-plugin:1.4.0"
     }
 }
 
@@ -16,6 +17,8 @@ group 'net.plan99.graviton'
 
 apply plugin: 'java'
 apply plugin: 'kotlin'
+apply plugin: 'com.google.osdetector'
+
 
 sourceCompatibility = 1.8
 
@@ -80,6 +83,9 @@ dependencies {
 
     // YamlBeans - easy serialisation to and from the human-friendly Yaml text format.
     compile "com.esotericsoftware.yamlbeans:yamlbeans:1.13"
+
+    // Conscrypt - BoringSSL access from Java
+    compile 'org.conscrypt:conscrypt-openjdk:1.1.0:' + osdetector.classifier
 }
 
 compileKotlin {

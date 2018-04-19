@@ -41,7 +41,7 @@ open class AppLauncher(private val options: GravitonCLI,
      * in the history list and then invokes the app in a sub-classloader.
      */
     suspend fun start() {
-        val codeFetcher = CodeFetcher(coroutineContext)
+        val codeFetcher = CodeFetcher(coroutineContext, options.cachePath.toPath())
         codeFetcher.events = events
         if (options.clearCache)
             codeFetcher.clearCache()
