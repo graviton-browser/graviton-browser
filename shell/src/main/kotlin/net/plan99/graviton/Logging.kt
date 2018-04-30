@@ -101,7 +101,7 @@ fun setupLogging(logToConsole: Boolean) {
     }
     // Point java.util.logging (used by TornadoFX at least) at SLF4J, and from there, to TinyLog.
     // We lose the method name this way, will need to make TinyLog a bit more flexible around stack walking.
-    SLF4JBridgeHandler.removeHandlersForRootLogger();
-    SLF4JBridgeHandler.install();
-    java.util.logging.Logger.getLogger("").level = java.util.logging.Level.FINEST;
+    SLF4JBridgeHandler.removeHandlersForRootLogger()
+    SLF4JBridgeHandler.install()
+    java.util.logging.Logger.getLogger("").level = java.util.logging.Level.FINEST
 }
