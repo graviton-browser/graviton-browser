@@ -1,5 +1,4 @@
 group 'net.plan99.graviton'
-version '0.1-SNAPSHOT'
 
 buildscript {
     repositories {

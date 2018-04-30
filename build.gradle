@@ -1,5 +1,6 @@
 buildscript {
-    ext.kotlin_version = '1.2.31'
+    ext.kotlin_version = '1.2.41'
+    ext.kotlin_native_version = '0.7'
 
     repositories {
         mavenCentral()
@@ -11,6 +12,8 @@ buildscript {
 
 plugins {
     // id 'com.zyxist.chainsaw' version '0.3.1'
+    id 'se.patrikerdes.use-latest-versions' version '0.2.1'
+    id 'com.github.ben-manes.versions' version '0.17.0'
 }
 
 group 'net.plan99.graviton'
@@ -20,7 +23,8 @@ apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'application'
 
-sourceCompatibility = 9
+sourceCompatibility = 10
+targetCompatibility = 10
 mainClassName = "net.plan99.graviton.Graviton"
 ext.moduleName = "graviton.browser"
 
@@ -60,7 +64,7 @@ jar {
 task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':bootstrap:compileKonan')]) {
     def os = System.properties['os.name'].toLowerCase()
     if (os.contains('mac'))
-        from 'bootstrap/build/konan/bin/macbook'
+        from 'bootstrap/build/konan/bin/macos_x64'
     else if (os.contains('win'))
         from 'bootstrap/build/konan/bin/mingw'
     else if (os.contains('linux'))

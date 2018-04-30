@@ -1,5 +1,4 @@
 buildscript {
-    ext.kotlin_version = '1.2.31'
     ext.slf4j_version = '1.7.25'
     ext.jna_version = '4.5.1'
     ext.tinylog_version = '1.3.4'
@@ -18,9 +17,6 @@ group 'net.plan99.graviton'
 apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'com.google.osdetector'
-
-
-sourceCompatibility = 1.8
 
 dependencies {
     // Kotlin - standard library for the Kotlin language
@@ -44,7 +40,7 @@ dependencies {
         compile "org.apache.maven.resolver:maven-resolver-util:$maven_resolver_version"
         compile "org.apache.maven.resolver:maven-resolver-spi:$maven_resolver_version"
     }
-    compile "org.apache.maven:maven-resolver-provider:3.5.0"
+    compile "org.apache.maven:maven-resolver-provider:3.5.3"
 
     // Graviton Scheduler - an interface to operating system cron functionalities.
     compile project(":graviton-scheduler")
@@ -62,7 +58,7 @@ dependencies {
     compile "me.tongfei:progressbar:0.6.0"
 
     // PicoCLI - command line parsing with pretty colours and useful help.
-    compile 'info.picocli:picocli:3.0.0-alpha-3'
+    compile 'info.picocli:picocli:3.0.0-beta-2'
 
     // TornadoFX - a Kotlin UI framework based on JavaFX.
     compile "no.tornado:tornadofx:1.7.15"

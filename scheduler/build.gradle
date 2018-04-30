@@ -1,6 +1,4 @@
 buildscript {
-    ext.kotlin_version = '1.2.31'
-
     repositories {
         mavenCentral()
     }
@@ -10,7 +8,6 @@ buildscript {
 }
 
 group 'net.plan99.graviton'
-version '1.0'
 
 apply plugin: 'java'
 apply plugin: 'kotlin'
@@ -18,7 +15,8 @@ apply plugin: 'application'
 
 mainClassName = "net.plan99.graviton.scheduler.WindowsTaskScheduler"
 
-sourceCompatibility = 1.8
+sourceCompatibility = 10
+targetCompatibility = 10
 
 repositories {
     mavenCentral()
