@@ -28,7 +28,12 @@ dependencies {
     if (true) {
         // We use a forked version that has upstream PR #10 merged in, which gives parallel dependency resolution.
         // This makes project fetch about twice as fast.
-        compile 'com.github.mikehearn:maven-resolver:1e2ed26e5c6b7f439882339deae8ff4effec50ac'
+        compile('com.github.mikehearn:maven-resolver:1e2ed26e5c6b7f439882339deae8ff4effec50ac') {
+            exclude group: "com.github.mikehearn.maven-resolver", module: "maven-resolver-demo-snippets"
+            exclude group: "com.github.mikehearn.maven-resolver", module: "maven-resolver-demo-maven-plugin"
+            exclude group: "com.github.mikehearn.maven-resolver", module: "maven-resolver-test-util"
+            exclude group: "com.github.mikehearn.maven-resolver", module: "maven-resolver-transport-wagon"
+        }
     } else {
         // Used for local development.
         def maven_resolver_version = "1.1.2-SNAPSHOT"
@@ -40,7 +45,9 @@ dependencies {
         compile "org.apache.maven.resolver:maven-resolver-util:$maven_resolver_version"
         compile "org.apache.maven.resolver:maven-resolver-spi:$maven_resolver_version"
     }
-    compile "org.apache.maven:maven-resolver-provider:3.5.3"
+    compile("org.apache.maven:maven-resolver-provider:3.5.3") {
+        exclude group: "org.apache.maven.resolver", module: "*"
+    }
 
     // Graviton Scheduler - an interface to operating system cron functionalities.
     compile project(":graviton-scheduler")
