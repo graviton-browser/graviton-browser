@@ -43,7 +43,7 @@ class MacTaskSchedulerTest {
 
     @Test
     fun checkXML() {
-        val xml = MacTaskScheduler().formatXML("net.plan99.graviton.update", Duration.ofDays(1), appPath,
+        val xml = MacTaskScheduler().formatXML("test.name", Duration.ofDays(1), appPath,
                 listOf("--background-launch", "--foo-bar"))
         assertEquals(expectedXml, xml)
     }
