@@ -53,7 +53,6 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         try {
             val verNum = BackgroundUpdates.checkForGravitonUpdate(
                     1,
-                    (root / "cache").createDirectories(),
                     (root / "install" / "Contents").createDirectories(),
                     baseURL = baseUrl.uri(),
                     signingPublicKey = pub1

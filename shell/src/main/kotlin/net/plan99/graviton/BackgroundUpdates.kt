@@ -9,7 +9,6 @@ import okhttp3.Response
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardOpenOption
 import java.security.KeyFactory
 import java.security.PublicKey
 import java.security.spec.PKCS8EncodedKeySpec
@@ -17,7 +16,6 @@ import java.time.Duration
 import java.util.*
 
 object BackgroundUpdates : Logging() {
-    private const val cacheSizeMegaBytes = 250
     private const val signingPubKeyB64 = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElI2KSzGh1b9KYsYXAU/YYtOqsm1aFcwkuj1VhjNmaVo/0SKUZvdApP5N9+wa2KvQS0UoXdD4XvHKxiEtJ0/QiA=="
     val mikePubKey: PublicKey by lazy {
         val spec = PKCS8EncodedKeySpec(Base64.getDecoder().decode(signingPubKeyB64))
@@ -34,7 +32,7 @@ object BackgroundUpdates : Logging() {
             // a version or installation path.
             if (currentVersion != null && currentInstallDir != null) {
                 stopwatch("Graviton update") {
-                    checkForGravitonUpdate(currentVersion, cachePath, currentInstallDir)
+                    checkForGravitonUpdate(currentVersion, currentInstallDir)
                 }
             }
         }
@@ -43,7 +41,7 @@ object BackgroundUpdates : Logging() {
     /**
      * Returns the version number that we were upgraded to, or null if no upgrade was performed.
      */
-    fun checkForGravitonUpdate(currentVersion: Int, cachePath: Path, currentInstallDir: Path,
+    fun checkForGravitonUpdate(currentVersion: Int, currentInstallDir: Path,
                                baseURL: URI = URI.create("https://update.graviton.app/latest"),
                                signingPublicKey: PublicKey = mikePubKey): Int? {
         try {
@@ -71,7 +69,7 @@ object BackgroundUpdates : Logging() {
                             }
                             val jarFetch = client.newCall(Request.Builder().url(redirectUrl).build()).execute()
                             if (jarFetch.isSuccessful) {
-                                downloadAndInstallUpgrade(cachePath, jarFetch, currentInstallDir, verNum, signingPublicKey)
+                                downloadAndInstallUpgrade(jarFetch, currentInstallDir, verNum, signingPublicKey)
                             } else {
                                 logger.error("Followed redirect but download was not successful: ${jarFetch.code()} ${jarFetch.message()}")
                             }
@@ -94,15 +92,19 @@ object BackgroundUpdates : Logging() {
         return Pair(verNum, redirect)
     }
 
-    private fun downloadAndInstallUpgrade(cachePath: Path, response: Response, currentInstallDir: Path, verNum: Int, signingPublicKey: PublicKey) {
-        val updateJarPath = cachePath / "$verNum.jar.tmp"
-        Files.newOutputStream(updateJarPath, StandardOpenOption.CREATE_NEW, StandardOpenOption.TRUNCATE_EXISTING).use { out ->
-            response.body()!!.byteStream().copyTo(out)
+    private fun downloadAndInstallUpgrade(response: Response, currentInstallDir: Path, verNum: Int, signingPublicKey: PublicKey) {
+        val updateJarPath = Files.createTempFile("graviton-update", ".update.jar")
+        try {
+            Files.newOutputStream(updateJarPath).use { out ->
+                response.body()!!.byteStream().copyTo(out)
+            }
+            logger.info("Saved update JAR to $updateJarPath")
+            val targetInstallDir = currentInstallDir / verNum.toString()
+            logger.info("Unpacking to $targetInstallDir")
+            RuntimeUpdate(updateJarPath, signingPublicKey).install(targetInstallDir)
+        } finally {
+            Files.delete(updateJarPath)
         }
-        logger.info("Saved update JAR to $updateJarPath")
-        val targetInstallDir = currentInstallDir / verNum.toString()
-        logger.info("Unpacking to $targetInstallDir")
-        RuntimeUpdate(updateJarPath, signingPublicKey).install(targetInstallDir)
     }
 
     suspend fun CoroutineScope.refreshRecentApps(cachePath: Path) {
