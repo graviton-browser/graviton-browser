@@ -8,6 +8,11 @@ import java.io.StringWriter
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.jar.JarEntry
+import java.util.jar.JarInputStream
+import kotlin.coroutines.experimental.buildIterator
+
+// TODO: Start a utilities project for these sorts of things.
 
 /** Casts the string to a [Path] but does not check for existence or do any other form of disk IO. */
 fun String.toPath(): Path = Paths.get(this)
@@ -94,3 +99,22 @@ class Stopwatch {
  * The contents of the code block are run in the background and the coroutine is suspended until the block finishes.
  */
 suspend fun <T> background(block: suspend () -> T): T = withContext(CommonPool, CoroutineStart.DEFAULT, block)
+
+/**
+ * Returns an iterator over each [JarEntry]. Each time the iterator is advanced the stream can be read to access the
+ * underlying entry bytes.
+ */
+val JarInputStream.entriesIterator: Iterator<JarEntry> get() = buildIterator {
+    var cursor: JarEntry? = nextJarEntry
+    while (cursor != null) {
+        yield(cursor!!)
+        cursor = nextJarEntry
+    }
+}
+
+/**
+ * Returns a [JarInputStream] pointed at the given JAR file.
+ *
+ * @throws NoSuchFileException if the given path does not exist.
+ */
+fun Path.readAsJar(): JarInputStream = JarInputStream(Files.newInputStream(this).buffered())

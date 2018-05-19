@@ -108,6 +108,14 @@ right list of signatures, the update is discarded and will be retried.
 
 .. note:: This means if a bad update is pushed users will keep trying to re-download it until it's fixed.
 
+Update protocol
+---------------
+
+The updater will request the URL ``https://update.graviton.app/latest?c=5`` where 5 is the current version of the app.
+The server may use the UUID to do A/B testing, count the number of users etc.
+
+The server will respond with a redirect to a signed update JAR which will be downloaded.
+
 Updating the updater
 --------------------
 

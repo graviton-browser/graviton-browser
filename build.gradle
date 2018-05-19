@@ -61,6 +61,10 @@ jar {
     }
 }
 
+test {
+    failFast = true
+}
+
 task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':bootstrap:compileKonan')]) {
     def os = System.properties['os.name'].toLowerCase()
     if (os.contains('mac'))
@@ -108,7 +112,7 @@ task packageMac(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-outfile', 'Graviton Browser',
             '-name', 'Graviton Browser',
             '-appclass', mainClassName,
-            '-singleton',
+            //'-singleton',    - TODO: where did this go?
             '-srcdir', 'build/install/graviton/lib',
             '-Bidentifier=net.plan99.graviton.browser',
             "-BmainJar=graviton-${project.version}.jar",

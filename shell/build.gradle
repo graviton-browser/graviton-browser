@@ -89,6 +89,9 @@ dependencies {
 
     // Conscrypt - BoringSSL access from Java
     compile 'org.conscrypt:conscrypt-openjdk:1.1.0:' + osdetector.classifier
+
+    // OkHttp - good HTTP client library
+    compile 'com.squareup.okhttp3:okhttp:3.10.0'
 }
 
 compileKotlin {
