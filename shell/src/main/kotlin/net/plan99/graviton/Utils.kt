@@ -130,6 +130,7 @@ suspend fun <T> background(block: suspend () -> T): T = withContext(CommonPool, 
 val JarInputStream.entriesIterator: Iterator<JarEntry> get() = buildIterator {
     var cursor: JarEntry? = nextJarEntry
     while (cursor != null) {
+        @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")  // Kotlin bug
         yield(cursor!!)
         cursor = nextJarEntry
     }
