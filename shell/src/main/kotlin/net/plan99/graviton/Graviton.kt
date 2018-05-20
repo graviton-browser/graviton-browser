@@ -12,8 +12,6 @@ import java.nio.file.Paths
 import java.time.Duration
 import kotlin.concurrent.thread
 
-val startupStopwatch = Stopwatch()
-
 val GRAVITON_PATH: String? = System.getenv("GRAVITON_PATH")
 val GRAVITON_VERSION: String? = System.getenv("GRAVITON_VERSION")
 
