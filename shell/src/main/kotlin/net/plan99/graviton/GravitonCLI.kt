@@ -6,6 +6,7 @@ import me.tongfei.progressbar.ProgressBar
 import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import picocli.CommandLine
+import java.net.URI
 import kotlin.coroutines.experimental.coroutineContext
 import kotlin.math.max
 import kotlin.system.exitProcess
@@ -52,6 +53,9 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--background-update"], hidden = true)
     var backgroundUpdate: Boolean = false
 
+    @CommandLine.Option(names = ["--update-url"], hidden = true)
+    var updateURL: String = "https://update.graviton.app/"
+
     // Just for development.
     @CommandLine.Option(names = ["--profile-downloads"], description = ["If larger than one downloads the coordinates the given number of times and prints statistics"], hidden = true)
     var profileDownloads: Int = -1
@@ -83,7 +87,7 @@ class GravitonCLI : Runnable {
             mainLog.info("Path is $GRAVITON_PATH")
         }
         if (backgroundUpdate) {
-            BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), GRAVITON_VERSION?.toInt(), GRAVITON_PATH?.toPath())
+            BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), GRAVITON_VERSION?.toInt(), GRAVITON_PATH?.toPath(), URI.create(updateURL))
         } else if (packageName != null || clearCache) {
             handleCommandLineInvocation(packageName!![0])
         } else {

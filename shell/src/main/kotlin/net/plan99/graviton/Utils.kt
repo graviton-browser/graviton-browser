@@ -3,6 +3,7 @@ package net.plan99.graviton
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.CoroutineStart
 import kotlinx.coroutines.experimental.withContext
+import okhttp3.HttpUrl
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -56,6 +57,8 @@ enum class OperatingSystem {
     abstract val loggingDirectory: Path
     open val classPathDelimiter: String = ":"
     open val homeDirectory: Path = System.getProperty("user.home").toPath()
+
+    val humanName: String get() = name.toLowerCase().capitalize()
 }
 
 /** Creates the given path if necessary as a directory and returns it */
@@ -64,8 +67,20 @@ fun Path.createDirectories(): Path = Files.createDirectories(this)
 /** Throws an exception indicating this code path should never be called. */
 fun unreachable(): Nothing = error("Unreachable")
 
+private val detectedOperatingSystemOverrideForTesting = InheritableThreadLocal<OperatingSystem?>()
+
+fun <T> withOverriddenOperatingSystem(os: OperatingSystem, block: () -> T): T {
+    val old = detectedOperatingSystemOverrideForTesting.get()
+    try {
+        detectedOperatingSystemOverrideForTesting.set(os)
+        return block()
+    } finally {
+        detectedOperatingSystemOverrideForTesting.set(old)
+    }
+}
+
 /** Whichever [OperatingSystem] we are executing on, based on the "os.name" property, or [OperatingSystem.UNKNOWN]. */
-val currentOperatingSystem: OperatingSystem by lazy {
+val detectedOperatingSystem: OperatingSystem by lazy {
     val name = System.getProperty("os.name").toLowerCase()
     when {
         name.contains("win") -> OperatingSystem.WIN
@@ -73,6 +88,14 @@ val currentOperatingSystem: OperatingSystem by lazy {
         name.contains("linux") -> OperatingSystem.LINUX
         else -> OperatingSystem.UNKNOWN
     }
+}
+
+/**
+ * Returns whichever [OperatingSystem] we are executing on, as determined by the "os.name" property, or whatever OS was set in a
+ * [withOverriddenOperatingSystem] block.
+ */
+val currentOperatingSystem: OperatingSystem get() {
+    return detectedOperatingSystemOverrideForTesting.get() ?: detectedOperatingSystem
 }
 
 /** Walks the [Throwable.cause] chain to the root. */
@@ -118,3 +141,10 @@ val JarInputStream.entriesIterator: Iterator<JarEntry> get() = buildIterator {
  * @throws NoSuchFileException if the given path does not exist.
  */
 fun Path.readAsJar(): JarInputStream = JarInputStream(Files.newInputStream(this).buffered())
+
+/**
+ * Indicates an HTTP request went wrong. Used because OkHttp doesn't provide its own error codes.
+ *
+ * @property code HTTP status code if the server responded at the HTTP level, or missing if something went wrong before we could get a code.
+ */
+class HTTPRequestException(val code: Int?, message: String, val url: HttpUrl, cause: Exception? = null) : Exception("Failed to fetch $url: $code $message", cause)

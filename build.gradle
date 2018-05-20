@@ -124,6 +124,13 @@ task packageMac(type: Exec, dependsOn: [copyBootstrapToLibs]) {
     // TODO: Icons
 }
 
+// Used from the package-mac.sh script.
+task printVersion {
+    doFirst {
+        println project.version
+    }
+}
+
 // Run like this: gradlew "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-10" packageWin
 // on a system with InnoSetup installed.
 task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {

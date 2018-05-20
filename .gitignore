@@ -8,6 +8,8 @@ website/virtualenv
 
 build/
 
+online-update-packages
+
 # CMake
 cmake-build-debug/
 cmake-build-release/

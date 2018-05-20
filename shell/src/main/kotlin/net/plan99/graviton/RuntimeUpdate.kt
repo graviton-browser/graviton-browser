@@ -5,6 +5,7 @@ import java.nio.file.Files
 import java.nio.file.Files.*
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.nio.file.attribute.PosixFilePermission
 import java.security.KeyStore
 import java.security.PublicKey
 import java.security.SignatureException
@@ -21,10 +22,12 @@ import java.util.zip.ZipOutputStream
  * install directory with bootstrapper. This is because we wouldn't be able to overwrite those files on Windows anyway
  * as they'd be locked. Therefore to unpack it to the right place you must know the version number it represents already.
  */
-class RuntimeUpdate(val jar: Path, val signingKey: PublicKey) {
+class RuntimeUpdate(val jar: Path, private val signingKey: PublicKey) {
     fun install(targetInstallDir: Path) {
-         targetInstallDir.createDirectories()
+        // Create the target installation directory.
+        targetInstallDir.createDirectories()
 
+        // Unpack the update.
         jar.readAsJar().use { stream ->
             for (entry in stream.entriesIterator) {
                 check(entry.realName.first() != '/') { entry.realName }
@@ -49,12 +52,28 @@ class RuntimeUpdate(val jar: Path, val signingKey: PublicKey) {
                 }
             }
         }
+
+        // If we need to, flip the execute bit on the unpacked binary.
+        when (currentOperatingSystem) {
+            OperatingSystem.MAC -> setExecuteBit(targetInstallDir / "Contents" / "MacOS" / "Graviton Browser")
+            OperatingSystem.WIN -> {}
+            OperatingSystem.LINUX -> TODO()
+            OperatingSystem.UNKNOWN -> TODO()
+        }
+    }
+
+    private fun setExecuteBit(path: Path) {
+        val perms: MutableSet<PosixFilePermission> = getPosixFilePermissions(path)
+        perms += PosixFilePermission.OWNER_EXECUTE
+        perms += PosixFilePermission.GROUP_EXECUTE
+        perms += PosixFilePermission.OTHERS_EXECUTE
+        setPosixFilePermissions(path, perms)
     }
 
     companion object {
+        // Used only for testing.
         fun createFrom(from: Path, signingKey: KeyStore.PrivateKeyEntry, outputPath: Path): RuntimeUpdate {
             val tempZip = Files.createTempFile("graviton-runtimeupdate-test", ".zip")
-            val vPath = from.resolve("/")
             try {
                 // Step 1. Create the unsigned zip. Unfortunately the JarSigner API is quite old and wants to
                 // write to a different file to the input, even though it could be modified in place.
