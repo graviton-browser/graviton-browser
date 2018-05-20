@@ -1,6 +1,25 @@
 Newsletters
 ***********
 
+20th May 2018
+=============
+
+Progress report
+^^^^^^^^^^^^^^^
+
+After a short break spent on other tasks and video games, Graviton development returns! This week work focused on the Chrome-style
+runtime auto update mechanism. Many of the pieces of this critical component have been laid previously, and now the final piece is landing:
+download and activation.
+
+* A new domain name has been acquired: `graviton.app <https://graviton.app/>`_. For now it just redirects to the docsite.
+* A simple update protocol has been defined and implemented. It is described in :doc:`browser-update`. It still needs to be adapted for
+  Windows, but the bulk of the code is platform independent.
+* New background art has been added to the shell, a vector art of Paris.
+* Some more future feature ideas have been filed in github.
+
+More work remains on the update framework: free disk space testing, Windows support, making updates fully atomic, checking for download
+corruption and so on. These small things will come in the next batch of work.
+
 16th April 2018
 ===============
 

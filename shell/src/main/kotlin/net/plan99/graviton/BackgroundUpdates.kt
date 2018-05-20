@@ -16,8 +16,9 @@ import java.security.spec.X509EncodedKeySpec
 import java.time.Duration
 import java.util.*
 
-// TODO: Include secure hashes in the redirect file
+// TODO: Include secure hashes in the redirect file and check post-download that it's correct.
 // TODO: Test on macOS with a full background update.
+// TODO: Make application of updates atomic by renaming destination directory to final form after unpack.
 // TODO: Check disk space before starting any background updates.
 // TODO: Document how to prepare a runtime update for each OS.
 // TODO: Test on Windows with a full background update.

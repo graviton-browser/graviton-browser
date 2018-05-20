@@ -18,6 +18,7 @@ Non-goals
 
 * This section does not discuss updates of apps that run in the browser.
 * In this first iteration, network administrator control is out of scope. It can be tackled in future.
+* Linux support - Linux users have their own platform level update mechanisms that can be reused.
 
 Design
 ======
@@ -111,10 +112,17 @@ right list of signatures, the update is discarded and will be retried.
 Update protocol
 ---------------
 
-The updater will request the URL ``https://update.graviton.app/latest?c=5`` where 5 is the current version of the app.
-The server may use the UUID to do A/B testing, count the number of users etc.
+The updater will request the URL ``https://update.graviton.app/osname/control?c=5`` where 5 is the current version of the app and
+"osname" is either "mac" or "win". The control file is a properties file that must have at least one key, "Latest-Update-URL" which
+contains a relative URL to a JAR file. The value of this key will be interpreted as if it were an HTML link, so, you can use either
+absolute URLs or a path like "/foo/bar" in it.
 
-The server will respond with a redirect to a signed update JAR which will be downloaded.
+The JAR filename must be of the form "5.something.whatever", i.e. a dot separated name where the first component is the integer version
+number. It will be downloaded and unpacked only if the version number in the filename is higher than the currently executing version. The
+other components are arbitrary and ignored.
+
+The signed JAR will be downloaded, verified and unpacked into the numbered directory indicated by the file name. The execute bit is set
+on a hard-coded OS specific path to ensure the main executable can be invoked. Once this is done the update is complete.
 
 Updating the updater
 --------------------
