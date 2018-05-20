@@ -55,18 +55,24 @@ class ShellView : View("Graviton Browser") {
             fontWeight = FontWeight.EXTRA_LIGHT
         }
 
+        val allArt = mapOf(
+                "paris.png" to 0.0,
+                "forest.jpg" to 200.0
+        )
+        val art = "forest.jpg"
+
         vbox {
             stackpane {
                 style {
                     backgroundColor = multi(LinearGradient.valueOf("white,rgb(218,239,244)"))
                 }
                 vbox {
-                    minHeight = 200.0
+                    minHeight = allArt[art]!!
                 }
             }
             // Background image.
             imageview {
-                image = Image(resources["art/forest.jpg"])
+                image = Image(resources["art/$art"])
                 fitWidthProperty().bind(this@stackpane.widthProperty())
                 isPreserveRatio = true
             }.stackpaneConstraints {
@@ -100,13 +106,22 @@ class ShellView : View("Graviton Browser") {
 
             pane { minHeight = 25.0 }
 
-            label {
-                messageText1 = textProperty()
-                textAlignment = TextAlignment.CENTER
-            }
-            label {
-                messageText2 = textProperty()
-                textAlignment = TextAlignment.CENTER
+            vbox {
+                style {
+                    backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
+                    backgroundRadius = multi(box(5.px))
+                }
+                padding = insets(15.0)
+                alignment = Pos.CENTER
+                label {
+                    messageText1 = textProperty()
+                    textAlignment = TextAlignment.CENTER
+                }
+                label {
+                    messageText2 = textProperty()
+                    textAlignment = TextAlignment.CENTER
+                }
+                visibleProperty().bind(messageText1.isNotEmpty.or(messageText2.isNotEmpty))
             }
 
             pane { minHeight = 25.0 }
@@ -128,13 +143,11 @@ class ShellView : View("Graviton Browser") {
             maxWidth = 800.0
             spacing = 5.0
             alignment = Pos.CENTER
-            //translateY = -70.0
         }.stackpaneConstraints { alignment = Pos.CENTER }
 
         label("Background art by Vexels") {
             style {
                 padding = box(10.px)
-                textFill = Color.GRAY
             }
         }.stackpaneConstraints { alignment = Pos.BOTTOM_RIGHT }
     }
