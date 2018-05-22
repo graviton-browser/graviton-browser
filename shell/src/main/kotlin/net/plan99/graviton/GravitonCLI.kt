@@ -88,10 +88,17 @@ class GravitonCLI : Runnable {
         }
         if (backgroundUpdate) {
             BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), GRAVITON_VERSION?.toInt(), GRAVITON_PATH?.toPath(), URI.create(updateURL))
-        } else if (packageName != null || clearCache) {
-            handleCommandLineInvocation(packageName!![0])
         } else {
-            Application.launch(GravitonBrowser::class.java, *args)
+            if (clearCache) {
+                runBlocking {
+                    CodeFetcher(coroutineContext, cachePath.toPath()).clearCache()
+                }
+            }
+            if (packageName != null) {
+                handleCommandLineInvocation(packageName[0])
+            } else {
+                Application.launch(GravitonBrowser::class.java, *args)
+            }
         }
     }
 

@@ -65,19 +65,15 @@ open class AppLauncher(private val options: GravitonCLI,
             info { "Used previously resolved coordinates $historyLookup" }
             CodeFetcher.Result(historyLookup.classPath, historyLookup.resolvedArtifact)
         } else {
-            val packageName: String = calculateCoordinates(userInput)
-            codeFetcher.downloadAndBuildClasspath(packageName)
+            download(userInput, codeFetcher)
         }
 
-        val loadResult = try {
+        val loadResult: AppLoadResult = try {
             buildClassLoaderFor(fetch)
-        } catch (e: RepositoryException) {
-            val rootCause = e.rootCause
-            if (rootCause is MetadataNotFoundException) {
-                throw StartException("Sorry, no package with those coordinates is known.", e)
-            } else {
-                throw StartException("Fetch error: ${rootCause.message}", e)
-            }
+        } catch (e: java.nio.file.NoSuchFileException) {
+            // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
+            // downloaded artifacts but leaves the recent apps list alone. Let's re-resolve and try again.
+            buildClassLoaderFor(download(userInput, codeFetcher))
         }
 
         // Update the last used timestamp.
@@ -97,6 +93,20 @@ open class AppLauncher(private val options: GravitonCLI,
             invokeMainMethod(fetch.name.toString(), options.args, loadResult, mainClass, stdOutStream, stdErrStream, andWait = block)
         } else {
             throw StartException("This application is not an executable program.")
+        }
+    }
+
+    private suspend fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {
+        return try {
+            val packageName: String = calculateCoordinates(userInput)
+            codeFetcher.downloadAndBuildClasspath(packageName)
+        } catch (e: RepositoryException) {
+            val rootCause = e.rootCause
+            if (rootCause is MetadataNotFoundException) {
+                throw StartException("Sorry, no package with those coordinates is known.", e)
+            } else {
+                throw StartException("Fetch error: ${rootCause.message}", e)
+            }
         }
     }
 
@@ -212,8 +222,10 @@ open class AppLauncher(private val options: GravitonCLI,
             val classloader = URLClassLoader(fetch.name.toString(), urls, Thread.currentThread().contextClassLoader.parent)
             val manifest = JarFile(files[0]).use { it.manifest }
             return AppLoadResult(classloader, manifest)
+        } catch (e: java.nio.file.NoSuchFileException) {
+            throw e
         } catch (e: Exception) {
-            throw RuntimeException("Failed to build classloader given class path: ${fetch.classPath}", e)
+            throw StartException("Failed to build classloader given class path: ${fetch.classPath}", e)
         }
     }
 }
