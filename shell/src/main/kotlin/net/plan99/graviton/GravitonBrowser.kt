@@ -41,7 +41,7 @@ class ShellView : View("Graviton Browser") {
 
     private val downloadProgress = SimpleDoubleProperty(0.0)
     private val isDownloading = SimpleBooleanProperty()
-    private lateinit var progressCircle: ProgressCircle
+    private lateinit var progressAnimation: ThreeDSpinner
     private lateinit var messageText1: StringProperty
     private lateinit var messageText2: StringProperty
     private lateinit var outputArea: TextArea
@@ -55,11 +55,12 @@ class ShellView : View("Graviton Browser") {
             fontWeight = FontWeight.EXTRA_LIGHT
         }
 
-        val allArt = mapOf(
-                "paris.png" to 0.0,
-                "forest.jpg" to 200.0
+        data class Art(val fileName: String, val topPadding: Int, val animationColor: Color)
+        val allArt = listOf(
+                Art("paris.png", 0, Color.BLUE),
+                Art("forest.jpg", 200, Color.color(0.0, 0.5019608, 0.0, 0.5))
         )
-        val art = "forest.jpg"
+        val art = allArt[0]
 
         vbox {
             stackpane {
@@ -67,31 +68,30 @@ class ShellView : View("Graviton Browser") {
                     backgroundColor = multi(LinearGradient.valueOf("white,rgb(218,239,244)"))
                 }
                 vbox {
-                    minHeight = allArt[art]!!
+                    minHeight = art.topPadding.toDouble()
                 }
             }
             // Background image.
             imageview {
-                image = Image(resources["art/$art"])
+                image = Image(resources["art/${art.fileName}"])
                 fitWidthProperty().bind(this@stackpane.widthProperty())
                 isPreserveRatio = true
+
+                // setOnMouseClicked { isDownloading.set(!isDownloading.value) }
             }.stackpaneConstraints {
                 alignment = Pos.BOTTOM_CENTER
             }
         }.stackpaneConstraints { alignment = Pos.TOP_CENTER }
 
-        progressCircle = ProgressCircle(this, downloadProgress, isDownloading, 350.0)
+        progressAnimation = ThreeDSpinner(art.animationColor)
+        progressAnimation.root.maxWidth = 600.0
+        progressAnimation.root.maxHeight = 600.0
+        progressAnimation.root.translateY = -150.0
+        children += progressAnimation.root
+        progressAnimation.visible.bind(isDownloading)
 
         vbox {
-            pane { minHeight = 25.0 }
-
-            label("Enter a domain name or coordinate") {
-                style {
-                    fontSize = 25.pt
-                }
-            }
-
-            pane { minHeight = 25.0 }
+            pane { minHeight = 275.0 }
 
             textfield {
                 style {
@@ -142,8 +142,8 @@ class ShellView : View("Graviton Browser") {
 
             maxWidth = 800.0
             spacing = 5.0
-            alignment = Pos.CENTER
-        }.stackpaneConstraints { alignment = Pos.CENTER }
+            alignment = Pos.TOP_CENTER
+        }
 
         label("Background art by Vexels") {
             style {
