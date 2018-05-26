@@ -31,6 +31,7 @@ fun main(arguments: Array<String>) {
         cli.isStopAtPositional = true
         cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
         // TODO: Set up bash/zsh auto completion.
+        // This call will pass control to GravitonCLI.run (as that's the object in commandLineArguments).
         cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
     } catch (e: Throwable) {
         mainLog.error("Failed to start up", e)
@@ -90,10 +91,12 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
         OperatingSystem.LINUX -> myPath / "GravitonBrowser"
         OperatingSystem.UNKNOWN -> return
     }
+    // Poll the server four times a day. This is a pretty aggressive interval but is useful in the project's early
+    // life where I want to be able to update things quickly and users may be impatient.
     val scheduledTask = OSScheduledTaskDefinition(
             executePath = executePath,
             arguments = listOf("--background-update"),
-            frequency = Duration.ofDays(1),
+            frequency = Duration.ofHours(6),
             description = "Graviton background upgrade task. If you disable this, Graviton Browser may become insecure.",
             networkSensitive = true
     )

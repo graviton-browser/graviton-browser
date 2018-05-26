@@ -76,6 +76,7 @@ class GravitonCLI : Runnable {
     var cachePath: String = currentOperatingSystem.appCacheDirectory.toString()
 
     override fun run() {
+        // This is where Graviton startup really begins.
         val packageName = packageName
         setupLogging(verboseLogging)
         // TODO: Enable coloured output on Windows 10+, so client apps can use ANSI escapes without fear.
@@ -87,6 +88,7 @@ class GravitonCLI : Runnable {
             mainLog.info("Path is $GRAVITON_PATH")
         }
         if (backgroundUpdate) {
+            mainLog.info("BACKGROUND UPDATE")
             BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), GRAVITON_VERSION?.toInt(), GRAVITON_PATH?.toPath(), URI.create(updateURL))
         } else {
             if (clearCache) {
