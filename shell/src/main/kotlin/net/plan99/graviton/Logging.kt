@@ -93,7 +93,7 @@ private object NicerConsoleWriter : Writer {
 fun setupLogging(logToConsole: Boolean) {
     // Tell TinyLog to roll every 5mb of logs.
     with(Configurator.defaultConfig()) {
-        writer(RollingFileWriter((currentOperatingSystem.loggingDirectory / "log.txt").toString(), 5, false, SizePolicy(1024*1024*5)))
+        writer(RollingFileWriter((currentOperatingSystem.loggingDirectory / "log.txt").toString(), 5, false, SizePolicy(1024 * 1024 * 5)))
         if (logToConsole)
             addWriter(NicerConsoleWriter)
         formatPattern("{date:yyyy-MM-dd HH:mm:ss} {level} [{thread}] {class_name}.{method}()\\n{message}")

@@ -24,8 +24,8 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
         }.toSortedSet()
         val expected = (
                 walk(fakeJreDir).toList().drop(1).map { fakeJreDir.relativize(it).toString() } +
-                listOf("META-INF/SIGNER.SF", "META-INF/SIGNER.EC")
-        ).toSortedSet()
+                        listOf("META-INF/SIGNER.SF", "META-INF/SIGNER.EC")
+                ).toSortedSet()
         assertEquals(expected, jarFileNames)
         // Now check every file is correctly signed by the proper signing key.
         jarEntries

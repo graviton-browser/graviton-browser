@@ -125,7 +125,8 @@ object BackgroundUpdates : Logging() {
     private fun extractControlDataFrom(response: Response, baseURL: HttpUrl): ControlFileResults {
         logger.info("Got control data from server, parsing")
         val controlProps = Properties().apply { load(response.body()!!.charStream()) }
-        val redirect = controlProps.getProperty(LATEST_VERSION_URL) ?: error("No $LATEST_VERSION_URL property in control file:\n$controlProps")
+        val redirect = controlProps.getProperty(LATEST_VERSION_URL)
+                ?: error("No $LATEST_VERSION_URL property in control file:\n$controlProps")
         val latestVersionURL = (baseURL.newBuilder(redirect) ?: error("Failed to parse $redirect as link URL")).build()
         logger.info("Update JAR URL is $latestVersionURL")
         // We expect the redirect to take us to a file of the form X.jar where X is an integer

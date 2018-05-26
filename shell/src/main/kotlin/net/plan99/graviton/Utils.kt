@@ -17,8 +17,10 @@ import kotlin.coroutines.experimental.buildIterator
 
 /** Casts the string to a [Path] but does not check for existence or do any other form of disk IO. */
 fun String.toPath(): Path = Paths.get(this)
+
 /** Returns true if the given path exists. */
 val Path.exists: Boolean get() = Files.exists(this)
+
 /** Allows you to write paths like "foo".toPath() / "b" / "c" and will use the correct platform specific path concatenation rules. */
 operator fun Path.div(other: String): Path = resolve(other)
 
@@ -38,13 +40,14 @@ enum class OperatingSystem {
         override val loggingDirectory: Path get() = myLocalAppData / "Logs"
     },
     LINUX {
-        private val appDirectory: Path get() {
-            return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
-                homeDirectory / ".cache" / "GravitonBrowser"
-            } else {
-                System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
+        private val appDirectory: Path
+            get() {
+                return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
+                    homeDirectory / ".cache" / "GravitonBrowser"
+                } else {
+                    System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
+                }
             }
-        }
         override val appCacheDirectory: Path get() = appDirectory / "repository"
         override val loggingDirectory: Path get() = appDirectory / "logs"
     },
@@ -94,16 +97,18 @@ val detectedOperatingSystem: OperatingSystem by lazy {
  * Returns whichever [OperatingSystem] we are executing on, as determined by the "os.name" property, or whatever OS was set in a
  * [withOverriddenOperatingSystem] block.
  */
-val currentOperatingSystem: OperatingSystem get() {
-    return detectedOperatingSystemOverrideForTesting.get() ?: detectedOperatingSystem
-}
+val currentOperatingSystem: OperatingSystem
+    get() {
+        return detectedOperatingSystemOverrideForTesting.get() ?: detectedOperatingSystem
+    }
 
 /** Walks the [Throwable.cause] chain to the root. */
-val Throwable.rootCause: Throwable get() {
-    var t: Throwable = this
-    while (t.cause != null) t = t.cause!!
-    return t
-}
+val Throwable.rootCause: Throwable
+    get() {
+        var t: Throwable = this
+        while (t.cause != null) t = t.cause!!
+        return t
+    }
 
 fun Throwable.asString(): String {
     val sw = StringWriter()
@@ -127,14 +132,15 @@ suspend fun <T> background(block: suspend () -> T): T = withContext(CommonPool, 
  * Returns an iterator over each [JarEntry]. Each time the iterator is advanced the stream can be read to access the
  * underlying entry bytes.
  */
-val JarInputStream.entriesIterator: Iterator<JarEntry> get() = buildIterator {
-    var cursor: JarEntry? = nextJarEntry
-    while (cursor != null) {
-        @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")  // Kotlin bug
-        yield(cursor!!)
-        cursor = nextJarEntry
+val JarInputStream.entriesIterator: Iterator<JarEntry>
+    get() = buildIterator {
+        var cursor: JarEntry? = nextJarEntry
+        while (cursor != null) {
+            @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")  // Kotlin bug
+            yield(cursor!!)
+            cursor = nextJarEntry
+        }
     }
-}
 
 /**
  * Returns a [JarInputStream] pointed at the given JAR file.

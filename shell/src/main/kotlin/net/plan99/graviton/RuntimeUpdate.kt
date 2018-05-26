@@ -42,9 +42,10 @@ class RuntimeUpdate(val jar: Path, private val signingKey: PublicKey) {
 
                 Files.newOutputStream(target).buffered().use { out ->
                     val size = stream.copyTo(out)
-                    check(size == entry.size) { "$size != ${entry.size}"}
+                    check(size == entry.size) { "$size != ${entry.size}" }
                 }
-                val certificates: Array<out Certificate> = entry.certificates ?: throw SignatureException("File ${entry.realName} is not signed")
+                val certificates: Array<out Certificate> = entry.certificates
+                        ?: throw SignatureException("File ${entry.realName} is not signed")
                 val publicKey = certificates.single().publicKey
                 if (!(publicKey.encoded contentEquals signingKey.encoded)) {
                     throw SignatureException("File ${entry.realName} is not signed by the right key: $publicKey vs $signingKey")
@@ -55,7 +56,8 @@ class RuntimeUpdate(val jar: Path, private val signingKey: PublicKey) {
         // If we need to, flip the execute bit on the unpacked binary.
         when (currentOperatingSystem) {
             OperatingSystem.MAC -> setExecuteBit(targetInstallDir / "Contents" / "MacOS" / "Graviton Browser")
-            OperatingSystem.WIN -> {}
+            OperatingSystem.WIN -> {
+            }
             OperatingSystem.LINUX -> TODO()
             OperatingSystem.UNKNOWN -> TODO()
         }

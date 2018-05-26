@@ -12,6 +12,7 @@ class MacTaskSchedulerTest {
     private val jimfs = Jimfs.newFileSystem(Configuration.osX())
     private val rootPath = jimfs.rootDirectories.first()
     private val appPath: Path = rootPath.resolve("/Applications/Foobar.app/Contents/Home/Foobar")
+
     init {
         // Create a dummy executable to satisfy the assertions.
         Files.createDirectories(appPath.parent)

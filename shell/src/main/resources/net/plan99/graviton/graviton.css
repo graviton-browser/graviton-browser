@@ -1,5 +1,5 @@
 .output-area {
-    -fx-background-color: rgba(255,255,255,0.95);
+    -fx-background-color: rgba(255, 255, 255, 0.95);
     -fx-font-family: monospace;
 }
 
@@ -7,10 +7,10 @@
     -fx-background-color: transparent;
 }
 
-.output-area .scroll-pane .viewport{
+.output-area .scroll-pane .viewport {
     -fx-background-color: transparent;
 }
 
-.output-area .scroll-pane .content{
+.output-area .scroll-pane .content {
     -fx-background-color: transparent;
 }

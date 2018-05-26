@@ -57,6 +57,7 @@ class ShellView : View("Graviton Browser") {
         }
 
         data class Art(val fileName: String, val topPadding: Int, val animationColor: Color)
+
         val allArt = listOf(
                 Art("paris.png", 0, Color.BLUE),
                 Art("forest.jpg", 200, Color.color(0.0, 0.5019608, 0.0, 0.5))

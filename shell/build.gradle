@@ -104,7 +104,7 @@ compileTestKotlin {
 jar {
     manifest {
         attributes(
-            'Implementation-Version': "${project.parent.version}"
+                'Implementation-Version': "${project.parent.version}"
         )
     }
 }
