@@ -219,7 +219,8 @@ open class AppLauncher(private val options: GravitonCLI,
             val files = fetch.classPath.split(classpathDelimiter).map { File(it) }
             val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
             // Chain to the parent classloader so our internals don't interfere with the application.
-            val classloader = URLClassLoader(fetch.name.toString(), urls, Thread.currentThread().contextClassLoader.parent)
+            // TODO: J9: Use classloader names.
+            val classloader = URLClassLoader(urls, Thread.currentThread().contextClassLoader.parent)
             val manifest = JarFile(files[0]).use { it.manifest }
             return AppLoadResult(classloader, manifest)
         } catch (e: java.nio.file.NoSuchFileException) {

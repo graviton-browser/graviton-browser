@@ -134,7 +134,7 @@ class HistoryManager(storagePath: Path,
         } ?: return null
         val (age, tooOld) = ageCheck(sameCoordinates)
         if (tooOld) {
-            info { "Found a history entry match for $packageName but it's too old (${age.toSeconds()} secs)" }
+            info { "Found a history entry match for $packageName but it's too old (${age.seconds} secs)" }
             return null
         }
         return sameCoordinates

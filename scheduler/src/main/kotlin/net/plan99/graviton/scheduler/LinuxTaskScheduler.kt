@@ -10,7 +10,6 @@ import java.time.Duration
  * @author Anindya Chatterjee
  */
 class LinuxTaskScheduler : OSTaskScheduler() {
-
     override fun register(taskName: String, task: OSScheduledTaskDefinition) {
         require(Files.isRegularFile(task.executePath)) { "Cannot access ${task.executePath}" }
         val cronExpression = task.frequency.toCronExpression()
@@ -31,10 +30,14 @@ class LinuxTaskScheduler : OSTaskScheduler() {
                     frequency = Duration.ofMinutes(1),
                     description = "Graviton Browser online update tasks. Do not disable this, if you do the app may become out of date and insecure."
             ))
-//            LinuxTaskScheduler().deregister("Graviton Browser Auto Update")
+            LinuxTaskScheduler().deregister("Graviton Browser Auto Update")
         }
     }
 }
+
+internal fun Duration.toMinutesPart(): Int = this.toMinutes().toInt() % 60
+internal fun Duration.toHoursPart(): Int = this.toHours().toInt() % 24
+internal fun Duration.toDaysPart(): Long = this.toDays()
 
 /**
  * Converts a [Duration] to an unix-style crontab expression.

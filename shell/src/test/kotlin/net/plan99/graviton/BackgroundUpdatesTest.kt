@@ -38,9 +38,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
     @Test
     fun serveUpdate() {
         withOverriddenOperatingSystem(OperatingSystem.MAC) {
-            val target = root / "2.mac.update.jar"
-            RuntimeUpdate.createFrom(fakeJreDir, priv1, target)
-            withServer(target) { baseUrl ->
+            withServer(testUpdate.jar) { baseUrl ->
                 assertNull(doCheck(baseUrl, 2))
                 val verNumMac = doCheck(baseUrl, 1)
                 assertEquals(2, verNumMac)
@@ -81,7 +79,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
             try {
                 exchange.sendResponseHeaders(200, size(updatePath))
                 newInputStream(updatePath).use { stream ->
-                    stream.transferTo(exchange.responseBody)
+                    stream.copyTo(exchange.responseBody)
                 }
             } finally {
                 exchange.close()

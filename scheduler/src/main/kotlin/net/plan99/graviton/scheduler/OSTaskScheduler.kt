@@ -42,7 +42,7 @@ abstract class OSTaskScheduler {
         if (!proc.waitFor(10, TimeUnit.SECONDS))
             throw TimeoutException("Timeout waiting for execution of: " + commandLine.joinToString(" "))
         if (proc.waitFor() != 0)
-            throw SubprocessException(commandLine.joinToString(" "), String(proc.inputStream.readAllBytes()))
+            throw SubprocessException(commandLine.joinToString(" "), String(proc.inputStream.readBytes()))
     }
 }
 

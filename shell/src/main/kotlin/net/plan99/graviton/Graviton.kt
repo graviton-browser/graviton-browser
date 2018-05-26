@@ -47,7 +47,7 @@ private fun getTermWidth(): Int {
             OperatingSystem.MAC, OperatingSystem.LINUX -> {
                 val proc = ProcessBuilder("stty", "size").redirectInput(ProcessBuilder.Redirect.INHERIT).start()
                 proc.waitFor()
-                val o2 = String(proc.inputStream.readAllBytes())
+                val o2 = String(proc.inputStream.readBytes())
                 val output = o2.split(' ')[1].trim()
                 output.toInt()
             }

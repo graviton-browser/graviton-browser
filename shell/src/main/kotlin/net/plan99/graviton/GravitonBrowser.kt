@@ -16,6 +16,7 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
+import org.eclipse.aether.transfer.ArtifactNotFoundException
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -110,6 +111,9 @@ class ShellView : View("Graviton Browser") {
                 style {
                     backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
                     backgroundRadius = multi(box(5.px))
+                    borderWidth = multi(box(3.px))
+                    borderColor = multi(box(Color.LIGHTGREY))
+                    borderRadius = multi(box(5.px))
                 }
                 padding = insets(15.0)
                 alignment = Pos.CENTER
@@ -164,8 +168,8 @@ class ShellView : View("Graviton Browser") {
             override suspend fun onStartedDownloading(name: String) {
                 downloadProgress.set(0.0)
                 isDownloading.set(true)
-                messageText1.set("")
-                messageText2.set("Please wait ...")
+                messageText1.set("Please wait ...")
+                messageText2.set("Resolving")
             }
 
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
@@ -209,7 +213,14 @@ class ShellView : View("Graviton Browser") {
         isDownloading.set(false)
         downloadProgress.set(0.0)
         messageText1.set("Start failed")
-        messageText2.set(e.toString())
+        val msg = if (e is AppLauncher.StartException) {
+            if (e.rootCause is ArtifactNotFoundException) {
+                "Could not locate the requested application"
+            } else
+                e.message
+        } else
+            e.toString()
+        messageText2.set(msg)
         logger.error("Start failed", e)
     }
 

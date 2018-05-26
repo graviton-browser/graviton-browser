@@ -1,6 +1,5 @@
 package net.plan99.graviton
 
-import org.junit.Ignore
 import org.junit.Test
 import java.nio.file.Files.newOutputStream
 import java.nio.file.Files.walk
@@ -16,17 +15,8 @@ import kotlin.test.assertTrue
 
 class RuntimeUpdateTest : TestWithFakeJRE() {
     @Test
-    fun jreDirDoesNotExist() {
-        assertFailsWith<java.nio.file.NoSuchFileException> {
-            RuntimeUpdate.createFrom(root / "no-jre", priv1, root / "whatever")
-        }
-    }
-
-    @Test
     fun createAndApply() {
-        val target = root / "2.update.jar"
-        val update: RuntimeUpdate = RuntimeUpdate.createFrom(fakeJreDir, priv1, target)
-        assertEquals(target, update.jar)
+        val update: RuntimeUpdate = testUpdate
         val jarEntries = update.jar.readAsJar().entriesIterator.asSequence().toList()
         // Check we have the same names but order doesn't matter.
         val jarFileNames = jarEntries.map {
@@ -44,10 +34,6 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
                 .distinct()
                 .single()
                 .verify(priv1.certificate.publicKey)
-        // Try applying to a non-existent install directory.
-        assertFailsWith<java.nio.file.NoSuchFileException> {
-            update.install(root / "no-such-dir")
-        }
         // Apply to a real install directory.
         val installDir = root / "install-dir"
         installDir.createDirectories().let { update.install(it) }
@@ -71,8 +57,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
     fun notSigned() {
         // Create an update but drop the signature files, then try to apply it.
         val badPath = root / "bad.update.jar"
-        val update: RuntimeUpdate = RuntimeUpdate.createFrom(fakeJreDir, priv1, root / "tmp.jar")
-        editJar(badPath, update.jar) { entry, newJarStream, oldJarStream ->
+        editJar(badPath, testUpdate.jar) { entry, newJarStream, oldJarStream ->
             if (".SF" !in entry.realName) {
                 newJarStream.putNextEntry(entry)
                 oldJarStream.copyTo(newJarStream)
@@ -87,8 +72,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
     @Test
     fun fileCorrupted() {
         val badPath = root / "bad.update.jar"
-        val update: RuntimeUpdate = RuntimeUpdate.createFrom(fakeJreDir, priv1, root / "tmp.jar")
-        editJar(badPath, update.jar) { entry, newJarStream, oldJarStream ->
+        editJar(badPath, testUpdate.jar) { entry, newJarStream, oldJarStream ->
             newJarStream.putNextEntry(entry)
             if (".class" !in entry.realName) {
                 oldJarStream.copyTo(newJarStream)
@@ -100,10 +84,5 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
         assertFailsWith<SignatureException> {
             RuntimeUpdate(badPath, pub1).install((root / "does-not-work").createDirectories())
         }
-    }
-
-    @Test @Ignore
-    fun multiSigned() {
-        TODO("not implemented")
     }
 }
