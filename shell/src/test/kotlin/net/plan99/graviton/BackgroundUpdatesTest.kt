@@ -12,7 +12,6 @@ import java.nio.file.Path
 import java.util.concurrent.Executors
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class BackgroundUpdatesTest : TestWithFakeJRE() {
@@ -39,9 +38,9 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
     fun serveUpdate() {
         withOverriddenOperatingSystem(OperatingSystem.MAC) {
             withServer(testUpdate.jar) { baseUrl ->
-                assertNull(doCheck(baseUrl, 2))
-                val verNumMac = doCheck(baseUrl, 1)
-                assertEquals(2, verNumMac)
+                assertEquals(BackgroundUpdates.Result.AlreadyFresh, doCheck(baseUrl, 2))
+                val result = doCheck(baseUrl, 1)
+                assertEquals(BackgroundUpdates.Result.UpdatedTo(2), result)
                 assertTrue(Files.exists(root / "install" / "Contents" / "2" / "Contents" / "MacOS" / "Graviton Browser"))
             }
         }
@@ -50,6 +49,21 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
     @Test
     fun canParseMikesKey() {
         BackgroundUpdates.mikePubKey
+    }
+
+    @Test
+    fun diskSpaceCheck() {
+        // We could re-create the jimfs with a small size, but it's easier to just change the required disk space
+        // free threshold and then re-run the check.
+        val pre = BackgroundUpdates.requiredFreeSpaceMB
+        try {
+            BackgroundUpdates.requiredFreeSpaceMB = 8000  // JimFS default size is 4 GB
+            withServer(testUpdate.jar) { baseUrl ->
+                assertEquals(BackgroundUpdates.Result.InsufficientDiskSpace, doCheck(baseUrl, 1))
+            }
+        } finally {
+            BackgroundUpdates.requiredFreeSpaceMB = pre
+        }
     }
 
     private fun startServer(updatePath: Path): Pair<HttpServer, HttpUrl> {
@@ -87,7 +101,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         }
     }
 
-    private fun doCheck(baseUrl: HttpUrl, currentVersion: Int): Int? {
+    private fun doCheck(baseUrl: HttpUrl, currentVersion: Int): BackgroundUpdates.Result {
         return BackgroundUpdates.checkForGravitonUpdate(
                 currentVersion,
                 (root / "install" / "Contents").createDirectories(),

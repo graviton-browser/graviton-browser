@@ -17,9 +17,7 @@ import java.time.Duration
 import java.util.*
 
 // TODO: Include secure hashes in the redirect file and check post-download that it's correct.
-// TODO: Test on macOS with a full background update.
 // TODO: Make application of updates atomic by renaming destination directory to final form after unpack.
-// TODO: Check disk space before starting any background updates.
 // TODO: Document how to prepare a runtime update for each OS.
 // TODO: Test on Windows with a full background update.
 // TODO: Backup private keys.
@@ -62,11 +60,17 @@ object BackgroundUpdates : Logging() {
 
     data class ControlFileResults(val verNum: Int, val url: HttpUrl)
 
+    sealed class Result {
+        data class UpdatedTo(val version: Int) : Result()
+        object AlreadyFresh : Result()
+        object InsufficientDiskSpace : Result()
+    }
+
     /**
      * Returns the version number that we were upgraded to, or null if no upgrade was performed.
      */
     fun checkForGravitonUpdate(currentVersion: Int, currentInstallDir: Path, baseURL: URI,
-                               signingPublicKey: PublicKey = mikePubKey): Int? {
+                               signingPublicKey: PublicKey = mikePubKey): Result {
         val client = OkHttpClient.Builder()
                 .followRedirects(true)
                 .followSslRedirects(true)
@@ -75,16 +79,15 @@ object BackgroundUpdates : Logging() {
             val controlFileData = fetchControlData(baseURL, currentVersion, client)
             val (verNum, redirectURL) = controlFileData
             logger.info("Latest version is $verNum")
-            // Do we need to update at all? Usually not.
+
             if (verNum <= currentVersion) {
                 logger.info("We are up to date.")
-                return null
+                return Result.AlreadyFresh
             }
 
-            fetch(client, redirectURL) {
+            return fetch(client, redirectURL) {
                 downloadAndInstallUpgrade(it, currentInstallDir, verNum, signingPublicKey)
             }
-            return verNum
         } finally {
             client.dispatcher().executorService().shutdown()
             client.connectionPool().evictAll()
@@ -101,6 +104,8 @@ object BackgroundUpdates : Logging() {
         return fetch(client, url) { extractControlDataFrom(it, url) }
     }
 
+    // Runs a request and passes the response to the block. The block scopes the request
+    // and it will be closed, freeing the resources used, after the block completes.
     private fun <T> fetch(client: OkHttpClient, url: HttpUrl, block: (Response) -> T): T {
         try {
             logger.info("GET $url")
@@ -135,22 +140,45 @@ object BackgroundUpdates : Logging() {
         return ControlFileResults(verNum, latestVersionURL)
     }
 
-    private fun downloadAndInstallUpgrade(response: Response, currentInstallDir: Path, verNum: Int, signingPublicKey: PublicKey) {
+    private fun downloadAndInstallUpgrade(response: Response, currentInstallDir: Path, verNum: Int, signingPublicKey: PublicKey): Result {
         val updateJarPath = Files.createTempFile("graviton-update", ".update.jar")
         try {
+            val targetInstallDir = currentInstallDir / verNum.toString()
+            if (!isEnoughDiskSpace(updateJarPath, targetInstallDir))
+                return Result.InsufficientDiskSpace
             Files.newOutputStream(updateJarPath).use { out ->
                 response.body()!!.byteStream().copyTo(out)
             }
             logger.info("Saved update JAR to $updateJarPath")
-            val targetInstallDir = currentInstallDir / verNum.toString()
             logger.info("Unpacking to $targetInstallDir")
             RuntimeUpdate(updateJarPath, signingPublicKey).install(targetInstallDir)
+            return Result.UpdatedTo(verNum)
         } finally {
             Files.delete(updateJarPath)
         }
     }
 
-    suspend fun CoroutineScope.refreshRecentApps(cachePath: Path) {
+    var requiredFreeSpaceMB = 500
+
+    private fun isEnoughDiskSpace(updateJarPath: Path, targetInstallDir: Path): Boolean {
+        // Check the temp directory for sufficient space.
+        val usableSpaceOnTempDriveMB = Files.getFileStore(updateJarPath).usableSpace / 1024 / 1024
+        if (usableSpaceOnTempDriveMB < requiredFreeSpaceMB) {
+            logger.warn("Not enough disk space in temporary directory ${updateJarPath.parent}. Have " +
+                    "$usableSpaceOnTempDriveMB MB but won't proceed without $requiredFreeSpaceMB MB")
+            return false
+        }
+        // Now check the install location, they may be different.
+        val usableSpaceOnTargetDriveMB = Files.getFileStore(targetInstallDir).usableSpace / 1024 / 1024
+        if (usableSpaceOnTargetDriveMB < requiredFreeSpaceMB) {
+            logger.warn("Not enough disk space to apply update. Have $usableSpaceOnTargetDriveMB " +
+                    "but won't proceed without $requiredFreeSpaceMB")
+            return false
+        }
+        return true
+    }
+
+    private suspend fun CoroutineScope.refreshRecentApps(cachePath: Path) {
         try {
             val codeFetcher = CodeFetcher(coroutineContext, cachePath)
             val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))
