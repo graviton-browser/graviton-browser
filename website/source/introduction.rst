@@ -2,7 +2,9 @@ Introduction
 ************
 
 We would like a competitor to the web browser for JVM application distribution and deployment, to act as an alternative
-to the now deprecated Java Web Start, applets, and javapackager style bundled distribution. Initial target markets:
+to the now deprecated Java Web Start, applets, and javapackager style bundled distribution.
+
+Initial target markets:
 
 * Internal apps in industrial and enterprise scenarios, e.g. finance and trading applications where web apps are often
   not preferred for productivity/usability/security and other reasons. Slick updates and a deploy-once runtime are
@@ -28,28 +30,27 @@ FAQ
 
 **Why the JVM?** We don't want to repeat the web's mistake of restricting us to a single language. The JVM has the best
 support for running multiple languages and having them interoperate. It also has some of the best cross platform user
-interface frameworks, many excellent libraries and modules, good tools and a relatively clean design. Through Graal
+interface frameworks, many excellent libraries and modules, good tools and a relatively clean design for its age. Through Graal
 and Truffle languages we can combine not only scripting languages like JavaScript, Python and Ruby but also C/C++
 modules via Sulong. This gives us a direct equivalent to WebAssembly.
 
-**Aren't JVMs bloated and sluggish?** Historically yes. We aren't worried about this though for three reasons. (1) Our competition
-isn't expertly written C++ apps but web apps, which are even worse. (2) The bulk of the JVM's reputation for sluggishness
-comes from startup time and memory usage, not peak runtime performance. All of these are being tackled by the JVM team
-through recently added features like ahead of time compilation, AppCDS (class data pre-computation and sharing), GCs
-that don't pause the application and other such features. (3) The JVM's reputation largely dates from the late 1990's
-and early 2000's when hardware wasn't as good as it is now. Over time hardware got bigger and the JVM got more
-efficient. So we aren't worried about this so much anymore.
+**Aren't JVMs bloated and sluggish?** Historically yes. We aren't worried about this though for three reasons.
+(1) Our competition isn't expertly written C++ apps but web apps, which are even worse. (2) The bulk of the JVM's
+reputation for sluggishness comes from startup time and memory usage, not peak runtime performance. All of these
+are being tackled by the JVM team through recently added features like ahead of time compilation, AppCDS (class data
+pre-computation and sharing), GCs that don't pause the application and other such features. (3) The JVM's reputation
+largely dates from the late 1990's and early 2000's when hardware wasn't as good as it is now. Over time hardware got
+bigger and JVMs got more efficient. So we aren't worried about this so much anymore.
 
 **Do apps need to be written specifically for it?** No, Graviton can download and run ordinary Java apps with a main
 method that have been uploaded to a Maven repository or github. There are many such apps already. But with small
 adaptations, the user experience will get a lot better. As such there is no bright line between a JVM app and a
 Graviton app. We call this :doc:`incremental-adaptation`.
 
-**Is this real?** Not exactly, but from tiny acorns great oaks can grow! It's not usable today but why not help us make
-it real? Check out the `task list <https://github.com/mikehearn/graviton-browser/issues>`_.
-
 User experience sketch
 ======================
+
+.. note:: This section describes the end state vision, not what is currently implemented.
 
 Graviton exposes a dual user experience. For GUI apps it is somewhat analagous to a web browser, but with a greater
 focus on allowing apps to open top level windows (escape the tab). It features:
@@ -66,9 +67,10 @@ restricted by optional developer specified policy. This means that botched app u
 that offline support can work well, that demos are not unnecessarily affected by bad wifi or an unexpected app upgrade
 between preparation and presentation.
 
-Graviton may understand and use mDNS to enable network administrators to publish discoverable apps, as an alternative to
-intranet/default-page style deployment. The shell app ("new tab page" equivalent) is very customisable, rebrandable and
-even entirely replaceable. Unlike web browser makers we do not have any website market share to defend.
+Graviton may understand and use mDNS (ZeroConf/Bonjour) to enable network administrators to publish discoverable apps,
+as an alternative to intranet/default-page style deployment. The shell app ("new tab page" equivalent) is very
+customisable, rebrandable and even entirely replaceable. Unlike web browser makers we do not have any website market
+share to defend.
 
 A basic page / Markdown rendering feature is supported. This enables the root UI of an app that is embedded in a tab to
 be basic instructions or release notes, if the app really doesn't want to be confined to a tab and would rather open its
@@ -87,9 +89,10 @@ and so on that allows you to install command line apps and keep background updat
 Some time later::
 
     $ sketch --help
-    <silent delay as the app is updated>
     Welcome to sketch 3.4
 
+There is no download delay because the app was upgraded in the background using the same OS scheduled task that updates
+the runtime.
 
 Implementation sketch
 =====================
@@ -100,6 +103,8 @@ no version number will be specified although one can be given. The background sh
 the openly licensed art community and it changes with each update. A change of background art acts as a subtle hint to
 the user that the browser has updated.
 
+In future, other forms of app identifier beyond Maven coordinates may be considered.
+
 When the user presses enter, download progress is shown until the app is ready for launch. If the app prints to stdout
 or stderr then this is captured and made available via a "Show console" expando, which hides the output by default for
 any app that appears to depend on JavaFX or Swing.
@@ -108,8 +113,10 @@ Below the address bar is a store-like area where recently used apps are presente
 advertised on the local network e.g. corporate / IoT apps, and any spare slots are used for featured apps that showcase
 the platform.
 
-**URL handler.** Graviton will register a URL handler so apps are invokable from web pages. Such apps will receive a
-warning if they haven't opted in to sandboxing.
+**URL handler.** Graviton will register a URL handler so it can be invoked from the web. Clicking a URL will open the
+shell window with the app coordinate pre-filled but the user will still be expected to press enter to run it. This is
+so the user gets a chance to opt in or out of sandboxing, and also to train the user to go straight to Graviton to run
+apps (it's faster for them and reduces the risk of browser makers trying to kill the platform by blocking the URL scheme).
 
 **Incremental adaptation.** Because the shell is resolving and invoking main classes from Maven coordinates, it is capable
 of running any ordinary Java app that has a main method. By implementing a series of small, simple tweaks to an app,
@@ -190,65 +197,3 @@ sign-in based on local credentials, when the network is properly configured. It'
 **Integration with native desktop IPC.** Graviton apps should be able to expose control surfaces via platform native
 OO IPC mechanisms, in particular, COM and DBUS. This would allow scripting and interaction with Graviton apps from
 tools like MS Office macros.
-
-Implementation plan
-===================
-
-Because none of us have any spare time, project planning and small iterations are critical. The goal is to reach the
-above featureset eventually, but maybe not fast. Fortunately this sort of project is mostly made of small tasks that
-incrementally improve things, so it's ideal for open source development.
-
-Many tasks can be done in parallel. Tasks are tracked using GitHub issues with labels indicating top level parallelism.
-Here are some proposed tracks.
-
-Browser and runtime updates
----------------------------
-
-Silent background upgrades of the runtime (JVM+app browser) itself. See ":doc:`browser-update`" for more detailed design
-discussion.
-
-Module loading
---------------
-
-Iteration 1: Write a command line tool that given a domain name, downloads a set of modules with a local HTTP cache.
-Use ModuleLayer to load them, isolated from the browser internals, and initiate the app via a GravitonApp service.
-If the remote modular JARs change, they are redownloaded. For now a simple manifest file can be used to list all the
-JARs but this is not intended to be a long term solution. It's just a quick way to get started.
-
-Iteration 2: Support for module streaming and execution of partially downloaded applications.
-
-Iteration 3: Experiment with pack200 compression, with Jigsaw modules and with cached dependency resolution using
-secure hashes for deduplication. That is, the module cache should not be the HTTP cache anymore when the right
-metadata is present.
-
-App shell
----------
-
-Iteration 1: Create a top level window with a basic ``GravitonApp`` API, to allow applications to provide a ``JavaFX``
-Scene. If they want to use Swing they can write a wrapper that embeds a SwingNode for their main window (or open other
-windows, or both). At this point the app has to be on the classpath together with the app shell.
-
-Iteration 2: Implement a simple address bar type UI that allows the user to specify a domain name (not a full URL), which
-then looks up the app in an internal hard-coded hashmap to initiate it. The goal at this point is UI exploration and not
-module loading or anything like that (this is a parallel track that can be integrated later).
-
-Sandboxing
-----------
-
-Iteration 1: A basic sandbox is integrated into the module loader subsystem. Unrestricted TCP/IP sockets to the origin
-is granted automatically. File access is provided to two app-private directories, which are located in the correct file
-locations for local temporaries/caches and replicated home directories, respectively. Storage quota at this time is
-uncapped. Access to files outside the private areas are forbidden.
-
-Iteration 2: One of the benefits of getting away from the web is better integration with the file system. Direct access
-to local files and directories can be granted via the PowerBox pattern (a file/directory directory chooser dialog that is
-controlled by the browser and grants access to whatever is selected). Access rights to files are remembered.
-
-Samples
--------
-
-Iteration 1: Sample apps showing Swing, JavaFX would be nice to have and can be developed in parallel as the browser develops.
-
-Iteration 2: Sample app showing how to use TruffleRuby and/or GraalJS.
-
-Iteration 3: Command line apps.
