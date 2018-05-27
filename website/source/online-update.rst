@@ -149,3 +149,26 @@ Java 9+ introduces a nice feature; the jlink and javapackager tools can now mini
 that aren't needed. Unfortunately it comes with a huge caveat - this only works for fully modularised apps, and the
 tooling, Gradle and Kotlin support for this is half baked. Building and jlinking a modular Kotlin app is still far from
 easy. For now we will punt this to later in the hope that the ecosystem eventually catches up.
+
+Preparing an update
+===================
+
+Make sure you have a keystore.p12 file that contains an PKCS#12 key store. You can create a signing key like this::
+
+    openssl ecparam -out ec_key.pem -name secp256r1 -genkey
+    openssl req -new -key ec_key.pem -nodes -x509 -days 3650 -out update_cert.pem
+    # Enter some plausible sounding details here. The cert details don't matter.
+    openssl pkcs12 -inkey ec_key.pem -in update_cert.pem  -export -out keystore.p12 -alias $USER
+
+After running these commands, you will have a p12 file that contains an elliptic curve private key and certificate,
+under the alias of your current username.
+
+The procedure for pushing an update to the browser and runtime is as follows.
+
+1. Increase the version number in the root build.gradle file (it's represented as a string but must be an integer value)
+2. Run the package-osname script in the root directory for each OS in turn. For instance ``package-mac.sh``
+3. This will run the procedure to generate a native installer, unpack it, and then output a signed JAR of the update in the current directory.
+4. Upload this JAR to the server.
+5. Update the control file.
+
+.. warning:: On macOS make sure you don't have any prior disk images mounted when running, as it can interfere with the build process.

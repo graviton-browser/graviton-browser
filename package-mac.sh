@@ -12,4 +12,4 @@ cd "/Volumes/Graviton Browser/Graviton Browser.app/Contents/$v"
 jar cvf $jarname .
 cd -
 umount "/Volumes/Graviton Browser"
-jarsigner -keystore keystore.p12 $jarname mike
+jarsigner -keystore keystore.p12 $jarname $USER
