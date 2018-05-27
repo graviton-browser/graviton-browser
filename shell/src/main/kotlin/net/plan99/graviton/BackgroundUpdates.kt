@@ -17,7 +17,6 @@ import java.time.Duration
 import java.util.*
 
 // TODO: Make application of updates atomic by renaming destination directory to final form after unpack.
-// TODO: Document how to prepare a runtime update for each OS.
 // TODO: Test on Windows with a full background update.
 // TODO: Backup private keys.
 // TODO: Document how to generate a keystore and sign a JAR
@@ -142,13 +141,13 @@ object BackgroundUpdates : Logging() {
     private fun downloadAndInstallUpgrade(response: Response, currentInstallDir: Path, verNum: Int, signingPublicKey: PublicKey): Result {
         val updateJarPath = Files.createTempFile("graviton-update", ".update.jar")
         try {
-            val targetInstallDir = currentInstallDir / verNum.toString()
-            if (!isEnoughDiskSpace(updateJarPath, targetInstallDir))
+            if (!isEnoughDiskSpace(updateJarPath, currentInstallDir))
                 return Result.InsufficientDiskSpace
             Files.newOutputStream(updateJarPath).use { out ->
                 response.body()!!.byteStream().copyTo(out)
             }
             logger.info("Saved update JAR to $updateJarPath")
+            val targetInstallDir = currentInstallDir / verNum.toString()
             logger.info("Unpacking to $targetInstallDir")
             RuntimeUpdate(updateJarPath, signingPublicKey).install(targetInstallDir)
             return Result.UpdatedTo(verNum)

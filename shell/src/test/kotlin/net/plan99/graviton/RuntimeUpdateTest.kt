@@ -1,6 +1,7 @@
 package net.plan99.graviton
 
 import org.junit.Test
+import java.nio.file.Files
 import java.nio.file.Files.newOutputStream
 import java.nio.file.Files.walk
 import java.nio.file.Path
@@ -11,6 +12,7 @@ import java.util.jar.JarOutputStream
 import kotlin.streams.toList
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RuntimeUpdateTest : TestWithFakeJRE() {
@@ -36,7 +38,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
                 .verify(priv1.certificate.publicKey)
         // Apply to a real install directory.
         val installDir = root / "install-dir"
-        installDir.createDirectories().let { update.install(it) }
+        update.install(installDir)
         // Check it was unpacked.
         assertTrue((installDir / "Contents").exists)
         val installedFiles = walk(installDir).map { installDir.relativize(it).toString() }.toList().drop(1)
@@ -65,7 +67,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
             }
         }
         assertFailsWith<SignatureException> {
-            RuntimeUpdate(badPath, pub1).install((root / "does-not-work").createDirectories())
+            RuntimeUpdate(badPath, pub1).install(root / "does-not-work")
         }
     }
 
@@ -82,7 +84,8 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
             newJarStream.closeEntry()
         }
         assertFailsWith<SignatureException> {
-            RuntimeUpdate(badPath, pub1).install((root / "does-not-work").createDirectories())
+            RuntimeUpdate(badPath, pub1).install(root / "does-not-work")
         }
+        assertFalse(Files.exists(root / "does-not-work"))
     }
 }
