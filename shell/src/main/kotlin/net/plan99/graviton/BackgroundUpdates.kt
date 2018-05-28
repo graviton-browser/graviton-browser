@@ -16,12 +16,7 @@ import java.security.spec.X509EncodedKeySpec
 import java.time.Duration
 import java.util.*
 
-// TODO: Make application of updates atomic by renaming destination directory to final form after unpack.
 // TODO: Test on Windows with a full background update.
-// TODO: Backup private keys.
-// TODO: Document how to generate a keystore and sign a JAR
-//       openssl req -new -key ec_key.pem -nodes -x509 -days 3650 -out update_cert.pem
-//       openssl pkcs12 -inkey ec_key.pem -in update_cert.pem  -export -out keystore.p12 -alias mike
 
 object BackgroundUpdates : Logging() {
     private const val signingPubKeyB64 = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElI2KSzGh1b9KYsYXAU/YYtOqsm1aFcwkuj1VhjNmaVo/0SKUZvdApP5N9+wa2KvQS0UoXdD4XvHKxiEtJ0/QiA=="
