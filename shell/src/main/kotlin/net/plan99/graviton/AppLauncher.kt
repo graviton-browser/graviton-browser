@@ -70,7 +70,7 @@ open class AppLauncher(private val options: GravitonCLI,
 
         val loadResult: AppLoadResult = try {
             buildClassLoaderFor(fetch)
-        } catch (e: java.nio.file.NoSuchFileException) {
+        } catch (e: java.io.FileNotFoundException) {
             // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
             // downloaded artifacts but leaves the recent apps list alone. Let's re-resolve and try again.
             buildClassLoaderFor(download(userInput, codeFetcher))
@@ -223,7 +223,7 @@ open class AppLauncher(private val options: GravitonCLI,
             val classloader = URLClassLoader(urls, Thread.currentThread().contextClassLoader.parent)
             val manifest = JarFile(files[0]).use { it.manifest }
             return AppLoadResult(classloader, manifest)
-        } catch (e: java.nio.file.NoSuchFileException) {
+        } catch (e: java.io.FileNotFoundException) {
             throw e
         } catch (e: Exception) {
             throw StartException("Failed to build classloader given class path: ${fetch.classPath}", e)
