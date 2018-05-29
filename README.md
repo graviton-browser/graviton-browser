@@ -46,3 +46,11 @@ window. Try `net.plan99:tictactoe` for an example.
 
 The first milestone is to get Graviton to the point where we can distribute alpha builds to interested people, which will auto update 
 indefinitely. [The tasks required are tracked here](https://github.com/mikehearn/graviton-browser/projects/1)
+
+# Artwork credits
+
+This section will be moved to the about box, once implemented.
+
+- Background art courtesy of Vexels.
+- Icon courtesy of icons8.com
+- 'Wire One' font courtesy of Google Fonts. 
