@@ -27,6 +27,7 @@ import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
 import java.util.*
+import javax.imageio.ImageIO
 import kotlin.concurrent.thread
 
 
@@ -37,7 +38,7 @@ import kotlin.concurrent.thread
 
 // Allow for minimal rebranding in future.
 val APP_NAME = "Graviton"
-val View.APP_LOGO get() = Image(resources["art/icons8-rocket-take-off-128.png"])
+val Component.APP_LOGO get() = Image(resources["art/icons8-rocket-take-off-128.png"])
 
 class GravitonBrowser : App(ShellView::class, Styles::class) {
     init {
@@ -45,12 +46,30 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
     }
 
     override fun start(stage: Stage) {
+        stage.icons.addAll(
+                Image(resources["art/icons8-rocket-take-off-128.png"]),
+                Image(resources["/net/plan99/graviton/art/icons8-rocket-take-off-512.png"]),
+                Image(resources["art/icons8-rocket-take-off-64.png"])
+        )
         stage.isMaximized = true
         if (currentOperatingSystem == OperatingSystem.MAC) {
             // This looks nice on OS X but not so great on other platforms. Note that it doesn't work on Java 8, but looks right on
             // Java 10. Once we upgrade we'll get it back.
             stage.initStyle(StageStyle.UNIFIED)
+            val dockImage = ImageIO.read(resources.stream("art/icons8-rocket-take-off-512.png"))
+            // This is a PITA - stage.icons doesn't work on macOS, instead there's two other APIs, one for Java 8 and one for post-J8.
+            // TODO: In Java 9+ there is a different API for this:
+            // Taskbar.getTaskbar().setIconImage(icon);
+            Class.forName("com.apple.eawt.Application")
+                    ?.getMethod("getApplication")
+                    ?.invoke(null)?.let { app ->
+                        app.javaClass
+                           .getMethod("setDockIconImage", java.awt.Image::class.java)
+                           .invoke(app, dockImage)
+                    }
+            stage.title = "Graviton"
         }
+
         super.start(stage)
     }
 }

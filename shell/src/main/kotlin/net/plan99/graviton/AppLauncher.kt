@@ -139,6 +139,7 @@ open class AppLauncher(private val options: GravitonCLI,
             // Switch context classloader, this is needed for loading code and resources.
             Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
             val app = jfxApplicationClass.getConstructor().newInstance()
+            ModuleHacks.setParams(app, args)
             app.init()
             // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
             // or the shell changes e.g. by adding new properties or binding new ones.

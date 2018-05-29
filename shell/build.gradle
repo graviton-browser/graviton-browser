@@ -18,6 +18,10 @@ apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'com.google.osdetector'
 
+compileJava {
+    // options.compilerArgs << "--add-exports" << "javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" << "--add-exports" << "java.desktop/com.apple.eawt=ALL-UNNAMED"
+}
+
 dependencies {
     // Kotlin - standard library for the Kotlin language
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"

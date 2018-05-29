@@ -7,11 +7,15 @@ Newsletters
 Progress report
 ^^^^^^^^^^^^^^^
 
-* Apps are updated in the background every 24 hours if the user started them without a version specifier in the coordinate.
+* Apps are updated in the background every 6 hours if the user started them without a version specifier in the coordinate.
 * Backported to Java 8. Too many things still break with Java 10, but there'll be another attempt in future with some extra logic added
   to increase app compatibility.
 * Conscrypt is now used by default, it eliminates the overhead of using SSL entirely.
-* Silent runtime updates are now fully working for macOS.
+* Silent runtime updates are now fully working and tested on macOS. Free disk space is checked and updates are applied atomically, with
+  signature checking to detect maliciously crafted updates.
+* A logo has been selected. It may change in future but it'll do for now.
+* A new download animation has been created.
+* On macOS the app menu now has an about box and a clear cache option.
 
 20th May 2018
 =============

@@ -1,11 +1,11 @@
 #!/bin/bash
 
 set -x
-cd ../images/*/Graviton\ Browser.app/Contents/
+cd ../images/*/Graviton.app/Contents/
 mkdir -p $GRAVITON_VERSION/Contents
 mv Java/ MacOS/ PlugIns/ $GRAVITON_VERSION/Contents
 mkdir MacOS
-mv $GRAVITON_VERSION/Contents/Java/bootstrap.kexe MacOS/Graviton\ Browser
+mv $GRAVITON_VERSION/Contents/Java/bootstrap.kexe MacOS/Graviton
 cd $GRAVITON_VERSION/Contents/PlugIns/
 
 # TODO: Maybe if the app gets larger activate AppCDS. This blog post says it's a 20% win for a large app and it's

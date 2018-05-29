@@ -20,17 +20,21 @@ javapackager -deploy \
              -nosign \
              -native dmg \
              -outdir build/packaged \
-             -outfile "Graviton Browser" \
-             -name "Graviton Browser" \
+             -outfile "Graviton" \
+             -name "Graviton" \
              -appclass net.plan99.graviton.Graviton \
              -srcdir build/install/graviton/lib \
              -srcfiles $srcfiles \
-             "-Bicons=package/macosx/Graviton Browser.icns" \
+             "-Bicons=package/macosx/Graviton.icns" \
              -Bidentifier=net.plan99.graviton \
              -BmainJar=graviton-$v.jar \
              -BappVersion=$v \
              -Bmac.CFBundleIdentifier=net.plan99.graviton \
              -verbose
+
+if [[ "$1" == "--skip-jar" ]]; then
+    exit 0
+fi
 
 hdiutil attach "build/packaged/bundles/Graviton Browser-$v.dmg"
 cd "/Volumes/Graviton Browser/Graviton Browser.app/Contents/$v"

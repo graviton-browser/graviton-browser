@@ -25,4 +25,4 @@ val fullBinaryPath: String
         }
     }
 
-val exeFile: String get() = "Contents/MacOS/Graviton Browser"
+val exeFile: String get() = "Contents/MacOS/Graviton"
