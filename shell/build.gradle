@@ -92,6 +92,9 @@ dependencies {
 
     // OkHttp - good HTTP client library
     compile 'com.squareup.okhttp3:okhttp:3.10.0'
+
+    // NSMenuFX - library for controlling the Mac native menu bar.
+    compile 'de.codecentric.centerdevice:centerdevice-nsmenufx:2.1.6'
 }
 
 compileKotlin {

@@ -1,16 +1,22 @@
 package net.plan99.graviton
 
+import de.codecentric.centerdevice.MenuToolkit
+import de.codecentric.centerdevice.dialogs.about.AboutStageBuilder
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.StringProperty
 import javafx.geometry.Pos
+import javafx.scene.control.Alert
+import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
+import javafx.scene.effect.DropShadow
 import javafx.scene.image.Image
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
-import javafx.scene.text.FontWeight
+import javafx.scene.paint.Paint
+import javafx.scene.text.Font
 import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
 import javafx.stage.StageStyle
@@ -20,7 +26,18 @@ import org.eclipse.aether.transfer.ArtifactNotFoundException
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
+import java.util.*
 import kotlin.concurrent.thread
+
+
+// TODO: Organise all attribution links for artwork in the about box, once there is one.
+// icons8.com
+// OFL 1.1 license for the font
+// vexels for the vector art
+
+// Allow for minimal rebranding in future.
+val APP_NAME = "Graviton"
+val View.APP_LOGO get() = Image(resources["art/icons8-rocket-take-off-128.png"])
 
 class GravitonBrowser : App(ShellView::class, Styles::class) {
     init {
@@ -30,14 +47,15 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
     override fun start(stage: Stage) {
         stage.isMaximized = true
         if (currentOperatingSystem == OperatingSystem.MAC) {
-            // This looks nice on OS X but not so great on other platforms.
+            // This looks nice on OS X but not so great on other platforms. Note that it doesn't work on Java 8, but looks right on
+            // Java 10. Once we upgrade we'll get it back.
             stage.initStyle(StageStyle.UNIFIED)
         }
         super.start(stage)
     }
 }
 
-class ShellView : View("Graviton Browser") {
+class ShellView : View() {
     companion object : Logging()
 
     private val downloadProgress = SimpleDoubleProperty(0.0)
@@ -51,23 +69,29 @@ class ShellView : View("Graviton Browser") {
 
     // Build up the UI layouts and widgets using the TornadoFX DSL.
     override val root = stackpane {
-        style {
-            fontFamily = "Raleway"
-            fontWeight = FontWeight.EXTRA_LIGHT
+        style { backgroundColor = multi(Color.WHITE) }
+
+        if (currentOperatingSystem == OperatingSystem.MAC) {
+            // On macOS we can't avoid having a menu bar, and anyway it's a good place to stash an about box
+            // and other such things. TODO: Consider a menu strategy on other platforms.
+            setupMacMenuBar()
         }
 
-        data class Art(val fileName: String, val topPadding: Int, val animationColor: Color)
+        data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
 
         val allArt = listOf(
-                Art("paris.png", 0, Color.BLUE),
-                Art("forest.jpg", 200, Color.color(0.0, 0.5019608, 0.0, 0.5))
+                Art("paris.png", 200, Color.BLUE, Color.WHITE),
+                Art("forest.jpg", 200,
+                        Color.color(0.0, 0.5019608, 0.0, 0.5),
+                        LinearGradient.valueOf("transparent,rgb(218,239,244)")
+                )
         )
-        val art = allArt[0]
+        val art = allArt[1]
 
         vbox {
             stackpane {
                 style {
-                    backgroundColor = multi(LinearGradient.valueOf("white,rgb(218,239,244)"))
+                    backgroundColor = multi(art.topGradient)
                 }
                 vbox {
                     minHeight = art.topPadding.toDouble()
@@ -79,7 +103,7 @@ class ShellView : View("Graviton Browser") {
                 fitWidthProperty().bind(this@stackpane.widthProperty())
                 isPreserveRatio = true
 
-                // setOnMouseClicked { isDownloading.set(!isDownloading.value) }
+                 setOnMouseClicked { isDownloading.set(!isDownloading.value) }
             }.stackpaneConstraints {
                 alignment = Pos.BOTTOM_CENTER
             }
@@ -88,12 +112,22 @@ class ShellView : View("Graviton Browser") {
         progressAnimation = ThreeDSpinner(art.animationColor)
         progressAnimation.root.maxWidth = 600.0
         progressAnimation.root.maxHeight = 600.0
-        progressAnimation.root.translateY = -150.0
+        progressAnimation.root.translateY = 0.0
         children += progressAnimation.root
         progressAnimation.visible.bind(isDownloading)
 
         vbox {
-            pane { minHeight = 275.0 }
+            pane { minHeight = 0.0 }
+
+            hbox {
+                alignment = Pos.CENTER
+                imageview(APP_LOGO)
+                label("graviton") {
+                    addClass(Styles.logoText)
+                }
+            }
+
+            pane { minHeight = 25.0 }
 
             textfield {
                 style {
@@ -109,13 +143,7 @@ class ShellView : View("Graviton Browser") {
             pane { minHeight = 25.0 }
 
             vbox {
-                style {
-                    backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
-                    backgroundRadius = multi(box(5.px))
-                    borderWidth = multi(box(3.px))
-                    borderColor = multi(box(Color.LIGHTGREY))
-                    borderRadius = multi(box(5.px))
-                }
+                addClass(Styles.messageBox)
                 padding = insets(15.0)
                 alignment = Pos.CENTER
                 label {
@@ -132,7 +160,7 @@ class ShellView : View("Graviton Browser") {
             pane { minHeight = 25.0 }
 
             outputArea = textarea {
-                styleClass.add("output-area")
+                addClass(Styles.shellArea)
                 isWrapText = false
                 opacity = 0.0
                 textProperty().addListener { _, oldValue, newValue ->
@@ -155,6 +183,37 @@ class ShellView : View("Graviton Browser") {
                 padding = box(10.px)
             }
         }.stackpaneConstraints { alignment = Pos.BOTTOM_RIGHT }
+    }
+
+    private fun setupMacMenuBar() {
+        val tk = MenuToolkit.toolkit()
+        val aboutStage = AboutStageBuilder
+                .start("About $APP_NAME")
+                .withAppName(APP_NAME)
+                .withCloseOnFocusLoss()
+                .withVersionString("Version $gravitonShellVersionNum")
+                .withCopyright("Copyright \u00A9 " + Calendar.getInstance().get(Calendar.YEAR))
+                .withImage(APP_LOGO)
+                .build()
+
+        menubar {
+            val appMenu = menu(APP_NAME) {
+                // Note that the app menu name can't be changed at runtime and will be ignored; to make the menu bar say Graviton
+                // requires bundling it. During development it will just say 'java' and that's OK.
+                this += tk.createAboutMenuItem(APP_NAME, aboutStage)
+                separator()
+                item("Clear cache ...") {
+                    setOnAction {
+                        HistoryManager.clearCache()
+                        Alert(Alert.AlertType.INFORMATION, "Cache has been cleared. Apps will re-download next time they are " +
+                                "invoked or a background update occurs.", ButtonType.CLOSE).showAndWait()
+                    }
+                }
+                separator()
+                this += tk.createQuitMenuItem(APP_NAME)
+            }
+            tk.setApplicationMenu(appMenu);
+        }
     }
 
     private fun onNavigate(text: String) {
@@ -248,14 +307,41 @@ class Styles : Stylesheet() {
     companion object {
         val shellArea by cssclass()
         val content by cssclass()
+        val logoText by cssclass()
+        val messageBox by cssclass()
     }
+
+    private val wireFont: Font = loadFont("/net/plan99/graviton/art/Wire One regular.ttf", 25.0)!!
 
     init {
         shellArea {
             fontFamily = "monospace"
-            content {
-                backgroundColor = multi(Color.gray(1.0, 0.5))
+            borderColor = multi(box(Color.gray(0.8, 1.0)))
+            borderWidth = multi(box(3.px))
+            borderRadius = multi(box(10.px))
+            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.8))
+            scrollPane {
+                content {
+                    backgroundColor = multi(Color.TRANSPARENT)
+                }
+                viewport {
+                    backgroundColor = multi(Color.TRANSPARENT)
+                }
             }
+        }
+
+        logoText {
+            font = wireFont
+            fontSize = 120.pt
+            effect = DropShadow(15.0, Color.WHITE)
+        }
+
+        messageBox {
+            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
+            backgroundRadius = multi(box(5.px))
+            borderWidth = multi(box(3.px))
+            borderColor = multi(box(Color.LIGHTGREY))
+            borderRadius = multi(box(5.px))
         }
     }
 }

@@ -28,13 +28,24 @@ class HistoryManager(storagePath: Path,
                      val maxHistorySize: Int = 20,
                      var clock: Clock = Clock.systemDefaultZone()) {
     companion object : Logging() {
-        fun create(): HistoryManager = HistoryManager(currentOperatingSystem.appCacheDirectory)
+        fun create(): HistoryManager = HistoryManager(commandLineArguments.cachePath.toPath())
 
         // If we don't do this then we get ugly and unnecessary !java.util.LinkedHashMap type tags, or
         // we have to use HashMap and then the keys are stored in random order.
         private val yamlConfig = YamlConfig().also {
             it.writeConfig.setWriteClassname(YamlConfig.WriteClassName.NEVER)
             it.setAllowDuplicates(false)
+        }
+
+        fun clearCache() {
+            // TODO: This should synchronise with the repository manager to ensure nothing is downloading at the time.
+            val path = commandLineArguments.cachePath.toPath()
+            // A bit of sanity checking before we delete stuff.
+            check(path !in path.fileSystem.rootDirectories) { "$path is a root directory!" }
+            check(!(path / ".bash_history").exists) { "$path appears to be a home directory" }
+            info { "Clearing cache: $path" }
+            if (!path.toFile().deleteRecursively())
+                error { "Failed to clear disk cache" }
         }
     }
 

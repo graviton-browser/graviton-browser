@@ -150,13 +150,6 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext,
     /** If set to true, Aether will be configured to not use the network. */
     var offline: Boolean = false
 
-    fun clearCache() {
-        // TODO: This should synchronise with the repository manager to ensure nothing is downloading at the time.
-        info { "Clearing cache" }
-        if (!cachePath.toFile().deleteRecursively())
-            error { "Failed to clear disk cache" }
-    }
-
     data class Result(val classPath: String, val name: Artifact)
 
     /**

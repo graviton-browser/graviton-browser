@@ -6,10 +6,13 @@ import me.tongfei.progressbar.ProgressBar
 import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import picocli.CommandLine
+import java.lang.invoke.MethodHandles
 import java.net.URI
 import kotlin.coroutines.experimental.coroutineContext
 import kotlin.math.max
 import kotlin.system.exitProcess
+
+val gravitonShellVersionNum: String get() = MethodHandles.lookup().lookupClass().`package`.implementationVersion.let { if (it.isNullOrBlank()) "DEV" else it }
 
 @CommandLine.Command(
         name = "graviton",
@@ -93,7 +96,7 @@ class GravitonCLI : Runnable {
         } else {
             if (clearCache) {
                 runBlocking {
-                    CodeFetcher(coroutineContext, cachePath.toPath()).clearCache()
+                    HistoryManager.clearCache()
                 }
             }
             if (packageName != null) {
@@ -157,11 +160,9 @@ class GravitonCLI : Runnable {
         val codeFetcher = CodeFetcher(coroutineContext, cachePath.toPath())
         codeFetcher.offline = offline
         codeFetcher.useSSL = !noSSL
-        if (clearCache)
-            codeFetcher.clearCache()
         val stopwatch = Stopwatch()
         repeat(profileDownloads) {
-            codeFetcher.clearCache()
+            HistoryManager.clearCache()
             codeFetcher.events = createProgressBar()
             codeFetcher.downloadAndBuildClasspath(coordinates)
         }
@@ -172,7 +173,7 @@ class GravitonCLI : Runnable {
 
     class VersionProvider : CommandLine.IVersionProvider {
         override fun getVersion(): Array<String> {
-            return arrayOf(javaClass.`package`.implementationVersion.let { if (it.isNullOrBlank()) "DEV" else it })
+            return arrayOf(gravitonShellVersionNum)
         }
     }
 }
