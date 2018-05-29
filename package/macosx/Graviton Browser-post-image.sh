@@ -17,4 +17,4 @@ cd $GRAVITON_VERSION/Contents/PlugIns/
 # to duplicate most of the JDK though, so, to avoid bloating the download it'd have to be done in the background
 # on first run or something.
 
-# xterm
+# /Applications/Utilities/Terminal.app/Contents/MacOS/Terminal
