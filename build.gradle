@@ -78,53 +78,6 @@ task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':
     into('build/install/graviton/lib')
 }
 
-task packageMac(type: Exec, dependsOn: [copyBootstrapToLibs]) {
-    workingDir project.projectDir
-    def outDir = "${buildDir}/packaged"
-    outputs.dir(outDir)
-    inputs.files(copyBootstrapToLibs.outputs)
-    inputs.files('package/macosx')
-
-    // Export the version so the package/macosx/Graviton Browser-post-image.sh script
-    // can pick it up and ensure the base version directory is the right number.
-    environment "GRAVITON_VERSION", project.version
-
-    // Unfortunately the --limit-modules feature does NOT WORK, it is just silently ignored
-    // because they reaaaaaaalllly want you to use jlink. Unfortunately jlink is unusable
-    // as it refuses to work if any module is an automatic module, i.e. everything in the
-    // app must have a module-info.java. Unfortunately modularising the Java ecosystem is
-    // going to be very slow going, as the tools barely work, the Java 9 upgrade breaks
-    // everything and nobody really cares.
-    //
-    // So we end up with a bloated JDK anyway, and worse, we can't even cut it down to
-    // size ourselves because the resulting image javapackager makes now combines all the
-    // JARs together into a 'modules' file of unknown format and type. Basically, these
-    // optimisations are still quite new and rough.
-    //
-    // Once Kotlin stdlib has a proper module-info, and once there's some examples showing
-    // how to make modular apps using Kotlin, we can revisit and optimise this by cutting
-    // down the number of JDK modules deployed.
-    commandLine = [
-            'javapackager',
-            '-deploy',
-            '-nosign',
-            '-native', 'dmg',
-            '-outdir', outDir,
-            '-outfile', 'Graviton Browser',
-            '-name', 'Graviton Browser',
-            '-appclass', mainClassName,
-            //'-singleton',    - TODO: where did this go?
-            '-srcdir', 'build/install/graviton/lib',
-            '-Bidentifier=net.plan99.graviton.browser',
-            "-BmainJar=graviton-${project.version}.jar",
-            "-BappVersion=${project.version}",
-            "-Bmac.CFBundleIdentifier=net.plan99.graviton.browser"
-    ]
-
-    // TODO: Signing
-    // TODO: Icons
-}
-
 // Used from the package-mac.sh script.
 task printVersion {
     doFirst {

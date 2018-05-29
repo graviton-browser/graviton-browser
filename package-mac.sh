@@ -1,13 +1,38 @@
-#!/bin/bash
+#!/bin/bash -x
 
 set -e
 
 v=$( ./gradlew -q printVersion )
+
+echo "Building macOS package for Graviton $v"
+echo
+
 jarname=`pwd`/online-update-packages/$v.mac.jar
 mkdir -p online-update-packages
 
-./gradlew packageMac
-hdiutil attach "build/packaged/Graviton Browser-$v.dmg"
+./gradlew copyBootstrapToLibs
+
+srcfiles=$( cd build/install/graviton/lib; echo * | sed 's/ /:/g' )
+
+# TODO: Signing
+
+javapackager -deploy \
+             -nosign \
+             -native dmg \
+             -outdir build/packaged \
+             -outfile "Graviton Browser" \
+             -name "Graviton Browser" \
+             -appclass net.plan99.graviton.Graviton \
+             -srcdir build/install/graviton/lib \
+             -srcfiles $srcfiles \
+             "-Bicons=package/macosx/Graviton Browser.icns" \
+             -Bidentifier=net.plan99.graviton \
+             -BmainJar=graviton-$v.jar \
+             -BappVersion=$v \
+             -Bmac.CFBundleIdentifier=net.plan99.graviton \
+             -verbose
+
+hdiutil attach "build/packaged/bundles/Graviton Browser-$v.dmg"
 cd "/Volumes/Graviton Browser/Graviton Browser.app/Contents/$v"
 jar cvf $jarname .
 cd -
