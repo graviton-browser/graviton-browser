@@ -56,6 +56,9 @@ class GravitonCLI : Runnable {
     @CommandLine.Option(names = ["--background-update"], hidden = true)
     var backgroundUpdate: Boolean = false
 
+    @CommandLine.Option(names = ["--uninstall"], hidden = true)
+    var uninstall: Boolean = false
+
     @CommandLine.Option(names = ["--update-url"], hidden = true)
     var updateURL: String = "https://update.graviton.app/"
 
@@ -82,6 +85,12 @@ class GravitonCLI : Runnable {
         // This is where Graviton startup really begins.
         val packageName = packageName
         setupLogging(verboseLogging)
+
+        if (uninstall) {
+            lastRun()
+            return
+        }
+
         // TODO: Enable coloured output on Windows 10+, so client apps can use ANSI escapes without fear.
         if (GRAVITON_PATH != null && GRAVITON_VERSION != null) {
             // This will execute asynchronously.

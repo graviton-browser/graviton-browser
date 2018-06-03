@@ -30,7 +30,7 @@ SetupIconFile=GravitonBrowser\GravitonBrowser.ico
 UninstallDisplayIcon={app}\{#GRAVITON_VERSION}\GravitonBrowser.ico
 UninstallDisplayName=Graviton Browser
 WizardImageStretch=No
-WizardSmallImageFile=GravitonBrowser-setup-icon.bmp   
+WizardSmallImageFile=GravitonBrowser-setup-icon.bmp
 ArchitecturesInstallIn64BitMode=x64
 
 
@@ -43,7 +43,7 @@ Source: "GravitonBrowser\*"; DestDir: "{app}\{#GRAVITON_VERSION}"; Flags: ignore
 Source: "GravitonBrowser\app\bootstrap.exe"; DestDir: "{app}"; DestName: "GravitonBrowser.exe"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe"; IconFilename: "{app}\{#GRAVITON_VERSION}\GravitonBrowser.ico"; Check: returnTrue()
+Name: "{commonprograms}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe"; IconFilename: "{app}\{#GRAVITON_VERSION}\GravitonBrowser.ico"; Check: returnTrue()
 Name: "{commondesktop}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe";  IconFilename: "{app}\{#GRAVITON_VERSION}\GravitonBrowser.ico"; Check: returnFalse()
 
 

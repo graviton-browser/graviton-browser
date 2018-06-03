@@ -23,11 +23,6 @@ val commandLineArguments = GravitonCLI()
 
 fun main(arguments: Array<String>) {
     try {
-        if (arguments.isNotEmpty() && arguments[0] == "--uninstall") {
-            lastRun()
-            return
-        }
-
         val cli = CommandLine(commandLineArguments)
         cli.isStopAtPositional = true
         cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
@@ -35,10 +30,14 @@ fun main(arguments: Array<String>) {
         // This call will pass control to GravitonCLI.run (as that's the object in commandLineArguments).
         cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
     } catch (e: Throwable) {
-        mainLog.error("Failed to start up", e)
-        e.printStackTrace()
-        if (currentOperatingSystem == OperatingSystem.WIN) {
-            windowsAlertBox("Failed to start up", e.asString())
+        try {
+            mainLog.error("Failed to start up", e)
+            e.printStackTrace()
+            if (currentOperatingSystem == OperatingSystem.WIN) {
+                windowsAlertBox("Failed to start up", e.asString())
+            }
+        } catch (e: Throwable) {
+            // Just not our day today.....
         }
     }
 }
@@ -97,13 +96,16 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
     val scheduledTask = OSScheduledTaskDefinition(
             executePath = executePath,
             arguments = listOf("--background-update"),
-            frequency = Duration.ofHours(6),
+            frequency = when (currentOperatingSystem) {
+                // I couldn't make the Windows task scheduler do non-integral numbers of days, see WindowsTaskScheduler.kt
+                OperatingSystem.WIN -> Duration.ofHours(24)
+                else -> Duration.ofHours(6)
+            },
             description = "Graviton background upgrade task. If you disable this, Graviton Browser may become insecure.",
             networkSensitive = true
     )
     try {
         Files.deleteIfExists(taskSchedulerErrorFile)
-        // TODO: For some reason the Windows setup always throws an error from schtasks, but always seems to work anyway.
         scheduler.register(taskName, scheduledTask)
         mainLog.info("Registered background task successfully with name '$taskName'")
     } catch (e: Exception) {
@@ -112,15 +114,21 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
         taskSchedulerErrorFile.toFile().writer().use {
             e.printStackTrace(PrintWriter(it))
         }
+        mainLog.error("Failed to register background task", e)
     }
 }
 
-private fun lastRun() {
+fun lastRun() {
     mainLog.info("Uninstallation requested, removing scheduled task")
-    val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
-    if (scheduler == null) {
-        mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
-        return
+    try {
+        val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
+        if (scheduler == null) {
+            mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
+            return
+        }
+        scheduler.deregister(taskName)
+    } catch (e: Throwable) {
+        // Don't want to spam the user with errors.
+        mainLog.error("Exception during uninstall", e)
     }
-    scheduler.deregister(taskName)
 }

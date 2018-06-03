@@ -71,7 +71,7 @@ task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':
     if (os.contains('mac'))
         from 'bootstrap/build/konan/bin/macos_x64'
     else if (os.contains('win'))
-        from 'bootstrap/build/konan/bin/mingw'
+        from 'bootstrap/build/konan/bin/mingw_x64'
     else if (os.contains('linux'))
         from 'bootstrap/build/konan/bin/linux'
     from 'LICENSE'
@@ -117,6 +117,7 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-BsystemWide=false',   // So UAC/admin privs aren't needed for update
             '-BinstalldirChooser=false',
             '-Bvendor=Graviton Team',
+            '-Bicon=GravitonBrowser.ico',
             '-BmenuHint=true',
             '-Bwin.menuGroup=Graviton Browser',
             '-v'

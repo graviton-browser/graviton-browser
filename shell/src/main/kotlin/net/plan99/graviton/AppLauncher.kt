@@ -183,6 +183,7 @@ open class AppLauncher(private val options: GravitonCLI,
             } finally {
                 System.setOut(oldstdout)
                 System.setErr(oldstderr)
+                loadResult.classloader.close()
             }
         }
         if (andWait) t.join()
