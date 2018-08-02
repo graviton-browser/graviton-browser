@@ -60,8 +60,6 @@ enum class OperatingSystem {
     abstract val loggingDirectory: Path
     open val classPathDelimiter: String = ":"
     open val homeDirectory: Path = System.getProperty("user.home").toPath()
-
-    val humanName: String get() = name.toLowerCase().capitalize()
 }
 
 /** Creates the given path if necessary as a directory and returns it */
@@ -136,6 +134,8 @@ val JarInputStream.entriesIterator: Iterator<JarEntry>
     get() = buildIterator {
         var cursor: JarEntry? = nextJarEntry
         while (cursor != null) {
+            if (cursor.realName.contains("..") || cursor.realName.startsWith('/'))
+                throw IllegalArgumentException("File path is absolute or contains relative movement: ${cursor.realName}")
             @Suppress("UNNECESSARY_NOT_NULL_ASSERTION")  // Kotlin bug
             yield(cursor!!)
             cursor = nextJarEntry

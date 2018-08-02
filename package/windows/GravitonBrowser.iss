@@ -41,6 +41,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Source: "GravitonBrowser\GravitonBrowser.exe"; DestDir: "{app}\{#GRAVITON_VERSION}"; Flags: ignoreversion
 Source: "GravitonBrowser\*"; DestDir: "{app}\{#GRAVITON_VERSION}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "bootstrap.exe"
 Source: "GravitonBrowser\app\bootstrap.exe"; DestDir: "{app}"; DestName: "GravitonBrowser.exe"; Flags: ignoreversion
+Source: "GravitonBrowser\app\bootstrap-console.exe"; DestDir: "{app}"; DestName: "graviton.exe"; Flags: ignoreversion
 
 [Icons]
 Name: "{commonprograms}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe"; IconFilename: "{app}\{#GRAVITON_VERSION}\GravitonBrowser.ico"; Check: returnTrue()

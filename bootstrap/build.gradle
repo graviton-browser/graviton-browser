@@ -28,4 +28,11 @@ konanArtifacts {
             srcFiles 'src/main/kotlin/linux.kt', 'src/main/kotlin/bootstrap-posix.kt'
         }
     }
+
+    program('bootstrap-console') {
+        target('mingw') {
+            srcFiles 'src/main/kotlin/win.kt'
+            linkerOpts "-Wl,--subsystem,console"
+        }
+    }
 }

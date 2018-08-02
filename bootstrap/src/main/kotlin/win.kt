@@ -58,8 +58,9 @@ fun main(args: Array<String>) {
     val execPath = "$execDir\\GravitonBrowser.exe"
     putenv("GRAVITON_PATH=$fullBinaryPath")
     putenv("GRAVITON_VERSION=$highestVersionFound")
-    val r: Int = ShellExecuteW(null, null, execPath, args.joinToString(" "), execDir, SW_SHOW) as Int
-    if (r <= 32) {
+    // TODO: Switch to using CreateProcessEx and inherit the console.
+    val r: CPointer<HINSTANCE__>? = ShellExecuteW(null, null, execPath, args.joinToString(" "), execDir, SW_SHOW)
+    if (r!!.toLong() <= 32) {
         error("ShellExecuteW returned error code $r: $execPath")
     }
 }
