@@ -1,8 +1,8 @@
 Introduction
 ************
 
-We would like a competitor to the web browser for JVM application distribution and deployment, to act as an alternative
-to the now deprecated Java Web Start, applets, and javapackager style bundled distribution.
+We would like a competitor to the web browser for JVM application distribution and deployment. This would be an alternative
+to applets, the now deprecated Java Web Start and javapackager style bundled distribution.
 
 Initial target markets:
 
@@ -22,8 +22,7 @@ Initial target markets:
 We feel these market segments are under-served by web browser developers.
 
 The resulting platform should use the JVM for platform independence, sandboxing, code streaming and other services but
-should otherwise be language and UI toolkit agnostic to the extent possible. That is, Graviton Browser is not a Kotlin
-or JavaFX specific project, even though it may use these tools for its own implementation.
+should otherwise be language and UI toolkit agnostic to the extent possible.
 
 FAQ
 ===
@@ -47,55 +46,8 @@ method that have been uploaded to a Maven repository or github. There are many s
 adaptations, the user experience will get a lot better. As such there is no bright line between a JVM app and a
 Graviton app. We call this :doc:`incremental-adaptation`.
 
-User experience sketch
-======================
-
-.. note:: This section describes the end state vision, not what is currently implemented.
-
-Graviton exposes a dual user experience. For GUI apps it is somewhat analagous to a web browser, but with a greater
-focus on allowing apps to open top level windows (escape the tab). It features:
-
-* An "address bar", albeit with some quirks as outlined below.
-* Streaming, instant-on apps with no permission requests or signing requirements for the default case.
-* Automatic and silent app updates, in the same manner as a web app.
-
-However, Graviton has a stronger notion of an app than the web does. Apps are not defined by origins but by modules. The
-browser understands module dependencies and will resolve them on the fly in the background.
-
-Users can pin, downgrade and otherwise control the version of an app they are running from the Graviton settings UI,
-restricted by optional developer specified policy. This means that botched app upgrades can be worked around by end users,
-that offline support can work well, that demos are not unnecessarily affected by bad wifi or an unexpected app upgrade
-between preparation and presentation.
-
-Graviton may understand and use mDNS (ZeroConf/Bonjour) to enable network administrators to publish discoverable apps,
-as an alternative to intranet/default-page style deployment. The shell app ("new tab page" equivalent) is very
-customisable, rebrandable and even entirely replaceable. Unlike web browser makers we do not have any website market
-share to defend.
-
-A basic page / Markdown rendering feature is supported. This enables the root UI of an app that is embedded in a tab to
-be basic instructions or release notes, if the app really doesn't want to be confined to a tab and would rather open its
-own windows.
-
-Command line apps are first class entities in Graviton. There is a command line interface analogous to apt-get, brew,
-and so on that allows you to install command line apps and keep background updated::
-
-    $ graviton alias sketch https://foobar.com/apps/sketch
-    Downloading https://foobar.com/apps/sketch and linking to /usr/local/bin/sketch ...
-    Linked version 3.2
-
-    $ sketch --help
-    Welcome to sketch 3.2
-
-Some time later::
-
-    $ sketch --help
-    Welcome to sketch 3.4
-
-There is no download delay because the app was upgraded in the background using the same OS scheduled task that updates
-the runtime.
-
-Implementation sketch
-=====================
+Details
+=======
 
 **Top level UI**. The shell is a maximised window that presents an attractive and personal start screen. The main UI
 element is an address bar that accepts _coordinates_. These are (for now) Maven coordinates like ``com.foo:bar``, typically
