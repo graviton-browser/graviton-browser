@@ -98,8 +98,8 @@ open class AppLauncher(private val options: GravitonCLI,
 
     private suspend fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {
         return try {
-            val packageName: String = calculateCoordinates(userInput)
-            codeFetcher.downloadAndBuildClasspath(packageName)
+            val coordinates: String = calculateCoordinates(userInput)
+            codeFetcher.downloadAndBuildClasspath(coordinates)
         } catch (e: RepositoryException) {
             val rootCause = e.rootCause
             if (rootCause is MetadataNotFoundException) {

@@ -11,8 +11,10 @@ import javafx.geometry.Pos
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
+import javafx.scene.control.TextField
 import javafx.scene.effect.DropShadow
 import javafx.scene.image.Image
+import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Paint
@@ -22,7 +24,7 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
-import org.eclipse.aether.transfer.ArtifactNotFoundException
+import org.eclipse.aether.transfer.MetadataNotFoundException
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -74,17 +76,32 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
     }
 }
 
+/**
+ * The main window the user interacts with to start applications.
+ */
 class ShellView : View() {
     companion object : Logging()
 
     private val downloadProgress = SimpleDoubleProperty(0.0)
     private val isDownloading = SimpleBooleanProperty()
-    private lateinit var progressAnimation: ThreeDSpinner
+    private lateinit var spinnerAnimation: ThreeDSpinner
     private lateinit var messageText1: StringProperty
     private lateinit var messageText2: StringProperty
     private lateinit var outputArea: TextArea
-
     private val historyManager by lazy { HistoryManager.create() }
+
+    //region Art management
+    data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
+
+    private val allArt = listOf(
+            Art("paris.png", 200, Color.BLUE, Color.WHITE),
+            Art("forest.jpg", 200,
+                    Color.color(0.0, 0.5019608, 0.0, 0.5),
+                    LinearGradient.valueOf("transparent,rgb(218,239,244)")
+            )
+    )
+    private val art = allArt[1]
+    //endregion
 
     // Build up the UI layouts and widgets using the TornadoFX DSL.
     override val root = stackpane {
@@ -96,44 +113,9 @@ class ShellView : View() {
             setupMacMenuBar()
         }
 
-        data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
+        artVBox()
 
-        val allArt = listOf(
-                Art("paris.png", 200, Color.BLUE, Color.WHITE),
-                Art("forest.jpg", 200,
-                        Color.color(0.0, 0.5019608, 0.0, 0.5),
-                        LinearGradient.valueOf("transparent,rgb(218,239,244)")
-                )
-        )
-        val art = allArt[1]
-
-        vbox {
-            stackpane {
-                style {
-                    backgroundColor = multi(art.topGradient)
-                }
-                vbox {
-                    minHeight = art.topPadding.toDouble()
-                }
-            }
-            // Background image.
-            imageview {
-                image = Image(resources["art/${art.fileName}"])
-                fitWidthProperty().bind(this@stackpane.widthProperty())
-                isPreserveRatio = true
-
-                 setOnMouseClicked { isDownloading.set(!isDownloading.value) }
-            }.stackpaneConstraints {
-                alignment = Pos.BOTTOM_CENTER
-            }
-        }.stackpaneConstraints { alignment = Pos.TOP_CENTER }
-
-        progressAnimation = ThreeDSpinner(art.animationColor)
-        progressAnimation.root.maxWidth = 600.0
-        progressAnimation.root.maxHeight = 600.0
-        progressAnimation.root.translateY = 0.0
-        children += progressAnimation.root
-        progressAnimation.visible.bind(isDownloading)
+        createSpinnerAnimation()
 
         vbox {
             pane { minHeight = 0.0 }
@@ -156,7 +138,7 @@ class ShellView : View() {
                 text = commandLineArguments.defaultCoordinate
                 selectAll()
                 disableProperty().bind(isDownloading)
-                action { onNavigate(text) }
+                action { onNavigate(this@textfield) }
             }
 
             pane { minHeight = 25.0 }
@@ -172,6 +154,9 @@ class ShellView : View() {
                 label {
                     messageText2 = textProperty()
                     textAlignment = TextAlignment.CENTER
+                    style {
+                        fontSize = 15.pt
+                    }
                 }
                 visibleProperty().bind(messageText1.isNotEmpty.or(messageText2.isNotEmpty))
             }
@@ -192,16 +177,53 @@ class ShellView : View() {
                 prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
             }
 
-            maxWidth = 800.0
+            maxWidth = 1000.0
             spacing = 5.0
             alignment = Pos.TOP_CENTER
         }
 
+        artCredits()
+    }
+
+    private fun artCredits() {
         label("Background art by Vexels") {
             style {
                 padding = box(10.px)
             }
         }.stackpaneConstraints { alignment = Pos.BOTTOM_RIGHT }
+    }
+
+    private fun StackPane.createSpinnerAnimation() {
+        spinnerAnimation = ThreeDSpinner(art.animationColor)
+        spinnerAnimation.root.maxWidth = 600.0
+        spinnerAnimation.root.maxHeight = 600.0
+        spinnerAnimation.root.translateY = 0.0
+        children += spinnerAnimation.root
+        spinnerAnimation.visible.bind(isDownloading)
+    }
+
+    private fun StackPane.artVBox() {
+        vbox {
+            stackpane {
+                style {
+                    backgroundColor = multi(art.topGradient)
+                }
+                vbox {
+                    minHeight = art.topPadding.toDouble()
+                }
+            }
+            // Background image.
+            imageview {
+                image = Image(resources["art/${art.fileName}"])
+                fitWidthProperty().bind(this@artVBox.widthProperty())
+                isPreserveRatio = true
+
+                // This line is useful when fiddling with the animation:
+                // setOnMouseClicked { isDownloading.set(!isDownloading.value) }
+            }.stackpaneConstraints {
+                alignment = Pos.BOTTOM_CENTER
+            }
+        }.stackpaneConstraints { alignment = Pos.TOP_CENTER }
     }
 
     private fun setupMacMenuBar() {
@@ -235,7 +257,8 @@ class ShellView : View() {
         }
     }
 
-    private fun onNavigate(text: String) {
+    private fun onNavigate(textField: TextField) {
+        val text = textField.text
         if (text.isBlank()) return
 
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
@@ -283,6 +306,8 @@ class ShellView : View() {
                 AppLauncher(options, historyManager, primaryStage, JavaFx, events, printStream, printStream).start()
             } catch (e: Throwable) {
                 onStartError(e)
+                textField.selectAll()
+                textField.requestFocus()
             }
         }
     }
@@ -293,10 +318,22 @@ class ShellView : View() {
         downloadProgress.set(0.0)
         messageText1.set("Start failed")
         val msg = if (e is AppLauncher.StartException) {
-            if (e.rootCause is ArtifactNotFoundException) {
+            if (e.cause is MetadataNotFoundException) {
                 "Could not locate the requested application"
-            } else
-                e.message
+            } else {
+                // Put all the errors together into some sort of coherent story.
+                val m = StringBuilder()
+                var cursor: Throwable = e.cause!!
+                var lastMessage = ""
+                while (true) {
+                    if (cursor.message != lastMessage) {
+                        lastMessage = cursor.message ?: ""
+                        m.appendln(lastMessage)
+                    }
+                    cursor = cursor.cause ?: break
+                }
+                m.toString()
+            }
         } else
             e.toString()
         messageText2.set(msg)
@@ -338,7 +375,7 @@ class Styles : Stylesheet() {
             borderColor = multi(box(Color.gray(0.8, 1.0)))
             borderWidth = multi(box(3.px))
             borderRadius = multi(box(10.px))
-            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.8))
+            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.95))
             scrollPane {
                 content {
                     backgroundColor = multi(Color.TRANSPARENT)
@@ -361,6 +398,7 @@ class Styles : Stylesheet() {
             borderWidth = multi(box(3.px))
             borderColor = multi(box(Color.LIGHTGREY))
             borderRadius = multi(box(5.px))
+            fontSize = 25.pt
         }
     }
 }
