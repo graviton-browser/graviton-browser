@@ -289,11 +289,16 @@ class ShellView : View() {
                 messageText2.set("")
             }
 
+            var progress = 0.0
+
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
-                val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
-                downloadProgress.set(pr)
                 messageText1.set("Downloading")
                 messageText2.set(name)
+                val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
+                // Need to make sure progress only jumps backwards if we genuinely have a big correction.
+                if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return
+                progress = pr
+                downloadProgress.set(progress)
             }
 
             override suspend fun onStoppedDownloading() {
