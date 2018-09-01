@@ -105,6 +105,7 @@ class HistoryManager(storagePath: Path,
         }
         yaml.close()
         val str = stringWriter.toString()
+        historyFile.parent.createDirectories()
         Files.write(historyFile, str.toByteArray())
     }
 

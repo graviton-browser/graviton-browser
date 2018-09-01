@@ -73,7 +73,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     var verboseLogging: Boolean = false
 
     @CommandLine.Option(names = ["--default-coordinate"], description = ["The default launch coordinate put in the address bar of the browser shell, may contain command line arguments"])
-    var defaultCoordinate: String = "com.github.ricksbrown:cowsay -f tux \"Hello world!\""
+    var defaultCoordinate: String = "com.github.ricksbrown:cowsay \"A fat cow is a happy cow!\""
 
     @CommandLine.Option(names = ["--refresh", "-r"], description = ["Re-check with the servers to see if a newer version is available. A new version check occurs every 24 hours by default."])
     var refresh: Boolean = false
@@ -152,7 +152,10 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
 
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
                 val pb = pb!!
-                pb.extraMessage = name
+                if (name.endsWith(".pom"))
+                    pb.extraMessage = name
+                else
+                    pb.extraMessage = ""
                 // The ProgressBar library gets unhappy if we use ranges like 0/0 - it works but doesn't expand
                 // to fill the terminal so we get visual artifacts.
                 pb.maxHint(max(1, totalBytesToDownload / 1024))

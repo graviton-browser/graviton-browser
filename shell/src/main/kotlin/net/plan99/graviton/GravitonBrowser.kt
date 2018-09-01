@@ -146,22 +146,31 @@ class ShellView : View() {
 
             pane { minHeight = 25.0 }
 
-            vbox {
-                addClass(Styles.messageBox)
-                padding = insets(15.0)
-                alignment = Pos.CENTER
-                label {
-                    messageText1 = textProperty()
-                    textAlignment = TextAlignment.CENTER
+
+            stackpane {
+                val pb = progressbar {
+                    fitToParentSize()
+                    progressProperty().bind(downloadProgress)
                 }
-                label {
-                    messageText2 = textProperty()
-                    textAlignment = TextAlignment.CENTER
-                    style {
-                        fontSize = 15.pt
+                vbox {
+                    addClass(Styles.messageBox)
+                    padding = insets(15.0)
+                    alignment = Pos.CENTER
+                    label {
+                        messageText1 = textProperty()
+                        textAlignment = TextAlignment.CENTER
                     }
+                    label {
+                        messageText2 = textProperty()
+                        textAlignment = TextAlignment.CENTER
+                        style {
+                            fontSize = 15.pt
+                        }
+                    }
+                    val visibility = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
+                    visibleProperty().bind(visibility)
+                    pb.visibleProperty().bind(visibility)
                 }
-                visibleProperty().bind(messageText1.isNotEmpty.or(messageText2.isNotEmpty))
             }
 
             pane { minHeight = 25.0 }
@@ -276,8 +285,8 @@ class ShellView : View() {
         val events = object : AppLauncher.Events {
             override suspend fun onStartedDownloading(name: String) {
                 downloadProgress.set(0.0)
-                messageText1.set("Please wait ...")
-                messageText2.set("Resolving")
+                messageText1.set("Downloading")
+                messageText2.set("")
             }
 
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
@@ -322,7 +331,6 @@ class ShellView : View() {
     }
 
     private fun onStartError(e: Throwable) {
-        // TODO: Handle errors much better than just splatting the exception name onto the screen!
         isWorking.set(false)
         downloadProgress.set(0.0)
         messageText1.set("Start failed")
@@ -344,7 +352,7 @@ class ShellView : View() {
                 m.toString()
             }
         } else {
-            e.toString()
+            e.message
         }
         messageText2.set(msg)
         logger.error("Start failed", e)

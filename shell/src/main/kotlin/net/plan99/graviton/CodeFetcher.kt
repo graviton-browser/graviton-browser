@@ -131,6 +131,8 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
             }
         }
 
+        @Volatile var lastFinish: String = ""
+
         override fun transferStarted(event: TransferEvent) {
             info { "Transfer started: $event" }
             if (isBoring(event)) return
@@ -139,6 +141,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
 
         override fun transferSucceeded(event: TransferEvent) {
             info { "Transfer succeeded: $event" }
+            lastFinish = event.resource.file.name
         }
 
         override fun transferProgressed(event: TransferEvent) {
@@ -147,7 +150,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
                 totalDownloaded.addAndGet(event.dataLength.toLong())
             }
             runBlocking(coroutineContext) {
-                events?.onFetch(event.resource.file.name, totalBytesToDownload.get(), totalDownloaded.get())
+                events?.onFetch(lastFinish, totalBytesToDownload.get(), totalDownloaded.get())
             }
         }
 
