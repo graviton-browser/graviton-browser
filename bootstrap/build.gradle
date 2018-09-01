@@ -1,3 +1,5 @@
+import org.apache.tools.ant.taskdefs.condition.Os
+
 group 'net.plan99.graviton'
 
 buildscript {
@@ -29,10 +31,14 @@ konanArtifacts {
         }
     }
 
-    program('bootstrap-console') {
-        target('mingw') {
-            srcFiles 'src/main/kotlin/win.kt'
-            linkerOpts "-Wl,--subsystem,console"
+    // Windows programs have to be tagged in the EXE headers as either 'console' or 'gui' and there's no way to win,
+    // both modes suck in different ways. So we have to produce two binaries here.
+    if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+        program('bootstrap-console') {
+            target('mingw') {
+                srcFiles 'src/main/kotlin/win.kt'
+                linkerOpts "-Wl,--subsystem,console"
+            }
         }
     }
 }
