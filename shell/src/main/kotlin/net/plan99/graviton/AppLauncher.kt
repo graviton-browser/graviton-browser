@@ -31,7 +31,7 @@ open class AppLauncher(private val options: GravitonCLI,
                        private val stdErrStream: PrintStream = System.err) {
     companion object : Logging()
 
-    class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
+    open class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
         constructor(message: String) : this(message, null)
     }
 
@@ -79,21 +79,20 @@ open class AppLauncher(private val options: GravitonCLI,
         // Update the last used timestamp.
         historyManager.recordHistoryEntry(HistoryEntry(userInput, Instant.now(), fetch.name, fetch.classPath))
 
-        val mainClass = loadResult.mainClass
-        val jfxApplicationClass = loadResult.jfxApplicationClass
         // We try to run a JavaFX app first, to bypass the main method and give a smoother transition.
         // This also avoids problems with us trying to launch JavaFX twice. However it does mean if the
         // main method has non-trivial logic in it, then it won't be run!
         //
         // TODO: Disassemble the main method if found to see if it just does Application.launch and if so, skip it.
-        if (jfxApplicationClass != null) {
-            invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args, fetch.name.toString())
-        } else if (mainClass != null) {
-            val block = primaryStage == null
-            invokeMainMethod(fetch.name.toString(), options.args, loadResult, mainClass, stdOutStream, stdErrStream, andWait = block)
-        } else {
-            throw StartException("This application is not an executable program.")
+        val mainClass = loadResult.mainClass
+        val jfxApplicationClass = loadResult.jfxApplicationClass
+        when {
+            jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args, fetch.name.toString())
+            mainClass != null -> invokeMainMethod(fetch.name.toString(), options.args, loadResult, mainClass,
+                                                  stdOutStream, stdErrStream, andWait = primaryStage == null)
+            else -> throw StartException("This application is not an executable program.")
         }
+        info { "Application has finished" }
     }
 
     private suspend fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {

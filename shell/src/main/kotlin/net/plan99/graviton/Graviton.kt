@@ -19,10 +19,11 @@ val GRAVITON_VERSION: String? = System.getenv("GRAVITON_VERSION")
 val mainLog get() = LoggerFactory.getLogger("main")
 
 /** Global access to parsed command line flags. */
-val commandLineArguments = GravitonCLI()
+lateinit var commandLineArguments: GravitonCLI
 
 fun main(arguments: Array<String>) {
     try {
+        commandLineArguments = GravitonCLI(arguments)
         val cli = CommandLine(commandLineArguments)
         cli.isStopAtPositional = true
         cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care

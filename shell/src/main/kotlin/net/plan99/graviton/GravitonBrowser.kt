@@ -103,7 +103,7 @@ class ShellView : View() {
     private val art = allArt[1]
     //endregion
 
-    // Build up the UI layouts and widgets using the TornadoFX DSL.
+    //region UI building
     override val root = stackpane {
         style { backgroundColor = multi(Color.WHITE) }
 
@@ -114,9 +114,12 @@ class ShellView : View() {
         }
 
         artVBox()
-
         createSpinnerAnimation()
+        body()
+        artCredits()
+    }
 
+    fun StackPane.body() {
         vbox {
             pane { minHeight = 0.0 }
 
@@ -181,11 +184,9 @@ class ShellView : View() {
             spacing = 5.0
             alignment = Pos.TOP_CENTER
         }
-
-        artCredits()
     }
 
-    private fun artCredits() {
+    private fun StackPane.artCredits() {
         label("Background art by Vexels") {
             style {
                 padding = box(10.px)
@@ -256,6 +257,7 @@ class ShellView : View() {
             tk.setApplicationMenu(appMenu);
         }
     }
+    //endregion
 
     private fun onNavigate(textField: TextField) {
         val text = textField.text
@@ -263,7 +265,8 @@ class ShellView : View() {
 
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
-        val options = GravitonCLI.parse(text)
+        val cmdLineParams = app.parameters.raw.joinToString(" ")
+        val options = GravitonCLI.parse("$cmdLineParams $text")
 
         // These callbacks will run on the FX event thread.
         val events = object : CodeFetcher.Events {
@@ -334,8 +337,9 @@ class ShellView : View() {
                 }
                 m.toString()
             }
-        } else
+        } else {
             e.toString()
+        }
         messageText2.set(msg)
         logger.error("Start failed", e)
     }

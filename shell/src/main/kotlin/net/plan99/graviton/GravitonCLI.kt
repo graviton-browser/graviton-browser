@@ -23,10 +23,10 @@ val gravitonShellVersionNum: String get() = MethodHandles.lookup().lookupClass()
         mixinStandardHelpOptions = true,
         versionProvider = GravitonCLI.VersionProvider::class
 )
-class GravitonCLI : Runnable {
+class GravitonCLI(private val arguments: Array<String>) : Runnable {
     companion object : Logging() {
         fun parse(text: String): GravitonCLI {
-            val options = GravitonCLI()
+            val options = GravitonCLI(text.split(' ').toTypedArray())
             val cli = CommandLine(options)
             cli.isStopAtPositional = true
             cli.parse(*text.split(' ').toTypedArray())
@@ -111,7 +111,7 @@ class GravitonCLI : Runnable {
             if (packageName != null) {
                 handleCommandLineInvocation(packageName[0])
             } else {
-                Application.launch(GravitonBrowser::class.java, *args)
+                Application.launch(GravitonBrowser::class.java, *arguments)
             }
         }
     }

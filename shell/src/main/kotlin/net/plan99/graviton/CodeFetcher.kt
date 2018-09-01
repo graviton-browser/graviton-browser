@@ -26,6 +26,7 @@ import org.eclipse.aether.transfer.AbstractTransferListener
 import org.eclipse.aether.transfer.TransferEvent
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
+import org.eclipse.aether.util.graph.transformer.*
 import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator
 import java.nio.file.Files
 import java.nio.file.Path
@@ -39,8 +40,7 @@ import kotlin.coroutines.experimental.CoroutineContext
  * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
  * and returns calculated classpaths.
  */
-open class CodeFetcher(private val coroutineContext: CoroutineContext,
-                       private val cachePath: Path) {
+open class CodeFetcher(private val coroutineContext: CoroutineContext, private val cachePath: Path) {
     companion object : Logging()
 
     init {
@@ -79,8 +79,35 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext,
                 "aether.metadataResolver.threads" to 20,
                 "aether.connector.basic.threads" to 20
         ))
+        // Re-configure the conflict resolver. By default it uses a weird way to resolve version conflicts in a dependency
+        // graph, the so-called "nearest wins" strategy which basically says versions closer to the root node in the graph
+        // (of lower depth) take precedence over versions deeper in the tree. This is neither intuitive nor what Gradle does.
+        // So we replace it here with one that just always picks the newest version - of course such dependency graphs are
+        // inherently unstable and the best we can do is hope. One day Jigsaw might actually clean this whole mess up.
+        val conflictResolver = ConflictResolver(HighestVersionSelector(), JavaScopeSelector(), SimpleOptionalitySelector(), JavaScopeDeriver())
+        ChainedDependencyGraphTransformer(conflictResolver, JavaDependencyContextRefiner())
+        session.dependencyGraphTransformer = conflictResolver
 
         session
+    }
+
+    private class HighestVersionSelector : ConflictResolver.VersionSelector() {
+        override fun selectVersion(context: ConflictResolver.ConflictContext) {
+            val items = context.items.toSet()
+            var winner = items.first()
+            if (items.size == 1) {
+                context.winner = winner
+                return
+            }
+            logger.warn("Resolving conflict for ${context.items.first().node.artifact} between ${items.map { it.node.version }}")
+            for (item in items) {
+                if (item.node.version > winner.node.version)
+                    winner = item
+            }
+            // We ignore version constraints here - maybe we should use them, but it's not clear we can ever do better than highest wins.
+            // If that doesn't work the app is broken.
+            context.winner = winner
+        }
     }
 
     private inner class TransferListener : AbstractTransferListener() {
@@ -176,7 +203,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext,
         val classPathGenerator = PreorderNodeListGenerator()
         node.accept(classPathGenerator)
         val classPath = classPathGenerator.classPath
-        info { "Classpath: $classPath" }
+        info { "Classpath for ${classPath.split(':').joinToString(System.lineSeparator())}" }
         return Result(classPath, artifact)
     }
 
