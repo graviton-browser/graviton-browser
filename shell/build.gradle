@@ -1,14 +1,14 @@
 buildscript {
     ext.slf4j_version = '1.7.25'
-    ext.jna_version = '4.5.1'
-    ext.tinylog_version = '1.3.4'
+    ext.jna_version = '4.5.2'
+    ext.tinylog_version = '1.3.5'
 
     repositories {
         mavenCentral()
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.google.gradle:osdetector-gradle-plugin:1.4.0"
+        classpath "com.google.gradle:osdetector-gradle-plugin:1.6.0"
     }
 }
 
@@ -25,8 +25,8 @@ compileJava {
 dependencies {
     // Kotlin - standard library for the Kotlin language
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5"
-    compile "org.jetbrains.kotlinx:kotlinx-coroutines-javafx:0.22.5"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.25.0"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-javafx:0.25.0"
 
     // Maven Resolver - a library for working with Maven repositories.
     if (true) {
@@ -49,7 +49,7 @@ dependencies {
         compile "org.apache.maven.resolver:maven-resolver-util:$maven_resolver_version"
         compile "org.apache.maven.resolver:maven-resolver-spi:$maven_resolver_version"
     }
-    compile("org.apache.maven:maven-resolver-provider:3.5.3") {
+    compile("org.apache.maven:maven-resolver-provider:3.5.4") {
         exclude group: "org.apache.maven.resolver", module: "*"
     }
 
@@ -66,13 +66,13 @@ dependencies {
     compile "org.reactfx:reactfx:2.0-M5"
 
     // ProgressBar - ASCII art progress bar library.
-    compile "me.tongfei:progressbar:0.6.0"
+    compile "me.tongfei:progressbar:0.7.1"
 
     // PicoCLI - command line parsing with pretty colours and useful help.
-    compile 'info.picocli:picocli:3.0.0-beta-2'
+    compile 'info.picocli:picocli:3.5.2'
 
     // TornadoFX - a Kotlin UI framework based on JavaFX.
-    compile "no.tornado:tornadofx:1.7.16"
+    compile "no.tornado:tornadofx:1.7.17"
 
     // JUnit - helpful unit testing framework.
     testCompile group: 'junit', name: 'junit', version: '4.12'
@@ -86,16 +86,17 @@ dependencies {
     compile "net.java.dev.jna:jna-platform:$jna_version"
 
     // FastClasspathScanner - fast search engine over a set of JARs
+    // TODO: Port to ClassGraph
     compile "io.github.lukehutch:fast-classpath-scanner:2.18.2"
 
     // YamlBeans - easy serialisation to and from the human-friendly Yaml text format.
     compile "com.esotericsoftware.yamlbeans:yamlbeans:1.13"
 
     // Conscrypt - BoringSSL access from Java
-    compile 'org.conscrypt:conscrypt-openjdk:1.1.0:' + osdetector.classifier
+    compile 'org.conscrypt:conscrypt-openjdk:1.2.0:' + osdetector.classifier
 
     // OkHttp - good HTTP client library
-    compile 'com.squareup.okhttp3:okhttp:3.10.0'
+    compile 'com.squareup.okhttp3:okhttp:3.11.0'
 
     // NSMenuFX - library for controlling the Mac native menu bar.
     compile 'de.codecentric.centerdevice:centerdevice-nsmenufx:2.1.6'

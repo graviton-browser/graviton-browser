@@ -121,7 +121,7 @@ class GravitonCLI : Runnable {
             if (profileDownloads > 1) downloadWithProfiling(coordinates)
             try {
                 val manager = HistoryManager.create()
-                val launcher = AppLauncher(this@GravitonCLI, manager, null, this.coroutineContext, createProgressBar())
+                val launcher = AppLauncher(this@GravitonCLI, manager, null, coroutineContext, createProgressBar())
                 launcher.start()
             } catch (original: Throwable) {
                 val e = original.rootCause
@@ -141,12 +141,11 @@ class GravitonCLI : Runnable {
     }
 
     private fun createProgressBar(): CodeFetcher.Events {
-        val pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.ASCII)
+        val pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
         return object : CodeFetcher.Events {
             val stopwatch = Stopwatch()
 
             override suspend fun onStartedDownloading(name: String) {
-                pb.start()
                 pb.extraMessage = name
             }
 
@@ -159,7 +158,7 @@ class GravitonCLI : Runnable {
             }
 
             override suspend fun onStoppedDownloading() {
-                pb.stop()
+                pb.close()
                 println("Downloaded successfully in ${stopwatch.elapsedInSec} seconds")
             }
         }

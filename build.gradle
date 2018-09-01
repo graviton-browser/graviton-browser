@@ -1,6 +1,6 @@
 buildscript {
     ext.kotlin_version = '1.2.61'
-    ext.kotlin_native_version = '0.7'   // TODO: Update
+    ext.kotlin_native_version = '0.8.2'   // TODO: Update
 
     repositories {
         mavenCentral()
@@ -12,8 +12,8 @@ buildscript {
 
 plugins {
     // id 'com.zyxist.chainsaw' version '0.3.1'
-    id 'se.patrikerdes.use-latest-versions' version '0.2.1'
-    id 'com.github.ben-manes.versions' version '0.17.0'
+    id 'se.patrikerdes.use-latest-versions' version '0.2.3'
+    id 'com.github.ben-manes.versions' version '0.20.0'
 }
 
 group 'net.plan99.graviton'
