@@ -28,7 +28,7 @@ operator fun Path.div(other: String): Path = resolve(other)
 enum class OperatingSystem {
     MAC {
         private val library = homeDirectory / "Library"
-        override val appCacheDirectory: Path get() = library / "Caches" / "Graviton Browser"
+        override val appCacheDirectory: Path get() = localM2Or(library / "Caches" / "Graviton Browser")
         override val loggingDirectory: Path get() = library / "Logs" / "Graviton Browser"
     },
     WIN {
@@ -48,7 +48,7 @@ enum class OperatingSystem {
                     System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
                 }
             }
-        override val appCacheDirectory: Path get() = appDirectory / "repository"
+        override val appCacheDirectory: Path get() = localM2Or(appDirectory / "repository")
         override val loggingDirectory: Path get() = appDirectory / "logs"
     },
     UNKNOWN {
@@ -60,6 +60,13 @@ enum class OperatingSystem {
     abstract val loggingDirectory: Path
     open val classPathDelimiter: String = ":"
     open val homeDirectory: Path = System.getProperty("user.home").toPath()
+
+    // Returns ~/.m2 if it exists on Mac/Linux or the "proper" Graviton-specific cache path if not. Useful for developers who already
+    // have a local Maven repo and would like to reuse it, in particular this makes gradle publishToMavenLocal a lot more useful.
+    protected fun localM2Or(path: Path): Path {
+        val p = homeDirectory / ".m2" / "repository"
+        return if (p.exists) p else path
+    }
 }
 
 /** Creates the given path if necessary as a directory and returns it */

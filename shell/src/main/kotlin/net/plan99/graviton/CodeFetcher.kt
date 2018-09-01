@@ -47,10 +47,6 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext,
         // Ensure the local Maven repo exists.
         Files.createDirectories(cachePath)
 
-        // TODO: Use ~/.m2 if it exists rather than our Graviton-specific repository location.
-        // ~/.m2 is not really following normal OS conventions on most platforms, but Java devs should be able to reuse
-        // their existing package caches if they have one.
-
         // Override built-in security using Open/BoringSSL via the Conscrypt provider. The index here is 1-based.
         // This essentally eliminates the overhead of enabling SSL using JSSE and doubles download performance.
         Security.insertProviderAt(Conscrypt.newProvider(), 1)
