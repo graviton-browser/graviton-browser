@@ -160,12 +160,12 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
 
     interface Events {
         /** Called exactly once, if we decide we need to do any network transfers of non-trivial files (like JARs). */
-        suspend fun onStartedDownloading(name: String) {}
+        suspend fun onStartedDownloading(name: String)
 
-        suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {}
+        suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long)
 
         /** If [onStartedDownloading] was called, this is called when we are finished or have failed. */
-        suspend fun onStoppedDownloading() {}
+        suspend fun onStoppedDownloading()
     }
 
     var events: Events? = null
@@ -197,9 +197,8 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
                 repoSystem.resolveDependencies(session, DependencyRequest(node, null))
             }
         }
-        if ((session.transferListener as TransferListener).didDownload.get()) {
+        if ((session.transferListener as TransferListener).didDownload.get())
             events?.onStoppedDownloading()
-        }
         val classPathGenerator = PreorderNodeListGenerator()
         node.accept(classPathGenerator)
         val classPath = classPathGenerator.classPath
@@ -253,6 +252,8 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         //    </distributionManagement>
         //
         // Packages placed here are always re-fetched, bypassing the local cache.
+        //
+        // This might not be so useful now we use ~/.m2/repository as our cache by default when it exists.
         val m2Local = (currentOperatingSystem.homeDirectory / ".m2" / "dev-local").toUri().toString()
         repos += RemoteRepository.Builder("dev-local", "default", m2Local)
                 .setPolicy(RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_ALWAYS, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))

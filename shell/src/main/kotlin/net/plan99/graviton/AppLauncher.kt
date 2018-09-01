@@ -9,6 +9,7 @@ import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import java.io.File
 import java.io.PrintStream
+import java.lang.reflect.InvocationTargetException
 import java.net.URL
 import java.net.URLClassLoader
 import java.time.Instant
@@ -26,13 +27,17 @@ open class AppLauncher(private val options: GravitonCLI,
                        private val historyManager: HistoryManager,
                        private val primaryStage: Stage? = null,
                        private val coroutineContext: CoroutineContext,
-                       private val events: CodeFetcher.Events,
+                       private val events: AppLauncher.Events,
                        private val stdOutStream: PrintStream = System.out,
                        private val stdErrStream: PrintStream = System.err) {
     companion object : Logging()
 
     open class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
         constructor(message: String) : this(message, null)
+    }
+
+    interface Events : CodeFetcher.Events {
+        suspend fun aboutToStartApp()
     }
 
     /**
@@ -86,6 +91,7 @@ open class AppLauncher(private val options: GravitonCLI,
         // TODO: Disassemble the main method if found to see if it just does Application.launch and if so, skip it.
         val mainClass = loadResult.mainClass
         val jfxApplicationClass = loadResult.jfxApplicationClass
+        events.aboutToStartApp()
         when {
             jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args, fetch.name.toString())
             mainClass != null -> invokeMainMethod(fetch.name.toString(), options.args, loadResult, mainClass,
@@ -179,6 +185,8 @@ open class AppLauncher(private val options: GravitonCLI,
                 //
                 // println("Took ${startupStopwatch.elapsedInSec} seconds to reach main()")
                 mainMethod.invoke(null, subArgs)
+            } catch (e: InvocationTargetException) {
+                throw e.cause!!
             } finally {
                 System.setOut(oldstdout)
                 System.setErr(oldstderr)
@@ -191,7 +199,6 @@ open class AppLauncher(private val options: GravitonCLI,
     private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
         val mainClassName: String? get() = appManifest.mainAttributes.getValue("Main-Class")
         val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, true, classloader) } }
-
         val jfxApplicationClass: Class<out Application>? by lazy { calculateJFXClass() }
 
         private fun calculateJFXClass(): Class<out Application>? {

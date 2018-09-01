@@ -140,16 +140,18 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         }
     }
 
-    private fun createProgressBar(): CodeFetcher.Events {
-        val pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
-        return object : CodeFetcher.Events {
+    private fun createProgressBar(): AppLauncher.Events {
+        return object : AppLauncher.Events {
             val stopwatch = Stopwatch()
+            var pb: ProgressBar? = null
 
             override suspend fun onStartedDownloading(name: String) {
-                pb.extraMessage = name
+                pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
+                pb!!.extraMessage = name
             }
 
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
+                val pb = pb!!
                 pb.extraMessage = name
                 // The ProgressBar library gets unhappy if we use ranges like 0/0 - it works but doesn't expand
                 // to fill the terminal so we get visual artifacts.
@@ -158,8 +160,13 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             }
 
             override suspend fun onStoppedDownloading() {
-                pb.close()
-                println("Downloaded successfully in ${stopwatch.elapsedInSec} seconds")
+            }
+
+            override suspend fun aboutToStartApp() {
+                if (pb != null) {
+                    pb!!.close()
+                    println("Downloaded successfully in ${stopwatch.elapsedInSec} seconds")
+                }
             }
         }
     }

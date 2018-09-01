@@ -83,7 +83,7 @@ class ShellView : View() {
     companion object : Logging()
 
     private val downloadProgress = SimpleDoubleProperty(0.0)
-    private val isDownloading = SimpleBooleanProperty()
+    private val isWorking = SimpleBooleanProperty()
     private lateinit var spinnerAnimation: ThreeDSpinner
     private lateinit var messageText1: StringProperty
     private lateinit var messageText2: StringProperty
@@ -140,7 +140,7 @@ class ShellView : View() {
                 }
                 text = commandLineArguments.defaultCoordinate
                 selectAll()
-                disableProperty().bind(isDownloading)
+                disableProperty().bind(isWorking)
                 action { onNavigate(this@textfield) }
             }
 
@@ -200,7 +200,7 @@ class ShellView : View() {
         spinnerAnimation.root.maxHeight = 600.0
         spinnerAnimation.root.translateY = 0.0
         children += spinnerAnimation.root
-        spinnerAnimation.visible.bind(isDownloading)
+        spinnerAnimation.visible.bind(isWorking)
     }
 
     private fun StackPane.artVBox() {
@@ -263,16 +263,19 @@ class ShellView : View() {
         val text = textField.text
         if (text.isBlank()) return
 
+        // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
+        // app can take a bit of time.
+        isWorking.set(true)
+
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
         val cmdLineParams = app.parameters.raw.joinToString(" ")
         val options = GravitonCLI.parse("$cmdLineParams $text")
 
         // These callbacks will run on the FX event thread.
-        val events = object : CodeFetcher.Events {
+        val events = object : AppLauncher.Events {
             override suspend fun onStartedDownloading(name: String) {
                 downloadProgress.set(0.0)
-                isDownloading.set(true)
                 messageText1.set("Please wait ...")
                 messageText2.set("Resolving")
             }
@@ -286,9 +289,12 @@ class ShellView : View() {
 
             override suspend fun onStoppedDownloading() {
                 downloadProgress.set(1.0)
-                isDownloading.set(false)
                 messageText1.set("")
                 messageText2.set("")
+            }
+
+            override suspend fun aboutToStartApp() {
+                isWorking.set(false)
             }
         }
 
@@ -317,7 +323,7 @@ class ShellView : View() {
 
     private fun onStartError(e: Throwable) {
         // TODO: Handle errors much better than just splatting the exception name onto the screen!
-        isDownloading.set(false)
+        isWorking.set(false)
         downloadProgress.set(0.0)
         messageText1.set("Start failed")
         val msg = if (e is AppLauncher.StartException) {
@@ -345,7 +351,7 @@ class ShellView : View() {
     }
 
     private fun mockDownload() {
-        isDownloading.set(true)
+        isWorking.set(true)
         downloadProgress.set(0.0)
         messageText1.set("Mock downloading ..")
         thread {
@@ -353,7 +359,7 @@ class ShellView : View() {
             Platform.runLater {
                 downloadProgress.animate(1.0, 5000.millis) {
                     setOnFinished {
-                        isDownloading.set(false)
+                        isWorking.set(false)
                         messageText1.set("")
                         messageText2.set("")
                     }
