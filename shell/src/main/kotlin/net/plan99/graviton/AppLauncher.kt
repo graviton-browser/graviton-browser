@@ -44,7 +44,7 @@ open class AppLauncher(private val options: GravitonCLI,
         val codeFetcher = CodeFetcher(coroutineContext, options.cachePath.toPath())
         codeFetcher.events = events
         if (options.clearCache)
-            HistoryManager.clearCache()
+            historyManager.clearCache()
         codeFetcher.useSSL = !(commandLineArguments.noSSL || options.noSSL)
 
         val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]

@@ -105,7 +105,7 @@ class GravitonCLI : Runnable {
         } else {
             if (clearCache) {
                 runBlocking {
-                    HistoryManager.clearCache()
+                    HistoryManager.create().clearCache()
                 }
             }
             if (packageName != null) {
@@ -170,7 +170,7 @@ class GravitonCLI : Runnable {
         codeFetcher.useSSL = !noSSL
         val stopwatch = Stopwatch()
         repeat(profileDownloads) {
-            HistoryManager.clearCache()
+            HistoryManager.create().clearCache()
             codeFetcher.events = createProgressBar()
             codeFetcher.downloadAndBuildClasspath(coordinates)
         }

@@ -245,7 +245,7 @@ class ShellView : View() {
                 separator()
                 item("Clear cache ...") {
                     setOnAction {
-                        HistoryManager.clearCache()
+                        historyManager.clearCache()
                         Alert(Alert.AlertType.INFORMATION, "Cache has been cleared. Apps will re-download next time they are " +
                                 "invoked or a background update occurs.", ButtonType.CLOSE).showAndWait()
                     }
@@ -277,7 +277,7 @@ class ShellView : View() {
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
                 val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
                 downloadProgress.set(pr)
-                messageText1.set("DOWNLOADING")
+                messageText1.set("Downloading")
                 messageText2.set(name)
             }
 

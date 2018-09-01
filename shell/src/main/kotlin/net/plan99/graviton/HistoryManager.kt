@@ -36,17 +36,6 @@ class HistoryManager(storagePath: Path,
             it.writeConfig.setWriteClassname(YamlConfig.WriteClassName.NEVER)
             it.setAllowDuplicates(false)
         }
-
-        fun clearCache() {
-            // TODO: This should synchronise with the repository manager to ensure nothing is downloading at the time.
-            val path = commandLineArguments.cachePath.toPath()
-            // A bit of sanity checking before we delete stuff.
-            check(path !in path.fileSystem.rootDirectories) { "$path is a root directory!" }
-            check(!(path / ".bash_history").exists) { "$path appears to be a home directory" }
-            info { "Clearing cache: $path" }
-            if (!path.toFile().deleteRecursively())
-                error { "Failed to clear disk cache" }
-        }
     }
 
     // Sorted newest to oldest.
@@ -177,6 +166,18 @@ class HistoryManager(storagePath: Path,
                 info { "We refreshed ${entry.coordinateFragment} ${age.seconds} seconds ago, skipping" }
             }
         }
+    }
+
+    fun clearCache() {
+        // TODO: This should synchronise with the repository manager to ensure nothing is downloading at the time.
+        val path = commandLineArguments.cachePath.toPath()
+        // A bit of sanity checking before we delete stuff.
+        check(path !in path.fileSystem.rootDirectories) { "$path is a root directory!" }
+        check(!(path / ".bash_history").exists) { "$path appears to be a home directory" }
+        info { "Clearing cache: $path" }
+        if (!path.toFile().deleteRecursively())
+            error { "Failed to clear disk cache" }
+        _history.clear()
     }
 }
 
