@@ -1,6 +1,18 @@
 Newsletters
 ***********
 
+3rd September 2018
+==================
+
+The summer may be drawing to a close, but it's not all bad: Graviton development has returned! Changes this week:
+
+* History infrastructure upgraded to store name and description from the POM files, ready for rendering.
+* Support for building and running on both Java 8 and 10 at once.
+* Progress bar tracking for downloads, better command line progress bar.
+* Select the highest version of a module in a dependency graph instead of Maven's "nearest wins" heuristic, which was breaking
+  some complex apps.
+* Misc refactorings and improvements.
+
 29th May 2018
 =============
 
