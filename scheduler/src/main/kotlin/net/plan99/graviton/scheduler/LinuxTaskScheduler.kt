@@ -1,3 +1,5 @@
+@file:Suppress("EXTENSION_SHADOWED_BY_MEMBER")
+
 package net.plan99.graviton.scheduler
 
 import java.nio.file.Files
@@ -35,6 +37,7 @@ class LinuxTaskScheduler : OSTaskScheduler() {
     }
 }
 
+// Java 8 compatibility
 internal fun Duration.toMinutesPart(): Int = this.toMinutes().toInt() % 60
 internal fun Duration.toHoursPart(): Int = this.toHours().toInt() % 24
 internal fun Duration.toDaysPart(): Long = this.toDays()

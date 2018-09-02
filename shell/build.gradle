@@ -18,8 +18,13 @@ apply plugin: 'java'
 apply plugin: 'kotlin'
 apply plugin: 'com.google.osdetector'
 
-compileJava {
-    // options.compilerArgs << "--add-exports" << "javafx.graphics/com.sun.javafx.application=ALL-UNNAMED" << "--add-exports" << "java.desktop/com.apple.eawt=ALL-UNNAMED"
+def isPostJ8 = JavaVersion.current().java9Compatible
+
+if (isPostJ8) {
+    println("Running on Java 9 or later, adjusting build")
+    compileJava {
+        options.compilerArgs << "--add-exports" << "javafx.graphics/com.sun.javafx.application=ALL-UNNAMED"
+    }
 }
 
 dependencies {
@@ -74,6 +79,13 @@ dependencies {
     // TornadoFX - a Kotlin UI framework based on JavaFX.
     compile "no.tornado:tornadofx:1.7.17"
 
+    // ControlsFX - useful JavaFX controls library.
+//    if (!isPostJ8) {
+//        compile "org.controlsfx:controlsfx:8.40.14"
+//    } else {
+//        compile "org.controlsfx:controlsfx:9.0.0"
+//    }
+
     // JUnit - helpful unit testing framework.
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
@@ -107,6 +119,11 @@ compileKotlin {
 }
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+if (isPostJ8) {
+    sourceCompatibility = "10"
+    targetCompatibility = "10"
 }
 
 jar {

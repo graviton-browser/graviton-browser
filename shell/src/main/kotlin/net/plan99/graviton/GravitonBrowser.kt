@@ -26,6 +26,7 @@ import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import tornadofx.*
+import java.awt.image.BufferedImage
 import java.io.OutputStream
 import java.io.PrintStream
 import java.util.*
@@ -58,17 +59,31 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
             // This looks nice on OS X but not so great on other platforms. Note that it doesn't work on Java 8, but looks right on
             // Java 10. Once we upgrade we'll get it back.
             stage.initStyle(StageStyle.UNIFIED)
-            val dockImage = ImageIO.read(resources.stream("art/icons8-rocket-take-off-512.png"))
-            // This is a PITA - stage.icons doesn't work on macOS, instead there's two other APIs, one for Java 8 and one for post-J8.
-            // TODO: In Java 9+ there is a different API for this:
-            // Taskbar.getTaskbar().setIconImage(icon);
-            Class.forName("com.apple.eawt.Application")
-                    ?.getMethod("getApplication")
-                    ?.invoke(null)?.let { app ->
-                        app.javaClass
-                           .getMethod("setDockIconImage", java.awt.Image::class.java)
-                           .invoke(app, dockImage)
-                    }
+            val dockImage: BufferedImage = ImageIO.read(resources.stream("art/icons8-rocket-take-off-512.png"))
+            try {
+                // This is a PITA - stage.icons doesn't work on macOS, instead there's two other APIs, one for Java 8 and one for post-J8.
+                // Try the Java 9 API first. We could also write this code out the obvious way but for now I want to be able to switch
+                // back and forth between compile JDKs easily. TODO: Simplify away the reflection when I'm committed to building with Java 11.
+                Class.forName("java.awt.Taskbar")
+                        ?.getMethod("getTaskbar")
+                        ?.invoke(null)?.let { taskbar ->
+                            taskbar.javaClass
+                                    .getMethod("setIconImage", java.awt.Image::class.java)
+                                    .invoke(taskbar, dockImage)
+                        }
+            } catch (e: ClassNotFoundException) {
+                try {
+                    Class.forName("com.apple.eawt.Application")
+                            ?.getMethod("getApplication")
+                            ?.invoke(null)?.let { app ->
+                                app.javaClass
+                                        .getMethod("setDockIconImage", java.awt.Image::class.java)
+                                        .invoke(app, dockImage)
+                            }
+                } catch (e: Exception) {
+                    mainLog.warn("Failed to set dock icon", e)
+                }
+            }
             stage.title = "Graviton"
         }
 
