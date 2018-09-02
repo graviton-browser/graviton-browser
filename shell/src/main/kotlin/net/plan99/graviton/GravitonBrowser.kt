@@ -410,10 +410,12 @@ class Styles : Stylesheet() {
     init {
         shellArea {
             fontFamily = "monospace"
+            fontSize = 15.pt
             borderColor = multi(box(Color.gray(0.8, 1.0)))
             borderWidth = multi(box(3.px))
             borderRadius = multi(box(10.px))
             backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.95))
+            backgroundRadius = multi(box(10.px))
             scrollPane {
                 content {
                     backgroundColor = multi(Color.TRANSPARENT)
