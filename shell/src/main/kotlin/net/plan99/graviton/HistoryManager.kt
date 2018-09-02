@@ -28,7 +28,7 @@ import kotlin.concurrent.thread
 class HistoryManager(storagePath: Path,
                      private val refreshInterval: Duration = Duration.ofHours(24),
                      val maxHistorySize: Int = 20,
-                     var clock: Clock = Clock.systemDefaultZone()) {
+                     var clock: Clock = Clock.systemUTC()) {
     companion object : Logging() {
         fun create(): HistoryManager = HistoryManager(commandLineArguments.cachePath.toPath())
 
@@ -50,23 +50,49 @@ class HistoryManager(storagePath: Path,
 
     init {
         if (Files.exists(historyFile)) {
-            val yaml = String(Files.readAllBytes(historyFile))
-            val reader = YamlReader(yaml, yamlConfig)
-            while (true) {
-                @Suppress("UNCHECKED_CAST")
-                val m = reader.read() as? Map<String, *> ?: break
-                try {
-                    val userInput = m["coordinate"]!! as String
-                    val lastRunTime = Instant.parse(m["last refresh time"]!! as String)
-                    val resolvedArtifact = DefaultArtifact(m["resolved artifact"]!! as String)
-                    val classPathEntries = m["classpath"]!! as String
-                    history += HistoryEntry(userInput, lastRunTime, resolvedArtifact, classPathEntries)
-                    if (history.size == maxHistorySize) break
-                } catch (e: Throwable) {
-                    warn { "Skipping un-parseable map, probably there's a missing key: $e" }
-                }
+            readFromFile(historyFile)
+        }
+    }
+
+    private fun readFromFile(historyFile: Path) {
+        val yaml = String(Files.readAllBytes(historyFile))
+        val reader = YamlReader(yaml, yamlConfig)
+        while (true) {
+            @Suppress("UNCHECKED_CAST")
+            val m = reader.read() as? Map<String, *> ?: break
+            try {
+                val userInput = m["coordinate"]!! as String
+                val lastRunTime = Instant.parse(m["last refresh time"]!! as String)
+                val resolvedArtifact = m["resolved artifact"]!! as String
+                val classPathEntries = m["classpath"]!! as String
+                val name = m["name"]!! as String
+                val description = m["description"] as? String?
+                history += HistoryEntry(userInput, lastRunTime, resolvedArtifact, classPathEntries, name, description)
+                if (history.size == maxHistorySize) break
+            } catch (e: Throwable) {
+                warn { "Skipping un-parseable map, probably there's a missing key: $e" }
             }
         }
+    }
+
+    private fun writeToFile(snapshot: List<HistoryEntry>) {
+        val stringWriter = StringWriter()
+        val yaml = YamlWriter(stringWriter, yamlConfig)
+        for (e in snapshot) {
+            fun <K, V> map(vararg pairs: Pair<K, V>): Map<K, V> = pairs.toMap(HashMap(pairs.size))
+            yaml.write(map(
+                    "coordinate" to e.coordinateFragment,
+                    "last refresh time" to DateTimeFormatter.ISO_INSTANT.format(e.lastRefreshTime),
+                    "resolved artifact" to e.resolvedArtifact,
+                    "classpath" to e.classPath,
+                    "name" to e.name,
+                    "description" to e.description
+            ))
+        }
+        yaml.close()
+        val str = stringWriter.toString()
+        historyFile.parent.createDirectories()
+        Files.write(historyFile, str.toByteArray())
     }
 
     /**
@@ -92,28 +118,10 @@ class HistoryManager(storagePath: Path,
         return toWrite
     }
 
-    private fun writeToFile(snapshot: List<HistoryEntry>) {
-        val stringWriter = StringWriter()
-        val yaml = YamlWriter(stringWriter, yamlConfig)
-        for (e in snapshot) {
-            fun <K, V> map(vararg pairs: Pair<K, V>): Map<K, V> = pairs.toMap(HashMap(pairs.size))
-            yaml.write(map(
-                    "coordinate" to e.coordinateFragment,
-                    "last refresh time" to DateTimeFormatter.ISO_INSTANT.format(e.lastRefreshTime),
-                    "resolved artifact" to e.resolvedArtifact.toString(),
-                    "classpath" to e.classPath
-            ))
-        }
-        yaml.close()
-        val str = stringWriter.toString()
-        historyFile.parent.createDirectories()
-        Files.write(historyFile, str.toByteArray())
-    }
-
     private fun maybeTouchExistingEntry(entry: HistoryEntry): HistoryEntry? {
         val i = history.indexOfFirst { it.coordinateFragment == entry.coordinateFragment }
         if (i == -1) return null
-        val copy = HistoryEntry(entry.coordinateFragment, clock.instant(), entry.resolvedArtifact, entry.classPath)
+        val copy = entry.copy(lastRefreshTime = clock.instant())
         history.removeAt(i)
         return copy
     }
@@ -157,7 +165,7 @@ class HistoryManager(storagePath: Path,
                 info { "Refreshing entry $index: $entry" }
                 try {
                     val fetch: CodeFetcher.Result = codeFetcher.downloadAndBuildClasspath(entry.coordinateFragment)
-                    val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact, classPath = fetch.classPath)
+                    val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact.toString(), classPath = fetch.classPath)
                     history[index] = newEntry
                 } catch (e: Exception) {
                     logger.error("Failed to refresh ${entry.coordinateFragment}, skipping", e)
@@ -190,13 +198,22 @@ class HistoryManager(storagePath: Path,
  * @property lastRefreshTime When the servers were last polled for the latest version.
  * @property resolvedArtifact What we fully resolved the user's input to last time.
  * @property classPath Separated by the OS local separator.
+ * @property name Human readable name of the application or the artifact ID if not specified by the developer.
+ * @property description Human readable description of the application, or null if not specified by the developer.
  */
 data class HistoryEntry(
         val coordinateFragment: String,
         val lastRefreshTime: Instant,
-        val resolvedArtifact: Artifact,
-        val classPath: String
+        val resolvedArtifact: String,
+        val classPath: String,
+        val name: String,
+        val description: String?
 ) {
+    constructor(coordinateFragment: String, fetch: CodeFetcher.Result) :
+            this(coordinateFragment, Instant.now(), fetch.artifact.toString(), fetch.classPath, fetch.name, fetch.description)
+
     private val splitCP get() = classPath.split(currentOperatingSystem.classPathDelimiter)
     override fun toString() = "$coordinateFragment -> $resolvedArtifact @ $lastRefreshTime (${splitCP.size} cp entries)"
+
+    val artifact: Artifact get() = DefaultArtifact(resolvedArtifact).withNameAndDescription(name, description)
 }

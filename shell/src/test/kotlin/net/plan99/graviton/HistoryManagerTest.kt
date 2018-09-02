@@ -1,7 +1,6 @@
 package net.plan99.graviton
 
 import com.google.common.jimfs.Jimfs
-import org.eclipse.aether.artifact.DefaultArtifact
 import org.junit.Test
 import java.time.Clock
 import java.time.Duration
@@ -11,8 +10,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class HistoryManagerTest {
-    val example1 = HistoryEntry("com.github.spotbugs", Instant.now(), DefaultArtifact("com.github.spotbugs:spotbugs:jar:1.2.3"), "zzz.jar:xxx.jar")
-    val example2 = HistoryEntry("net.plan99.graviton:ex", Instant.now(), DefaultArtifact("net.plan99.graviton:ex:jar:1.2.1"), "a.jar:b.jar")
+    val example1 = HistoryEntry("com.github.spotbugs", Instant.now(), "com.github.spotbugs:spotbugs:jar:1.2.3", "zzz.jar:xxx.jar", "zzz app", "for sleeping")
+    val example2 = HistoryEntry("net.plan99.graviton:ex", Instant.now(), "net.plan99.graviton:ex:jar:1.2.1", "a.jar:b.jar", "example app", "for examples")
 
     @Test
     fun happyPath() {

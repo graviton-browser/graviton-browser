@@ -4,6 +4,7 @@ import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.CoroutineStart
 import kotlinx.coroutines.experimental.withContext
 import okhttp3.HttpUrl
+import org.eclipse.aether.artifact.Artifact
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -162,3 +163,13 @@ fun Path.readAsJar(): JarInputStream = JarInputStream(Files.newInputStream(this)
  * @property code HTTP status code if the server responded at the HTTP level, or missing if something went wrong before we could get a code.
  */
 class HTTPRequestException(val code: Int?, message: String, val url: HttpUrl, cause: Exception? = null) : Exception("Failed to fetch $url: $code $message", cause)
+
+/**
+ * Stashes the given parameters in the properties of the [Artifact].
+ */
+fun Artifact.withNameAndDescription(name: String, description: String?): Artifact {
+    val props: MutableMap<String, String?> = properties.toMutableMap()
+    props["model.name"] = name
+    props["model.description"] = description
+    return setProperties(props)
+}

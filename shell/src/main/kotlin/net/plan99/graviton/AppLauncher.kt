@@ -12,7 +12,6 @@ import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
 import java.net.URL
 import java.net.URLClassLoader
-import java.time.Instant
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.concurrent.thread
@@ -68,7 +67,7 @@ open class AppLauncher(private val options: GravitonCLI,
         // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
         val fetch: CodeFetcher.Result = if (historyLookup != null) {
             info { "Used previously resolved coordinates $historyLookup" }
-            CodeFetcher.Result(historyLookup.classPath, historyLookup.resolvedArtifact)
+            CodeFetcher.Result(historyLookup.classPath, historyLookup.artifact)
         } else {
             download(userInput, codeFetcher)
         }
@@ -85,7 +84,7 @@ open class AppLauncher(private val options: GravitonCLI,
         }
 
         // Update the last used timestamp.
-        historyManager.recordHistoryEntry(HistoryEntry(userInput, Instant.now(), fetch.artifact, fetch.classPath))
+        historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
 
         // We try to run a JavaFX app first, to bypass the main method and give a smoother transition.
         // This also avoids problems with us trying to launch JavaFX twice. However it does mean if the

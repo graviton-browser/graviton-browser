@@ -91,10 +91,8 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
                 ArtifactDescriptorReaderDelegate::class.java.name to object : ArtifactDescriptorReaderDelegate() {
                     override fun populateResult(session: RepositorySystemSession, result: ArtifactDescriptorResult, model: Model) {
                         super.populateResult(session, result, model)
-                        val props = result.artifact.properties.toMutableMap()
-                        props["model.name"] = model.name
-                        props["model.description"] = model.description
-                        result.artifact = result.artifact.setProperties(props)
+                        val name = model.name ?: result.artifact.artifactId
+                        result.artifact = result.artifact.withNameAndDescription(name, model.description)
                     }
                 }
         ))
