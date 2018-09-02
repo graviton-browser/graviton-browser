@@ -3,6 +3,8 @@ package net.plan99.graviton
 import com.esotericsoftware.yamlbeans.YamlConfig
 import com.esotericsoftware.yamlbeans.YamlReader
 import com.esotericsoftware.yamlbeans.YamlWriter
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
 import org.eclipse.aether.artifact.Artifact
 import org.eclipse.aether.artifact.DefaultArtifact
 import java.io.StringWriter
@@ -39,8 +41,7 @@ class HistoryManager(storagePath: Path,
     }
 
     // Sorted newest to oldest.
-    private val _history = arrayListOf<HistoryEntry>()
-    val history: List<HistoryEntry> get() = _history.toList()
+    val history: ObservableList<HistoryEntry> = FXCollections.observableArrayList()
 
     // Version 1, Yaml format, .txt to make it easy to double click.
     private val historyFile = storagePath / "history.1.yaml.txt"
@@ -59,8 +60,8 @@ class HistoryManager(storagePath: Path,
                     val lastRunTime = Instant.parse(m["last refresh time"]!! as String)
                     val resolvedArtifact = DefaultArtifact(m["resolved artifact"]!! as String)
                     val classPathEntries = m["classpath"]!! as String
-                    _history += HistoryEntry(userInput, lastRunTime, resolvedArtifact, classPathEntries)
-                    if (_history.size == maxHistorySize) break
+                    history += HistoryEntry(userInput, lastRunTime, resolvedArtifact, classPathEntries)
+                    if (history.size == maxHistorySize) break
                 } catch (e: Throwable) {
                     warn { "Skipping un-parseable map, probably there's a missing key: $e" }
                 }
@@ -77,9 +78,9 @@ class HistoryManager(storagePath: Path,
         val toWrite = maybeTouchExistingEntry(entry) ?: entry
         info { "Recording history entry: $toWrite" }
 
-        _history.add(0, toWrite)
-        if (_history.size > maxHistorySize) {
-            val removed = _history.removeAt(_history.lastIndex)
+        history.add(0, toWrite)
+        if (history.size > maxHistorySize) {
+            val removed = history.removeAt(history.lastIndex)
             info { "Forgetting old history entry $removed because we have more than $maxHistorySize entries" }
         }
 
@@ -110,10 +111,10 @@ class HistoryManager(storagePath: Path,
     }
 
     private fun maybeTouchExistingEntry(entry: HistoryEntry): HistoryEntry? {
-        val i = _history.indexOfFirst { it.coordinateFragment == entry.coordinateFragment }
+        val i = history.indexOfFirst { it.coordinateFragment == entry.coordinateFragment }
         if (i == -1) return null
         val copy = HistoryEntry(entry.coordinateFragment, clock.instant(), entry.resolvedArtifact, entry.classPath)
-        _history.removeAt(i)
+        history.removeAt(i)
         return copy
     }
 
@@ -156,13 +157,13 @@ class HistoryManager(storagePath: Path,
                 info { "Refreshing entry $index: $entry" }
                 try {
                     val fetch: CodeFetcher.Result = codeFetcher.downloadAndBuildClasspath(entry.coordinateFragment)
-                    val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.name, classPath = fetch.classPath)
-                    _history[index] = newEntry
+                    val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact, classPath = fetch.classPath)
+                    history[index] = newEntry
                 } catch (e: Exception) {
                     logger.error("Failed to refresh ${entry.coordinateFragment}, skipping", e)
                     continue
                 }
-                writeToFile(_history)
+                writeToFile(history)
             } else {
                 info { "We refreshed ${entry.coordinateFragment} ${age.seconds} seconds ago, skipping" }
             }
@@ -178,7 +179,7 @@ class HistoryManager(storagePath: Path,
         info { "Clearing cache: $path" }
         if (!path.toFile().deleteRecursively())
             error { "Failed to clear disk cache" }
-        _history.clear()
+        history.clear()
     }
 }
 

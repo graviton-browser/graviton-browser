@@ -15,6 +15,7 @@ import javafx.scene.control.TextField
 import javafx.scene.effect.DropShadow
 import javafx.scene.image.Image
 import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Paint
@@ -134,10 +135,11 @@ class ShellView : View() {
         artCredits()
     }
 
-    fun StackPane.body() {
+    private fun StackPane.body() {
         vbox {
             pane { minHeight = 0.0 }
 
+            // Logo
             hbox {
                 alignment = Pos.CENTER
                 imageview(APP_LOGO)
@@ -148,47 +150,15 @@ class ShellView : View() {
 
             pane { minHeight = 25.0 }
 
-            textfield {
-                style {
-                    fontSize = 20.pt
-                    alignment = Pos.CENTER
-                }
-                text = commandLineArguments.defaultCoordinate
-                selectAll()
-                disableProperty().bind(isWorking)
-                action { onNavigate(this@textfield) }
-            }
+            coordinateBar()
 
             pane { minHeight = 25.0 }
 
-
-            stackpane {
-                val pb = progressbar {
-                    fitToParentSize()
-                    progressProperty().bind(downloadProgress)
-                }
-                vbox {
-                    addClass(Styles.messageBox)
-                    padding = insets(15.0)
-                    alignment = Pos.CENTER
-                    label {
-                        messageText1 = textProperty()
-                        textAlignment = TextAlignment.CENTER
-                    }
-                    label {
-                        messageText2 = textProperty()
-                        textAlignment = TextAlignment.CENTER
-                        style {
-                            fontSize = 15.pt
-                        }
-                    }
-                    val visibility = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
-                    visibleProperty().bind(visibility)
-                    pb.visibleProperty().bind(visibility)
-                }
-            }
+            downloadTracker()
 
             pane { minHeight = 25.0 }
+
+            recentAppsPicker()
 
             outputArea = textarea {
                 addClass(Styles.shellArea)
@@ -207,6 +177,49 @@ class ShellView : View() {
             maxWidth = 1000.0
             spacing = 5.0
             alignment = Pos.TOP_CENTER
+        }
+    }
+
+    private fun VBox.coordinateBar() {
+        textfield {
+            style {
+                fontSize = 20.pt
+                alignment = Pos.CENTER
+            }
+            text = commandLineArguments.defaultCoordinate
+            selectAll()
+            disableProperty().bind(isWorking)
+            action { onNavigate(this@textfield) }
+        }
+    }
+
+    private fun VBox.downloadTracker() {
+        stackpane {
+            progressbar {
+                fitToParentSize()
+                progressProperty().bind(downloadProgress)
+            }
+            vbox {
+                addClass(Styles.messageBox)
+                padding = insets(15.0)
+                alignment = Pos.CENTER
+                label {
+                    messageText1 = textProperty()
+                    textAlignment = TextAlignment.CENTER
+                }
+                label {
+                    messageText2 = textProperty()
+                    textAlignment = TextAlignment.CENTER
+                    style {
+                        fontSize = 15.pt
+                    }
+                }
+            }
+        }.also {
+            // If we're not downloading, hide this chunk of UI and take it out of layout.
+            val needed = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
+            it.visibleProperty().bind(needed)
+            it.managedProperty().bind(needed)
         }
     }
 
@@ -251,6 +264,10 @@ class ShellView : View() {
         }.stackpaneConstraints { alignment = Pos.TOP_CENTER }
     }
 
+    private fun VBox.recentAppsPicker() {
+        historyManager.history
+    }
+
     private fun setupMacMenuBar() {
         val tk = MenuToolkit.toolkit()
         val aboutStage = AboutStageBuilder
@@ -283,6 +300,7 @@ class ShellView : View() {
     }
     //endregion
 
+    //region Event handling
     private fun onNavigate(textField: TextField) {
         val text = textField.text
         if (text.isBlank()) return
@@ -300,13 +318,23 @@ class ShellView : View() {
         val events = object : AppLauncher.Events {
             override suspend fun onStartedDownloading(name: String) {
                 downloadProgress.set(0.0)
+                if (name.contains("maven-metadata-")) {
+                    messageText1.set("Checking for updates")
+                    messageText2.set("")
+                    return
+                }
                 messageText1.set("Downloading")
-                messageText2.set("")
+                messageText2.set(name)
             }
 
             var progress = 0.0
 
             override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
+                if (name.contains("maven-metadata-")) {
+                    messageText1.set("Checking for updates")
+                    messageText2.set("")
+                    return
+                }
                 messageText1.set("Downloading")
                 messageText2.set(name)
                 val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
@@ -324,6 +352,8 @@ class ShellView : View() {
 
             override suspend fun aboutToStartApp() {
                 isWorking.set(false)
+                messageText1.set("")
+                messageText2.set("")
             }
         }
 
@@ -395,6 +425,7 @@ class ShellView : View() {
             }
         }
     }
+    //endregion
 }
 
 class Styles : Stylesheet() {

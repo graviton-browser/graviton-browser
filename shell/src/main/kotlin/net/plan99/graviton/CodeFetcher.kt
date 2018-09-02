@@ -1,6 +1,8 @@
 package net.plan99.graviton
 
 import kotlinx.coroutines.experimental.runBlocking
+import org.apache.maven.model.Model
+import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.conscrypt.Conscrypt
 import org.eclipse.aether.DefaultRepositorySystemSession
@@ -17,6 +19,7 @@ import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.LocalRepository
 import org.eclipse.aether.repository.RemoteRepository
 import org.eclipse.aether.repository.RepositoryPolicy
+import org.eclipse.aether.resolution.ArtifactDescriptorResult
 import org.eclipse.aether.resolution.DependencyRequest
 import org.eclipse.aether.resolution.VersionRangeRequest
 import org.eclipse.aether.resolution.VersionRangeResult
@@ -67,18 +70,35 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         val session: DefaultRepositorySystemSession = MavenRepositorySystemUtils.newSession()
         session.isOffline = offline
         session.transferListener = TransferListener()
+
         // The separate checksum files are of questionable use in an SSL world and slow down the transfer quite
         // a bit, so we toss them here.
         session.checksumPolicy = RepositoryPolicy.CHECKSUM_POLICY_IGNORE
+
         // Graviton does its own lookup caching on top of CodeFetcher so we want to always poll the remote servers
         // when asked if there's a new version.
         session.updatePolicy = RepositoryPolicy.UPDATE_POLICY_ALWAYS
+
+        // Set up the local repository for caching downloaded artifacts.
         val localRepo = LocalRepository(cachePath.toFile())
         session.localRepositoryManager = repoSystem.newLocalRepositoryManager(session, localRepo)
+
+        // Make Maven Resolver be multi-threaded, and make it copy the name and description fields of the POM
+        // into the artifact props so we can grab them later.
         session.setConfigProperties(mapOf(
                 "aether.metadataResolver.threads" to 20,
-                "aether.connector.basic.threads" to 20
+                "aether.connector.basic.threads" to 20,
+                ArtifactDescriptorReaderDelegate::class.java.name to object : ArtifactDescriptorReaderDelegate() {
+                    override fun populateResult(session: RepositorySystemSession, result: ArtifactDescriptorResult, model: Model) {
+                        super.populateResult(session, result, model)
+                        val props = result.artifact.properties.toMutableMap()
+                        props["model.name"] = model.name
+                        props["model.description"] = model.description
+                        result.artifact = result.artifact.setProperties(props)
+                    }
+                }
         ))
+
         // Re-configure the conflict resolver. By default it uses a weird way to resolve version conflicts in a dependency
         // graph, the so-called "nearest wins" strategy which basically says versions closer to the root node in the graph
         // (of lower depth) take precedence over versions deeper in the tree. This is neither intuitive nor what Gradle does.
@@ -176,7 +196,14 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
     /** If set to true, Aether will be configured to not use the network. */
     var offline: Boolean = false
 
-    data class Result(val classPath: String, val name: Artifact)
+    /** The result of resolving the given coordinates */
+    data class Result(val classPath: String, val artifact: Artifact) {
+        /** The contents of the POM name field or the artifact ID if no name was specified. */
+        val name: String get() = artifact.properties["model.name"] ?: artifact.artifactId
+
+        /** The contents of the POM description field, or null if not specified. */
+        val description: String? get() = artifact.properties["model.description"]
+    }
 
     /**
      * Returns a classpath for the given resolved and dependency-downloaded package. If only two parts of the coordinate
@@ -206,7 +233,9 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         node.accept(classPathGenerator)
         val classPath = classPathGenerator.classPath
         info { "Classpath for ${classPath.split(':').joinToString(System.lineSeparator())}" }
-        return Result(classPath, artifact)
+        // node.artifact has been enhanced with name/description properties as part of collectDependencies
+        // so we must use it, rather than 'artifact' even though they may appear to be the same.
+        return Result(classPath, node.artifact)
     }
 
     private suspend fun checkLatestVersion(packageName: String): String {

@@ -73,6 +73,9 @@ open class AppLauncher(private val options: GravitonCLI,
             download(userInput, codeFetcher)
         }
 
+        info { "App name: ${fetch.name}" }
+        info { "App description: ${fetch.artifact.properties["model.description"]}" }
+
         val loadResult: AppLoadResult = try {
             buildClassLoaderFor(fetch)
         } catch (e: java.io.FileNotFoundException) {
@@ -82,7 +85,7 @@ open class AppLauncher(private val options: GravitonCLI,
         }
 
         // Update the last used timestamp.
-        historyManager.recordHistoryEntry(HistoryEntry(userInput, Instant.now(), fetch.name, fetch.classPath))
+        historyManager.recordHistoryEntry(HistoryEntry(userInput, Instant.now(), fetch.artifact, fetch.classPath))
 
         // We try to run a JavaFX app first, to bypass the main method and give a smoother transition.
         // This also avoids problems with us trying to launch JavaFX twice. However it does mean if the
@@ -93,8 +96,8 @@ open class AppLauncher(private val options: GravitonCLI,
         val jfxApplicationClass = loadResult.jfxApplicationClass
         events.aboutToStartApp()
         when {
-            jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args, fetch.name.toString())
-            mainClass != null -> invokeMainMethod(fetch.name.toString(), options.args, loadResult, mainClass,
+            jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args, fetch.artifact.toString())
+            mainClass != null -> invokeMainMethod(fetch.artifact.toString(), options.args, loadResult, mainClass,
                                                   stdOutStream, stdErrStream, andWait = primaryStage == null)
             else -> throw StartException("This application is not an executable program.")
         }
