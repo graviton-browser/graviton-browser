@@ -19,7 +19,7 @@ val GRAVITON_VERSION: String? = System.getenv("GRAVITON_VERSION")
 val mainLog get() = LoggerFactory.getLogger("main")
 
 /** Global access to parsed command line flags. */
-lateinit var commandLineArguments: GravitonCLI
+var commandLineArguments = GravitonCLI(arrayOf(""))
 
 fun main(arguments: Array<String>) {
     try {
