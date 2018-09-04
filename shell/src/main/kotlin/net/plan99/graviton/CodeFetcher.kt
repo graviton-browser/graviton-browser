@@ -26,6 +26,7 @@ import org.eclipse.aether.resolution.VersionRangeResult
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory
 import org.eclipse.aether.spi.connector.transport.TransporterFactory
 import org.eclipse.aether.transfer.AbstractTransferListener
+import org.eclipse.aether.transfer.MetadataNotFoundException
 import org.eclipse.aether.transfer.TransferEvent
 import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
@@ -210,9 +211,35 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
      * @param packageName Package name as a coordinate fragment.
      */
     suspend fun downloadAndBuildClasspath(packageName: String): Result {
-        val name = checkLatestVersion(packageName)
+        val name = try {
+            checkLatestVersion(packageName)
+        } catch (e: MetadataNotFoundException) {
+            // Maybe try again if the user entered something like com.github.username:reponame in a repo with
+            // no releases and without specifying :master explicitly.
+            if (!isPossiblyJitPacked(packageName)) throw e
+            info { "Trying again with $packageName:master because we failed to download and the name may be a jitpack.io package" }
+            checkLatestVersion("$packageName:master")
+        }
         info { "Request to download and build classpath for $name" }
         val artifact = DefaultArtifact(name)
+        val node: DependencyNode = resolveArtifact(artifact)
+        if ((session.transferListener as TransferListener).didDownload.get())
+            events?.onStoppedDownloading()
+        val classPathGenerator = PreorderNodeListGenerator()
+        node.accept(classPathGenerator)
+        val classPath = classPathGenerator.classPath
+        info { "Classpath for ${classPath.split(':').joinToString(System.lineSeparator())}" }
+        // node.artifact has been enhanced with name/description properties as part of collectDependencies
+        // so we must use it, rather than 'artifact' even though they may appear to be the same.
+        return Result(classPath, node.artifact)
+    }
+
+    private fun isPossiblyJitPacked(packageName: String) =
+                    packageName.startsWith("com.github.") ||
+                    packageName.startsWith("org.bitbucket.") ||
+                    packageName.startsWith("com.gitlab.")
+
+    private suspend fun resolveArtifact(artifact: DefaultArtifact): DependencyNode {
         val dependency = Dependency(artifact, "runtime")
         val collectRequest = CollectRequest()
         collectRequest.root = dependency
@@ -225,15 +252,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
                 repoSystem.resolveDependencies(session, DependencyRequest(node, null))
             }
         }
-        if ((session.transferListener as TransferListener).didDownload.get())
-            events?.onStoppedDownloading()
-        val classPathGenerator = PreorderNodeListGenerator()
-        node.accept(classPathGenerator)
-        val classPath = classPathGenerator.classPath
-        info { "Classpath for ${classPath.split(':').joinToString(System.lineSeparator())}" }
-        // node.artifact has been enhanced with name/description properties as part of collectDependencies
-        // so we must use it, rather than 'artifact' even though they may appear to be the same.
-        return Result(classPath, node.artifact)
+        return node
     }
 
     private suspend fun checkLatestVersion(packageName: String): String {
