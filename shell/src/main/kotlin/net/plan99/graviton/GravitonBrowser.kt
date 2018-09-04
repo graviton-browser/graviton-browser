@@ -186,7 +186,8 @@ class ShellView : View() {
                 fontSize = 20.pt
                 alignment = Pos.CENTER
             }
-            text = commandLineArguments.defaultCoordinate
+            // When running the GUI classes standalone via TornadoFX plugin, we of course have no command line params ...
+            text = try { commandLineArguments.defaultCoordinate } catch (e: UninitializedPropertyAccessException) { "" }
             selectAll()
             disableProperty().bind(isWorking)
             action { onNavigate(this@textfield) }
@@ -265,7 +266,13 @@ class ShellView : View() {
     }
 
     private fun VBox.recentAppsPicker() {
-        historyManager.history
+        for (entry: HistoryEntry in historyManager.history) {
+            vbox {
+                addClass(Styles.historyEntry)
+                label(entry.name) { addClass(Styles.historyTitle) }
+                label(entry.description ?: "")
+            }
+        }
     }
 
     private fun setupMacMenuBar() {
@@ -434,19 +441,23 @@ class Styles : Stylesheet() {
         val content by cssclass()
         val logoText by cssclass()
         val messageBox by cssclass()
+        val historyEntry by cssclass()
+        val historyTitle by cssclass()
     }
 
     private val wireFont: Font = loadFont("/net/plan99/graviton/art/Wire One regular.ttf", 25.0)!!
 
     init {
+        val cornerRadius = multi(box(10.px))
+
         shellArea {
             fontFamily = "monospace"
             fontSize = 15.pt
             borderColor = multi(box(Color.gray(0.8, 1.0)))
             borderWidth = multi(box(3.px))
-            borderRadius = multi(box(10.px))
+            borderRadius = cornerRadius
             backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.95))
-            backgroundRadius = multi(box(10.px))
+            backgroundRadius = cornerRadius
             scrollPane {
                 content {
                     backgroundColor = multi(Color.TRANSPARENT)
@@ -470,6 +481,25 @@ class Styles : Stylesheet() {
             borderColor = multi(box(Color.LIGHTGREY))
             borderRadius = multi(box(5.px))
             fontSize = 25.pt
+        }
+
+        historyEntry {
+            borderWidth = multi(box(2.px))
+            borderColor = multi(box(Color.web("#dddddd")))
+            borderRadius = cornerRadius
+            backgroundColor = multi(LinearGradient.valueOf("white,#eeeeee"))
+            backgroundRadius = cornerRadius
+            padding = box(20.px)
+        }
+
+        historyEntry and hover {
+            borderColor = multi(box(Color.web("#555555")))
+            cursor = javafx.scene.Cursor.HAND
+        }
+
+        historyTitle {
+            fontSize = 25.pt
+            padding = box(0.px, 0.px, 15.pt, 0.px)
         }
     }
 }
