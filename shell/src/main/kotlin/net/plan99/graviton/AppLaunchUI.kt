@@ -28,18 +28,10 @@ class AppLaunchUI : View() {
     private lateinit var coordinateBar: TextField
     private val downloadProgress = SimpleDoubleProperty(0.0)
     private val isHistoryVisible = SimpleBooleanProperty(true)
+    private val logo = find<LogoView>()
 
     override val root = vbox {
-            pane { minHeight = 0.0 }
-
-            // Logo
-            hbox {
-                alignment = Pos.CENTER
-                imageview(appBrandLogo)
-                label("graviton") {
-                    addClass(Styles.logoText)
-                }
-            }
+            children += logo.root
 
             pane { minHeight = 25.0 }
 
@@ -69,6 +61,7 @@ class AppLaunchUI : View() {
 
             // Just wide enough for 80 chars in the output area at currently chosen font size.
             maxWidth = 1024.0
+            maxHeight = Double.POSITIVE_INFINITY
             spacing = 5.0
             alignment = Pos.TOP_CENTER
         }
@@ -78,9 +71,11 @@ class AppLaunchUI : View() {
             style {
                 fontSize = 20.pt
                 alignment = Pos.CENTER
+                padding = box(20.px)
             }
             // When running the GUI classes standalone via TornadoFX plugin, we of course have no command line params ...
             text = try { commandLineArguments.defaultCoordinate } catch (e: UninitializedPropertyAccessException) { "" }
+            requestFocus()
             selectAll()
             disableProperty().bind(isWorking)
             action { beginLaunch() }

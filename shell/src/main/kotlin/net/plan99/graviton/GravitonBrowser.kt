@@ -5,19 +5,19 @@ import de.codecentric.centerdevice.dialogs.about.AboutStageBuilder
 import javafx.geometry.Pos
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
-import javafx.scene.effect.DropShadow
+import javafx.scene.effect.GaussianBlur
 import javafx.scene.image.Image
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Paint
-import javafx.scene.text.Font
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import tornadofx.*
 import java.awt.image.BufferedImage
 import java.util.*
 import javax.imageio.ImageIO
+import kotlin.coroutines.experimental.buildIterator
 
 // TODO: Organise all attribution links for artwork in the about box, once there is one.
 // icons8.com
@@ -80,6 +80,13 @@ class ShellView : View() {
     companion object : Logging()
 
     private lateinit var spinnerAnimation: ThreeDSpinner
+    private val appLaunchUI: AppLaunchUI by inject()
+    private val loginUI: LoginUI by inject()
+    private lateinit var mainStackPane: StackPane
+    private val screens = buildIterator {
+        // yield(loginUI)
+        yield(appLaunchUI)
+    }
 
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
 
@@ -103,8 +110,9 @@ class ShellView : View() {
 
         artVBox()
         createSpinnerAnimation()
-        stackpane {
-            children += find<AppLaunchUI>().root
+        mainStackPane = stackpane {
+            children += screens.next().root
+            alignment = Pos.TOP_CENTER
         }
         artCredits()
     }
@@ -180,73 +188,26 @@ class ShellView : View() {
             tk.setApplicationMenu(appMenu)
         }
     }
-}
 
-class Styles : Stylesheet() {
-    companion object {
-        val shellArea by cssclass()
-        val content by cssclass()
-        val logoText by cssclass()
-        val messageBox by cssclass()
-        val historyEntry by cssclass()
-        val historyTitle by cssclass()
-    }
-
-    private val wireFont: Font = loadFont("/net/plan99/graviton/art/Wire One regular.ttf", 25.0)!!
-
-    init {
-        val cornerRadius = multi(box(10.px))
-
-        shellArea {
-            fontFamily = "monospace"
-            fontSize = 15.pt
-            borderColor = multi(box(Color.gray(0.8, 1.0)))
-            borderWidth = multi(box(3.px))
-            borderRadius = cornerRadius
-            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.95))
-            backgroundRadius = cornerRadius
-            scrollPane {
-                content {
-                    backgroundColor = multi(Color.TRANSPARENT)
-                }
-                viewport {
-                    backgroundColor = multi(Color.TRANSPARENT)
-                }
+    fun switchToNextScreen() {
+        check(screens.hasNext())
+        val animTime = 3.seconds
+        val current = mainStackPane.children.first()
+        val effect = GaussianBlur()
+        current.effect = effect
+        current.opacityProperty().animate(0.0, animTime)
+        effect.radiusProperty().animate(100.0, animTime) {
+            setOnFinished {
+                // Helps with hot reload when iterating on the UI.
+                current.opacity = 1.0
+                mainStackPane.children.remove(current)
             }
         }
-
-        logoText {
-            font = wireFont
-            fontSize = 120.pt
-            effect = DropShadow(15.0, Color.WHITE)
-        }
-
-        messageBox {
-            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
-            backgroundRadius = multi(box(5.px))
-            borderWidth = multi(box(3.px))
-            borderColor = multi(box(Color.LIGHTGREY))
-            borderRadius = multi(box(5.px))
-            fontSize = 25.pt
-        }
-
-        historyEntry {
-            borderWidth = multi(box(2.px))
-            borderColor = multi(box(Color.web("#dddddd")))
-            borderRadius = cornerRadius
-            backgroundColor = multi(LinearGradient.valueOf("white,#eeeeeedd"))
-            backgroundRadius = cornerRadius
-            padding = box(20.px)
-        }
-
-        historyEntry and hover {
-            borderColor = multi(box(Color.web("#555555")))
-            cursor = javafx.scene.Cursor.HAND
-        }
-
-        historyTitle {
-            fontSize = 25.pt
-            padding = box(0.px, 0.px, 15.pt, 0.px)
+        val next = screens.next()
+        mainStackPane.children += next.root
+        next.root.opacity = 0.0
+        next.root.opacityProperty().animate(1.0, animTime.divide(2.0)) {
+            this.delay = 0.7.seconds
         }
     }
 }
