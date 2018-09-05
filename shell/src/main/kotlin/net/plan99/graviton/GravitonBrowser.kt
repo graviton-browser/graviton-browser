@@ -2,47 +2,29 @@ package net.plan99.graviton
 
 import de.codecentric.centerdevice.MenuToolkit
 import de.codecentric.centerdevice.dialogs.about.AboutStageBuilder
-import javafx.application.Platform
-import javafx.beans.binding.Bindings
-import javafx.beans.property.SimpleBooleanProperty
-import javafx.beans.property.SimpleDoubleProperty
-import javafx.beans.property.StringProperty
 import javafx.geometry.Pos
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
-import javafx.scene.control.TextArea
-import javafx.scene.control.TextField
 import javafx.scene.effect.DropShadow
 import javafx.scene.image.Image
 import javafx.scene.layout.StackPane
-import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Paint
 import javafx.scene.text.Font
-import javafx.scene.text.TextAlignment
 import javafx.stage.Stage
 import javafx.stage.StageStyle
-import kotlinx.coroutines.experimental.javafx.JavaFx
-import kotlinx.coroutines.experimental.launch
 import tornadofx.*
 import java.awt.image.BufferedImage
-import java.io.OutputStream
-import java.io.PrintStream
 import java.util.*
 import javax.imageio.ImageIO
-import kotlin.concurrent.thread
-
 
 // TODO: Organise all attribution links for artwork in the about box, once there is one.
 // icons8.com
 // OFL 1.1 license for the font
 // vexels for the vector art
 
-// Allow for minimal rebranding in future.
-val APP_NAME = "Graviton"
-val Component.APP_LOGO get() = Image(resources["art/icons8-rocket-take-off-128.png"])
-
+/** General app class: holds initialization code, etc. */
 class GravitonBrowser : App(ShellView::class, Styles::class) {
     init {
         importStylesheet("/net/plan99/graviton/graviton.css")
@@ -92,22 +74,13 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
 }
 
 /**
- * The main window the user interacts with to start applications.
+ * The main window the user interacts with.
  */
 class ShellView : View() {
     companion object : Logging()
 
-    private val downloadProgress = SimpleDoubleProperty(0.0)
-    private val isWorking = SimpleBooleanProperty()
     private lateinit var spinnerAnimation: ThreeDSpinner
-    private lateinit var messageText1: StringProperty
-    private lateinit var messageText2: StringProperty
-    private lateinit var outputArea: TextArea
-    private lateinit var coordinateBar: TextField
-    private val historyManager by lazy { HistoryManager.create() }
-    private val isHistoryVisible = SimpleBooleanProperty(true)
 
-    //region Art management
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
 
     private val allArt = listOf(
@@ -118,9 +91,7 @@ class ShellView : View() {
             )
     )
     private val art = allArt[1]
-    //endregion
 
-    //region UI building
     override val root = stackpane {
         style { backgroundColor = multi(Color.WHITE) }
 
@@ -133,96 +104,9 @@ class ShellView : View() {
         artVBox()
         createSpinnerAnimation()
         stackpane {
-            children += body()
+            children += find<AppLaunchUI>().root
         }
         artCredits()
-    }
-
-    private fun body() = vbox {
-        pane { minHeight = 0.0 }
-
-        // Logo
-        hbox {
-            alignment = Pos.CENTER
-            imageview(APP_LOGO)
-            label("graviton") {
-                addClass(Styles.logoText)
-            }
-        }
-
-        pane { minHeight = 25.0 }
-
-        coordinateBar()
-
-        pane { minHeight = 25.0 }
-
-        downloadTracker()
-
-        pane { minHeight = 25.0 }
-
-        recentAppsPicker()
-
-        outputArea = textarea {
-            addClass(Styles.shellArea)
-            isWrapText = false
-            opacity = 0.0
-            textProperty().addListener { _, oldValue, newValue ->
-                if (oldValue.isBlank() && newValue.isNotBlank()) {
-                    opacityProperty().animate(1.0, 0.3.seconds)
-                } else if (newValue.isBlank() && oldValue.isNotBlank()) {
-                    opacityProperty().animate(0.0, 0.3.seconds)
-                }
-            }
-            prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
-        }
-
-        maxWidth = 1000.0
-        spacing = 5.0
-        alignment = Pos.TOP_CENTER
-    }
-
-    private fun VBox.coordinateBar() {
-        coordinateBar = textfield {
-            style {
-                fontSize = 20.pt
-                alignment = Pos.CENTER
-            }
-            // When running the GUI classes standalone via TornadoFX plugin, we of course have no command line params ...
-            text = try { commandLineArguments.defaultCoordinate } catch (e: UninitializedPropertyAccessException) { "" }
-            selectAll()
-            disableProperty().bind(isWorking)
-            action { beginLaunch() }
-        }
-    }
-
-    private fun VBox.downloadTracker() {
-        stackpane {
-            progressbar {
-                fitToParentSize()
-                progressProperty().bind(downloadProgress)
-            }
-            vbox {
-                addClass(Styles.messageBox)
-                padding = insets(15.0)
-                alignment = Pos.CENTER
-                label {
-                    messageText1 = textProperty()
-                    textAlignment = TextAlignment.CENTER
-                }
-                label {
-                    messageText2 = textProperty()
-                    textAlignment = TextAlignment.CENTER
-                    style {
-                        fontSize = 15.pt
-                    }
-                }
-            }
-        }.also {
-            // If we're not downloading, hide this chunk of UI and take it out of layout.
-            val needed = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
-            it.visibleProperty().bind(needed)
-            it.managedProperty().bind(needed)
-        }
     }
 
     private fun StackPane.artCredits() {
@@ -266,46 +150,22 @@ class ShellView : View() {
         }.stackpaneConstraints { alignment = Pos.TOP_CENTER }
     }
 
-    private fun VBox.recentAppsPicker() {
-        vbox {
-            spacing = 15.0
-
-            // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
-            for (entry: HistoryEntry in historyManager.history.take(10)) {
-                vbox {
-                    addClass(Styles.historyEntry)
-                    label(entry.name) { addClass(Styles.historyTitle) }
-                    if (entry.description != null)
-                        label(entry.description)
-
-                    setOnMouseClicked {
-                        coordinateBar.text = entry.coordinateFragment
-                        beginLaunch()
-                    }
-
-                    visibleWhen(isHistoryVisible)
-                    managedProperty().bind(isHistoryVisible)
-                }
-            }
-        }
-    }
-
     private fun setupMacMenuBar() {
         val tk = MenuToolkit.toolkit()
         val aboutStage = AboutStageBuilder
-                .start("About $APP_NAME")
-                .withAppName(APP_NAME)
+                .start("About $appBrandName")
+                .withAppName(appBrandName)
                 .withCloseOnFocusLoss()
                 .withVersionString("Version $gravitonShellVersionNum")
                 .withCopyright("Copyright \u00A9 " + Calendar.getInstance().get(Calendar.YEAR))
-                .withImage(APP_LOGO)
+                .withImage(appBrandLogo)
                 .build()
 
         menubar {
-            val appMenu = menu(APP_NAME) {
+            val appMenu = menu(appBrandName) {
                 // Note that the app menu name can't be changed at runtime and will be ignored; to make the menu bar say Graviton
                 // requires bundling it. During development it will just say 'java' and that's OK.
-                this += tk.createAboutMenuItem(APP_NAME, aboutStage)
+                this += tk.createAboutMenuItem(appBrandName, aboutStage)
                 separator()
                 item("Clear cache ...") {
                     setOnAction {
@@ -315,120 +175,11 @@ class ShellView : View() {
                     }
                 }
                 separator()
-                this += tk.createQuitMenuItem(APP_NAME)
+                this += tk.createQuitMenuItem(appBrandName)
             }
-            tk.setApplicationMenu(appMenu);
+            tk.setApplicationMenu(appMenu)
         }
     }
-    //endregion
-
-    //region Event handling
-    private fun beginLaunch() {
-        val text = coordinateBar.text
-        if (text.isBlank()) return
-
-        // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
-        // app can take a bit of time.
-        isWorking.set(true)
-
-        // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
-        // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
-        val cmdLineParams = app.parameters.raw.joinToString(" ")
-        val options = GravitonCLI.parse("$cmdLineParams $text")
-
-        // These callbacks will run on the FX event thread.
-        val events = object : AppLauncher.Events {
-            override suspend fun onStartedDownloading(name: String) {
-                downloadProgress.set(0.0)
-                if (name.contains("maven-metadata-")) {
-                    messageText1.set("Checking for updates")
-                    messageText2.set("")
-                    return
-                }
-                messageText1.set("Downloading")
-                messageText2.set(name)
-            }
-
-            var progress = 0.0
-
-            override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
-                if (name.contains("maven-metadata-")) {
-                    messageText1.set("Checking for updates")
-                    messageText2.set("")
-                    return
-                }
-                messageText1.set("Downloading")
-                messageText2.set(name)
-                val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
-                // Need to make sure progress only jumps backwards if we genuinely have a big correction.
-                if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return
-                progress = pr
-                downloadProgress.set(progress)
-            }
-
-            override suspend fun onStoppedDownloading() {
-                downloadProgress.set(1.0)
-                messageText1.set("")
-                messageText2.set("")
-            }
-
-            override suspend fun aboutToStartApp() {
-                isWorking.set(false)
-                messageText1.set("")
-                messageText2.set("")
-                isHistoryVisible.set(false)
-            }
-        }
-
-        // Capture the output of the program and redirect it to a text area. In future we'll switch this to be a real
-        // terminal and get rid of it for graphical apps.
-        outputArea.text = ""
-        val printStream = PrintStream(object : OutputStream() {
-            override fun write(b: Int) {
-                Platform.runLater {
-                    outputArea.text += b.toChar()
-                }
-            }
-        }, true)
-
-        // Now start a coroutine that will run everything on the FX thread other than background tasks.
-        launch(JavaFx) {
-            try {
-                AppLauncher(options, historyManager, primaryStage, JavaFx, events, printStream, printStream).start()
-            } catch (e: Throwable) {
-                onStartError(e)
-                coordinateBar.selectAll()
-                coordinateBar.requestFocus()
-            }
-        }
-    }
-
-    private fun onStartError(e: Throwable) {
-        isWorking.set(false)
-        downloadProgress.set(0.0)
-        messageText1.set("Start failed")
-        messageText2.set(e.message)
-        logger.error("Start failed", e)
-    }
-
-    private fun mockDownload() {
-        isWorking.set(true)
-        downloadProgress.set(0.0)
-        messageText1.set("Mock downloading ..")
-        thread {
-            Thread.sleep(5000)
-            Platform.runLater {
-                downloadProgress.animate(1.0, 5000.millis) {
-                    setOnFinished {
-                        isWorking.set(false)
-                        messageText1.set("")
-                        messageText2.set("")
-                    }
-                }
-            }
-        }
-    }
-    //endregion
 }
 
 class Styles : Stylesheet() {

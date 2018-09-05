@@ -1,11 +1,14 @@
 @file:JvmName("Graviton")
-
 package net.plan99.graviton
 
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.scene.image.Image
 import net.plan99.graviton.scheduler.OSScheduledTaskDefinition
 import net.plan99.graviton.scheduler.OSTaskScheduler
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
+import tornadofx.*
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
@@ -13,13 +16,29 @@ import java.nio.file.Paths
 import java.time.Duration
 import kotlin.concurrent.thread
 
-val GRAVITON_PATH: String? = System.getenv("GRAVITON_PATH")
-val GRAVITON_VERSION: String? = System.getenv("GRAVITON_VERSION")
+//region Global variables
+/** The installed path of the browser, when packaged as a native installer. */
+val gravitonPath: String? = System.getenv("GRAVITON_PATH")
 
-val mainLog get() = LoggerFactory.getLogger("main")
+/** The current version, as discovered by the bootstrapper. */
+val gravitonVersion: String? = System.getenv("GRAVITON_VERSION")
+
+/** The top level logger for the app. */
+val mainLog: Logger get() = LoggerFactory.getLogger("main")
 
 /** Global access to parsed command line flags. */
 var commandLineArguments = GravitonCLI(arrayOf(""))
+
+/** Object that loads and manages the user's history list. */
+val historyManager: HistoryManager by lazy { HistoryManager.create() }
+
+/** Controls whether the spinner animation is active or not. */
+val isWorking by lazy { SimpleBooleanProperty() }
+
+// Allow for minimal rebranding in future.
+const val appBrandName = "Graviton"
+val Component.appBrandLogo get() = Image(resources["art/icons8-rocket-take-off-128.png"])
+//endregion
 
 fun main(arguments: Array<String>) {
     try {

@@ -92,16 +92,16 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         }
 
         // TODO: Enable coloured output on Windows 10+, so client apps can use ANSI escapes without fear.
-        if (GRAVITON_PATH != null && GRAVITON_VERSION != null) {
+        if (gravitonPath != null && gravitonVersion != null) {
             // This will execute asynchronously.
-            startupChecks(GRAVITON_PATH, GRAVITON_VERSION)
+            startupChecks(gravitonPath, gravitonVersion)
             val ls = System.lineSeparator()
-            mainLog.info("$ls${ls}Starting Graviton $GRAVITON_VERSION$ls$ls")
-            mainLog.info("Path is $GRAVITON_PATH")
+            mainLog.info("$ls${ls}Starting Graviton $gravitonVersion$ls$ls")
+            mainLog.info("Path is $gravitonPath")
         }
         if (backgroundUpdate) {
             mainLog.info("BACKGROUND UPDATE")
-            BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), GRAVITON_VERSION?.toInt(), GRAVITON_PATH?.toPath(), URI.create(updateURL))
+            BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), gravitonVersion?.toInt(), gravitonPath?.toPath(), URI.create(updateURL))
         } else {
             if (clearCache) {
                 runBlocking {
