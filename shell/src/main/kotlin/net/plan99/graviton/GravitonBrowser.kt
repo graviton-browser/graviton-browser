@@ -103,8 +103,9 @@ class ShellView : View() {
     private lateinit var messageText1: StringProperty
     private lateinit var messageText2: StringProperty
     private lateinit var outputArea: TextArea
-    private val historyManager by lazy { HistoryManager.create() }
     private lateinit var coordinateBar: TextField
+    private val historyManager by lazy { HistoryManager.create() }
+    private val isHistoryVisible = SimpleBooleanProperty(true)
 
     //region Art management
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
@@ -266,7 +267,8 @@ class ShellView : View() {
     }
 
     private fun VBox.recentAppsPicker() {
-        for (entry: HistoryEntry in historyManager.history) {
+        // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
+        for (entry: HistoryEntry in historyManager.history.take(10)) {
             vbox {
                 addClass(Styles.historyEntry)
                 label(entry.name) { addClass(Styles.historyTitle) }
@@ -276,6 +278,9 @@ class ShellView : View() {
                     coordinateBar.text = entry.coordinateFragment
                     beginLaunch()
                 }
+
+                visibleWhen(isHistoryVisible)
+                managedProperty().bind(isHistoryVisible)
             }
         }
     }
@@ -366,6 +371,7 @@ class ShellView : View() {
                 isWorking.set(false)
                 messageText1.set("")
                 messageText2.set("")
+                isHistoryVisible.set(false)
             }
         }
 
