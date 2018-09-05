@@ -10,14 +10,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class HistoryManagerTest {
-    val example1 = HistoryEntry("com.github.spotbugs", Instant.now(), "com.github.spotbugs:spotbugs:jar:1.2.3", "zzz.jar:xxx.jar", "zzz app", "for sleeping")
-    val example2 = HistoryEntry("net.plan99.graviton:ex", Instant.now(), "net.plan99.graviton:ex:jar:1.2.1", "a.jar:b.jar", "example app", "for examples")
+    private val example1 = HistoryEntry("com.github.spotbugs", Instant.now(), "com.github.spotbugs:spotbugs:jar:1.2.3", "zzz.jar:xxx.jar", "zzz app", "for sleeping")
+    private val example2 = HistoryEntry("net.plan99.graviton:ex", Instant.now(), "net.plan99.graviton:ex:jar:1.2.1", "a.jar:b.jar", "example app", "for examples")
 
     @Test
     fun happyPath() {
         val jimfs = Jimfs.newFileSystem()
         // Check it can be started with no history file.
-        var manager = HistoryManager(jimfs.getPath("/"))
+        var manager = HistoryManager(jimfs.getPath("/"), blocking = true)
         // Not found.
         assertNull(manager.search("com.foo.bar"))
         // Record and re-fetch an entry.
@@ -29,7 +29,7 @@ class HistoryManagerTest {
         assertEquals(example1.resolvedArtifact, manager.search("com.github.spotbugs")?.resolvedArtifact)
         // Overflow the history list.
         repeat(manager.maxHistorySize + 1) {
-            manager.recordHistoryEntry(example2.copy(coordinateFragment = "$it"))
+            manager.recordHistoryEntry(example2.copy(resolvedArtifact = "${example2.resolvedArtifact}:$it"))
         }
         assertEquals(manager.maxHistorySize, manager.history.size)
         // Now example 1 can't be found anymore, it's gone.
@@ -52,5 +52,15 @@ class HistoryManagerTest {
         assertEquals(e.resolvedArtifact, manager.search(e.coordinateFragment)?.resolvedArtifact)
         manager.clock = Clock.offset(clock, Duration.ofDays(2))
         assertNull(manager.search(e.coordinateFragment))
+    }
+
+    @Test
+    fun noDescription() {
+        val storagePath = Jimfs.newFileSystem().getPath("/")
+        var manager = HistoryManager(storagePath, blocking = true)
+        val entry = HistoryEntry("net.plan99.graviton:ex", Instant.now(), "net.plan99.graviton:ex:jar:1.2.1", "a.jar:b.jar", "example app", null)
+        manager.recordHistoryEntry(entry)
+        manager = HistoryManager(storagePath)
+        assertNull(manager.history[0].description)
     }
 }

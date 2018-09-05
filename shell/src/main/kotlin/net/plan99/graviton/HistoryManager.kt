@@ -28,7 +28,8 @@ import kotlin.concurrent.thread
 class HistoryManager(storagePath: Path,
                      private val refreshInterval: Duration = Duration.ofHours(24),
                      val maxHistorySize: Int = 20,
-                     var clock: Clock = Clock.systemUTC()) {
+                     var clock: Clock = Clock.systemUTC(),
+                     val blocking: Boolean = false) {
     companion object : Logging() {
         fun create(): HistoryManager = HistoryManager(commandLineArguments.cachePath.toPath())
 
@@ -79,15 +80,17 @@ class HistoryManager(storagePath: Path,
         val stringWriter = StringWriter()
         val yaml = YamlWriter(stringWriter, yamlConfig)
         for (e in snapshot) {
-            fun <K, V> map(vararg pairs: Pair<K, V>): Map<K, V> = pairs.toMap(HashMap(pairs.size))
-            yaml.write(map(
+            fun <K, V> map(vararg pairs: Pair<K, V>): HashMap<K, V> = pairs.toMap(HashMap(pairs.size))
+            val map = map(
                     "coordinate" to e.coordinateFragment,
                     "last refresh time" to DateTimeFormatter.ISO_INSTANT.format(e.lastRefreshTime),
                     "resolved artifact" to e.resolvedArtifact,
                     "classpath" to e.classPath,
-                    "name" to e.name,
-                    "description" to e.description
-            ))
+                    "name" to e.name
+            )
+            if (e.description != null)
+                map["description"] = e.description
+            yaml.write(map)
         }
         yaml.close()
         val str = stringWriter.toString()
@@ -112,8 +115,12 @@ class HistoryManager(storagePath: Path,
 
         // Do the writing on a background thread to get out of the way of startup.
         val snapshot = history
-        thread {
+        if (blocking) {
             writeToFile(snapshot)
+        } else {
+            thread {
+                writeToFile(snapshot)
+            }
         }
         return toWrite
     }

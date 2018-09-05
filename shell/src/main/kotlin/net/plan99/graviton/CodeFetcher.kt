@@ -98,7 +98,9 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
                     override fun populateResult(session: RepositorySystemSession, result: ArtifactDescriptorResult, model: Model) {
                         super.populateResult(session, result, model)
                         val name = model.name ?: result.artifact.artifactId
-                        result.artifact = result.artifact.withNameAndDescription(name, model.description)
+                        // Yes, really ...
+                        val description = if (model.description == "null") null else model.description
+                        result.artifact = result.artifact.withNameAndDescription(name, description)
                     }
                 }
         ))

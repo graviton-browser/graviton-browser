@@ -132,53 +132,53 @@ class ShellView : View() {
 
         artVBox()
         createSpinnerAnimation()
-        body()
+        stackpane {
+            children += body()
+        }
         artCredits()
     }
 
-    private fun StackPane.body() {
-        vbox {
-            pane { minHeight = 0.0 }
+    private fun body() = vbox {
+        pane { minHeight = 0.0 }
 
-            // Logo
-            hbox {
-                alignment = Pos.CENTER
-                imageview(APP_LOGO)
-                label("graviton") {
-                    addClass(Styles.logoText)
-                }
+        // Logo
+        hbox {
+            alignment = Pos.CENTER
+            imageview(APP_LOGO)
+            label("graviton") {
+                addClass(Styles.logoText)
             }
-
-            pane { minHeight = 25.0 }
-
-            coordinateBar()
-
-            pane { minHeight = 25.0 }
-
-            downloadTracker()
-
-            pane { minHeight = 25.0 }
-
-            recentAppsPicker()
-
-            outputArea = textarea {
-                addClass(Styles.shellArea)
-                isWrapText = false
-                opacity = 0.0
-                textProperty().addListener { _, oldValue, newValue ->
-                    if (oldValue.isBlank() && newValue.isNotBlank()) {
-                        opacityProperty().animate(1.0, 0.3.seconds)
-                    } else if (newValue.isBlank() && oldValue.isNotBlank()) {
-                        opacityProperty().animate(0.0, 0.3.seconds)
-                    }
-                }
-                prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
-            }
-
-            maxWidth = 1000.0
-            spacing = 5.0
-            alignment = Pos.TOP_CENTER
         }
+
+        pane { minHeight = 25.0 }
+
+        coordinateBar()
+
+        pane { minHeight = 25.0 }
+
+        downloadTracker()
+
+        pane { minHeight = 25.0 }
+
+        recentAppsPicker()
+
+        outputArea = textarea {
+            addClass(Styles.shellArea)
+            isWrapText = false
+            opacity = 0.0
+            textProperty().addListener { _, oldValue, newValue ->
+                if (oldValue.isBlank() && newValue.isNotBlank()) {
+                    opacityProperty().animate(1.0, 0.3.seconds)
+                } else if (newValue.isBlank() && oldValue.isNotBlank()) {
+                    opacityProperty().animate(0.0, 0.3.seconds)
+                }
+            }
+            prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
+        }
+
+        maxWidth = 1000.0
+        spacing = 5.0
+        alignment = Pos.TOP_CENTER
     }
 
     private fun VBox.coordinateBar() {
@@ -267,20 +267,25 @@ class ShellView : View() {
     }
 
     private fun VBox.recentAppsPicker() {
-        // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
-        for (entry: HistoryEntry in historyManager.history.take(10)) {
-            vbox {
-                addClass(Styles.historyEntry)
-                label(entry.name) { addClass(Styles.historyTitle) }
-                label(entry.description ?: "")
+        vbox {
+            spacing = 15.0
 
-                setOnMouseClicked {
-                    coordinateBar.text = entry.coordinateFragment
-                    beginLaunch()
+            // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
+            for (entry: HistoryEntry in historyManager.history.take(10)) {
+                vbox {
+                    addClass(Styles.historyEntry)
+                    label(entry.name) { addClass(Styles.historyTitle) }
+                    if (entry.description != null)
+                        label(entry.description)
+
+                    setOnMouseClicked {
+                        coordinateBar.text = entry.coordinateFragment
+                        beginLaunch()
+                    }
+
+                    visibleWhen(isHistoryVisible)
+                    managedProperty().bind(isHistoryVisible)
                 }
-
-                visibleWhen(isHistoryVisible)
-                managedProperty().bind(isHistoryVisible)
             }
         }
     }
