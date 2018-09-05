@@ -2,6 +2,7 @@
 package net.plan99.graviton
 
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.scene.effect.Effect
 import javafx.scene.image.Image
 import net.plan99.graviton.scheduler.OSScheduledTaskDefinition
 import net.plan99.graviton.scheduler.OSTaskScheduler
@@ -39,6 +40,9 @@ val isWorking by lazy { SimpleBooleanProperty() }
 const val appBrandName = "Graviton"
 /** Should the name be put next to the logo, or, should we just use the logo alone (i.e. it is the name) */
 const val appBrandLogoIsName = false
+/** If set, an effect to apply to the logo image. */
+val appLogoEffect: Effect? = null
+/** The logo image to use on the UI;. */
 val Component.appBrandLogo get() = Image(resources["art/icons8-rocket-take-off-128.png"])
 //endregion
 

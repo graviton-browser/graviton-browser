@@ -7,7 +7,10 @@ class LogoView : Fragment() {
     @Suppress("ConstantConditionIf")
     override val root = hbox {
         alignment = Pos.CENTER
-        imageview(appBrandLogo)
+        imageview(appBrandLogo) {
+            if (appLogoEffect != null)
+                effect = appLogoEffect
+        }
         if (!appBrandLogoIsName)
             label("graviton") { addClass(Styles.logoText) }
     }
