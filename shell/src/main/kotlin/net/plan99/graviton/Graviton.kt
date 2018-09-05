@@ -37,6 +37,8 @@ val isWorking by lazy { SimpleBooleanProperty() }
 
 // Allow for minimal rebranding in future.
 const val appBrandName = "Graviton"
+/** Should the name be put next to the logo, or, should we just use the logo alone (i.e. it is the name) */
+const val appBrandLogoIsName = false
 val Component.appBrandLogo get() = Image(resources["art/icons8-rocket-take-off-128.png"])
 //endregion
 
