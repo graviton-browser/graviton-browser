@@ -119,7 +119,7 @@ class HistoryManager(storagePath: Path,
     }
 
     private fun maybeTouchExistingEntry(entry: HistoryEntry): HistoryEntry? {
-        val i = history.indexOfFirst { it.coordinateFragment == entry.coordinateFragment }
+        val i = history.indexOfFirst { it.resolvedArtifact.toLowerCase() == entry.resolvedArtifact.toLowerCase() }
         if (i == -1) return null
         val copy = entry.copy(lastRefreshTime = clock.instant())
         history.removeAt(i)

@@ -45,7 +45,12 @@ import kotlin.coroutines.experimental.CoroutineContext
  * and returns calculated classpaths.
  */
 open class CodeFetcher(private val coroutineContext: CoroutineContext, private val cachePath: Path) {
-    companion object : Logging()
+    companion object : Logging() {
+        fun isPossiblyJitPacked(packageName: String) =
+                packageName.startsWith("com.github.") ||
+                        packageName.startsWith("org.bitbucket.") ||
+                        packageName.startsWith("com.gitlab.")
+    }
 
     init {
         // Ensure the local Maven repo exists.
@@ -150,7 +155,8 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
             }
         }
 
-        @Volatile var lastFinish: String = ""
+        @Volatile
+        var lastFinish: String = ""
 
         override fun transferStarted(event: TransferEvent) {
             info { "Transfer started: $event" }
@@ -216,7 +222,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         } catch (e: MetadataNotFoundException) {
             // Maybe try again if the user entered something like com.github.username:reponame in a repo with
             // no releases and without specifying :master explicitly.
-            if (!isPossiblyJitPacked(packageName)) throw e
+            if (!isPossiblyJitPacked(packageName) || packageName.split(':').size > 2) throw e
             info { "Trying again with $packageName:master because we failed to download and the name may be a jitpack.io package" }
             checkLatestVersion("$packageName:master")
         }
@@ -233,11 +239,6 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         // so we must use it, rather than 'artifact' even though they may appear to be the same.
         return Result(classPath, node.artifact)
     }
-
-    private fun isPossiblyJitPacked(packageName: String) =
-                    packageName.startsWith("com.github.") ||
-                    packageName.startsWith("org.bitbucket.") ||
-                    packageName.startsWith("com.gitlab.")
 
     private suspend fun resolveArtifact(artifact: DefaultArtifact): DependencyNode {
         val dependency = Dependency(artifact, "runtime")

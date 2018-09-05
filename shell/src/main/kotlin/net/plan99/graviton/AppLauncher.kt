@@ -5,6 +5,7 @@ import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
 import javafx.stage.Stage
+import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import java.io.File
@@ -31,7 +32,7 @@ open class AppLauncher(private val options: GravitonCLI,
                        private val stdErrStream: PrintStream = System.err) {
     companion object : Logging()
 
-    open class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
+    class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
         constructor(message: String) : this(message, null)
     }
 
@@ -100,7 +101,6 @@ open class AppLauncher(private val options: GravitonCLI,
                                                   stdOutStream, stdErrStream, andWait = primaryStage == null)
             else -> throw StartException("This application is not an executable program.")
         }
-        info { "Application has finished" }
     }
 
     private suspend fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {
@@ -111,8 +111,23 @@ open class AppLauncher(private val options: GravitonCLI,
             val rootCause = e.rootCause
             if (rootCause is MetadataNotFoundException) {
                 throw StartException("Sorry, no package with those coordinates is known.", e)
+            } else if (rootCause is HttpResponseException && rootCause.statusCode == 401 && CodeFetcher.isPossiblyJitPacked(userInput)) {
+                // JitPack can return 401 Unauthorized when no repository is found e.g. typo, because it
+                // might be a private repository that requires authentication.
+                throw StartException("Sorry, no repository was found with those coordinates.", e)
             } else {
-                throw StartException("Fetch error: ${rootCause.message}", e)
+                // Put all the errors together into some sort of coherent story.
+                val m = StringBuilder()
+                var cursor: Throwable = e.cause!!
+                var lastMessage = ""
+                while (true) {
+                    if (cursor.message != lastMessage) {
+                        lastMessage = cursor.message ?: ""
+                        m.appendln(lastMessage)
+                    }
+                    cursor = cursor.cause ?: break
+                }
+                throw StartException(m.toString(), e)
             }
         }
     }
@@ -157,6 +172,7 @@ open class AppLauncher(private val options: GravitonCLI,
             primaryStage.title = artifactName
             primaryStage.hide()
             app.start(primaryStage)
+            info { "JavaFX application has been invoked" }
         }
     }
 
@@ -196,6 +212,7 @@ open class AppLauncher(private val options: GravitonCLI,
             }
         }
         if (andWait) t.join()
+        info { "App has finished" }
     }
 
     private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
@@ -236,7 +253,7 @@ open class AppLauncher(private val options: GravitonCLI,
         } catch (e: java.io.FileNotFoundException) {
             throw e
         } catch (e: Exception) {
-            throw StartException("Failed to build classloader given class path: ${fetch.classPath}", e)
+            throw AppLauncher.StartException("Failed to build classloader given class path: ${fetch.classPath}", e)
         }
     }
 }

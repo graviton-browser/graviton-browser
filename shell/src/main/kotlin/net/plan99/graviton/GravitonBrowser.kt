@@ -25,7 +25,6 @@ import javafx.stage.Stage
 import javafx.stage.StageStyle
 import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
-import org.eclipse.aether.transfer.MetadataNotFoundException
 import tornadofx.*
 import java.awt.image.BufferedImage
 import java.io.OutputStream
@@ -105,6 +104,7 @@ class ShellView : View() {
     private lateinit var messageText2: StringProperty
     private lateinit var outputArea: TextArea
     private val historyManager by lazy { HistoryManager.create() }
+    private lateinit var coordinateBar: TextField
 
     //region Art management
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
@@ -181,7 +181,7 @@ class ShellView : View() {
     }
 
     private fun VBox.coordinateBar() {
-        textfield {
+        coordinateBar = textfield {
             style {
                 fontSize = 20.pt
                 alignment = Pos.CENTER
@@ -190,7 +190,7 @@ class ShellView : View() {
             text = try { commandLineArguments.defaultCoordinate } catch (e: UninitializedPropertyAccessException) { "" }
             selectAll()
             disableProperty().bind(isWorking)
-            action { onNavigate(this@textfield) }
+            action { beginLaunch() }
         }
     }
 
@@ -271,6 +271,11 @@ class ShellView : View() {
                 addClass(Styles.historyEntry)
                 label(entry.name) { addClass(Styles.historyTitle) }
                 label(entry.description ?: "")
+
+                setOnMouseClicked {
+                    coordinateBar.text = entry.coordinateFragment
+                    beginLaunch()
+                }
             }
         }
     }
@@ -308,8 +313,8 @@ class ShellView : View() {
     //endregion
 
     //region Event handling
-    private fun onNavigate(textField: TextField) {
-        val text = textField.text
+    private fun beginLaunch() {
+        val text = coordinateBar.text
         if (text.isBlank()) return
 
         // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
@@ -381,8 +386,8 @@ class ShellView : View() {
                 AppLauncher(options, historyManager, primaryStage, JavaFx, events, printStream, printStream).start()
             } catch (e: Throwable) {
                 onStartError(e)
-                textField.selectAll()
-                textField.requestFocus()
+                coordinateBar.selectAll()
+                coordinateBar.requestFocus()
             }
         }
     }
@@ -391,27 +396,7 @@ class ShellView : View() {
         isWorking.set(false)
         downloadProgress.set(0.0)
         messageText1.set("Start failed")
-        val msg = if (e is AppLauncher.StartException) {
-            if (e.cause is MetadataNotFoundException) {
-                "Could not locate the requested application"
-            } else {
-                // Put all the errors together into some sort of coherent story.
-                val m = StringBuilder()
-                var cursor: Throwable = e.cause!!
-                var lastMessage = ""
-                while (true) {
-                    if (cursor.message != lastMessage) {
-                        lastMessage = cursor.message ?: ""
-                        m.appendln(lastMessage)
-                    }
-                    cursor = cursor.cause ?: break
-                }
-                m.toString()
-            }
-        } else {
-            e.message
-        }
-        messageText2.set(msg)
+        messageText2.set(e.message)
         logger.error("Start failed", e)
     }
 
@@ -487,7 +472,7 @@ class Styles : Stylesheet() {
             borderWidth = multi(box(2.px))
             borderColor = multi(box(Color.web("#dddddd")))
             borderRadius = cornerRadius
-            backgroundColor = multi(LinearGradient.valueOf("white,#eeeeee"))
+            backgroundColor = multi(LinearGradient.valueOf("white,#eeeeeedd"))
             backgroundRadius = cornerRadius
             padding = box(20.px)
         }
