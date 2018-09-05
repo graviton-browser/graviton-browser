@@ -79,13 +79,6 @@ dependencies {
     // TornadoFX - a Kotlin UI framework based on JavaFX.
     compile "no.tornado:tornadofx:1.7.17"
 
-    // ControlsFX - useful JavaFX controls library.
-//    if (!isPostJ8) {
-//        compile "org.controlsfx:controlsfx:8.40.14"
-//    } else {
-//        compile "org.controlsfx:controlsfx:9.0.0"
-//    }
-
     // JUnit - helpful unit testing framework.
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile "org.jetbrains.kotlin:kotlin-test:$kotlin_version"
@@ -108,6 +101,7 @@ dependencies {
     compile 'org.conscrypt:conscrypt-openjdk:1.2.0:' + osdetector.classifier
 
     // OkHttp - good HTTP client library
+    // TODO - Write a Maven Resolver backend that uses OkHttp so we can lose Apache HttpClient
     compile 'com.squareup.okhttp3:okhttp:3.11.0'
 
     // NSMenuFX - library for controlling the Mac native menu bar.
