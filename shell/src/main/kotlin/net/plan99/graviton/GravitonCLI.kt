@@ -165,6 +165,9 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             override suspend fun onStoppedDownloading() {
             }
 
+            override suspend fun initializingApp() {
+            }
+
             override suspend fun aboutToStartApp() {
                 if (pb != null) {
                     pb!!.close()

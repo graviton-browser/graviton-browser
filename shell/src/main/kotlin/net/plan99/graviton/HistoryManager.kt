@@ -50,8 +50,10 @@ class HistoryManager(storagePath: Path,
     // TODO: YamlBeans isn't so great in the end. Switch to a similar format that's home grown.
 
     init {
+        info { "Graviton cache is $storagePath" }
         if (Files.exists(historyFile)) {
             readFromFile(historyFile)
+            info { "Read ${history.size} entries from the history list" }
         }
     }
 

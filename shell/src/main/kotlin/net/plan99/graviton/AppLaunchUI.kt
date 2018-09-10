@@ -87,6 +87,7 @@ class AppLaunchUI : View() {
             progressbar {
                 fitToParentSize()
                 progressProperty().bind(downloadProgress)
+                style = "-fx-opacity: 0.85"
             }
             vbox {
                 addClass(Styles.messageBox)
@@ -184,6 +185,11 @@ class AppLaunchUI : View() {
                 downloadProgress.set(1.0)
                 messageText1.set("")
                 messageText2.set("")
+            }
+
+            override suspend fun initializingApp() {
+                messageText1.set("Please wait")
+                messageText2.set("App is initializing")
             }
 
             override suspend fun aboutToStartApp() {

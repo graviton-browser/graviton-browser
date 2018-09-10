@@ -37,6 +37,7 @@ open class AppLauncher(private val options: GravitonCLI,
     }
 
     interface Events : CodeFetcher.Events {
+        suspend fun initializingApp()
         suspend fun aboutToStartApp()
     }
 
@@ -53,6 +54,7 @@ open class AppLauncher(private val options: GravitonCLI,
         codeFetcher.useSSL = !(commandLineArguments.noSSL || options.noSSL)
 
         val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
+        check(userInput.isNotBlank())
         val historyLookup: HistoryEntry? = if (!options.refresh) {
             // The user has probably specified a coordinate fragment, missing the artifact name or version number.
             // If we never saw this input before, we'll just continue and clean it up later. If we resolved it
@@ -92,14 +94,20 @@ open class AppLauncher(private val options: GravitonCLI,
         // main method has non-trivial logic in it, then it won't be run!
         //
         // TODO: Disassemble the main method if found to see if it just does Application.launch and if so, skip it.
+        events.initializingApp()
         val mainClass = loadResult.mainClass
-        val jfxApplicationClass = loadResult.jfxApplicationClass
-        events.aboutToStartApp()
-        when {
-            jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args, fetch.artifact.toString())
-            mainClass != null -> invokeMainMethod(fetch.artifact.toString(), options.args, loadResult, mainClass,
-                                                  stdOutStream, stdErrStream, andWait = primaryStage == null)
-            else -> throw StartException("This application is not an executable program.")
+        val jfxApplicationClass: Class<out Application>? = stopwatch("Searching for a JavaFX main class") { loadResult.calculateJFXClass() }
+        try {
+            when {
+                jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args.drop(1), fetch.artifact.toString())
+                mainClass != null -> invokeMainMethod(fetch.artifact.toString(), options.args, loadResult, mainClass,
+                                                      stdOutStream, stdErrStream, andWait = primaryStage == null)
+                else -> throw StartException("This application is not an executable program.")
+            }
+        } catch (e: StartException) {
+            throw e
+        } catch (e: Throwable) {
+            throw StartException("Application failed to start", e)
         }
     }
 
@@ -149,32 +157,45 @@ open class AppLauncher(private val options: GravitonCLI,
         return packageName
     }
 
-    private fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: Array<String>, artifactName: String) {
-        if (primaryStage == null) {
-            // Being started from the command line, JavaFX wasn't set up yet.
-            Application.launch(jfxApplicationClass, *args)
-        } else {
-            // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
-            // So we have to do a bit of acrobatics here and create the Application ourselves, then hand it a cleaned
-            // version of our stage.
-            check(Platform.isFxApplicationThread())
-            // Switch context classloader, this is needed for loading code and resources.
-            Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
-            val app = jfxApplicationClass.getConstructor().newInstance()
-            ModuleHacks.setParams(app, args)
-            app.init()
-            // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
-            // or the shell changes e.g. by adding new properties or binding new ones.
-            primaryStage.unbindAllProperties()
-            primaryStage.width = primaryStage.width
-            primaryStage.height = primaryStage.height
-            primaryStage.scene = null
-            primaryStage.title = artifactName
-            primaryStage.hide()
-            app.start(primaryStage)
-            info { "JavaFX application has been invoked" }
-        }
-    }
+    private suspend fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: List<String>, artifactName: String) =
+            if (primaryStage == null) {
+                // Being started from the command line, JavaFX wasn't set up yet.
+                events.aboutToStartApp()
+                Application.launch(jfxApplicationClass, *args.toTypedArray())
+            } else {
+                // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
+                // So we have to do a bit of acrobatics here and create the Application ourselves, then hand it a cleaned
+                // version of our stage.
+                check(Platform.isFxApplicationThread())
+                // contextClassLoader is a Java API wart we have to support. It should never be used but some things
+                // do use it.
+                Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
+                val app: Application = jfxApplicationClass.getConstructor().newInstance()
+                ModuleHacks.setParams(app, args.toTypedArray())
+                // Application.init is defined by the JavaFX spec as not being run on the main thread, and it's allowed
+                // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
+                background {
+                    // We have to set the thread ccl again because this runs on a background thread pool.
+                    Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
+                    app.init()
+                }
+                events.aboutToStartApp()
+                // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
+                // or the shell changes e.g. by adding new properties or binding new ones.
+                primaryStage.unbindAllProperties()
+                val oldScene = primaryStage.scene
+                primaryStage.scene = null
+                primaryStage.title = artifactName
+                primaryStage.hide()
+                try {
+                    app.start(primaryStage)
+                    info { "JavaFX application has been invoked" }
+                } catch (e: Exception) {
+                    primaryStage.title = "Graviton"
+                    primaryStage.scene = oldScene
+                    primaryStage.show()
+                }
+            }
 
     private fun Any.unbindAllProperties() {
         javaClass.methods
@@ -183,9 +204,9 @@ open class AppLauncher(private val options: GravitonCLI,
                 .forEach { it.unbind() }
     }
 
-    private fun invokeMainMethod(artifactName: String, args: Array<String>, loadResult: AppLoadResult,
-                                 mainClass: Class<*>, outStream: PrintStream, errStream: PrintStream,
-                                 andWait: Boolean) {
+    private suspend fun invokeMainMethod(artifactName: String, args: Array<String>, loadResult: AppLoadResult,
+                                         mainClass: Class<*>, outStream: PrintStream, errStream: PrintStream,
+                                         andWait: Boolean) {
         val mainMethod = mainClass.getMethod("main", Array<String>::class.java)
         val subArgs = args.drop(1).toTypedArray()
         // Start in a separate thread, so we can continue to intercept IO and render it to the shell.
@@ -195,6 +216,7 @@ open class AppLauncher(private val options: GravitonCLI,
         val oldstderr = System.err
         System.setOut(outStream)
         System.setErr(errStream)
+        events.aboutToStartApp()
         val t = thread(contextClassLoader = loadResult.classloader, name = "Main thread for $artifactName") {
             // TODO: Stop the program quitting itself.
             try {
@@ -218,9 +240,8 @@ open class AppLauncher(private val options: GravitonCLI,
     private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
         val mainClassName: String? get() = appManifest.mainAttributes.getValue("Main-Class")
         val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, true, classloader) } }
-        val jfxApplicationClass: Class<out Application>? by lazy { calculateJFXClass() }
 
-        private fun calculateJFXClass(): Class<out Application>? {
+        suspend fun calculateJFXClass(): Class<out Application>? {
             val clazz = try {
                 mainClass?.asSubclass(Application::class.java)
             } catch (e: ClassCastException) {
@@ -229,8 +250,9 @@ open class AppLauncher(private val options: GravitonCLI,
             return if (clazz != null) {
                 clazz
             } else {
-                val scanner = FastClasspathScanner().overrideClassLoaders(classloader).scan()
-                val appClassName: String? = scanner.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
+                val scanner = FastClasspathScanner().overrideClassLoaders(classloader)
+                val scanResult = background { scanner.scan() }
+                val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
                 if (appClassName != null) {
                     Class.forName(appClassName, false, classloader).asSubclass(Application::class.java)
                 } else {
@@ -247,7 +269,7 @@ open class AppLauncher(private val options: GravitonCLI,
             val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
             // Chain to the parent classloader so our internals don't interfere with the application.
             // TODO: J9: Use classloader names.
-            val classloader = URLClassLoader(urls, Thread.currentThread().contextClassLoader.parent)
+            val classloader = GravitonClassLoader(urls)
             val manifest = JarFile(files[0]).use { it.manifest }
             return AppLoadResult(classloader, manifest)
         } catch (e: java.io.FileNotFoundException) {
@@ -256,4 +278,6 @@ open class AppLauncher(private val options: GravitonCLI,
             throw AppLauncher.StartException("Failed to build classloader given class path: ${fetch.classPath}", e)
         }
     }
+
+    private class GravitonClassLoader(urls: Array<URL>) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent)
 }

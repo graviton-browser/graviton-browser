@@ -50,7 +50,7 @@ class Styles : Stylesheet() {
         }
 
         messageBox {
-            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
+            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.5))
             backgroundRadius = multi(box(5.px))
             borderWidth = multi(box(3.px))
             borderColor = multi(box(Color.LIGHTGREY))

@@ -303,6 +303,16 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         //        </snapshotRepository>
         //    </distributionManagement>
         //
+        // or for Gradle users
+        //
+        //   publishing {
+        //     repositories {
+        //       maven {
+        //         url = "/Users/mike/.m2/dev-local"
+        //       }
+        //     }
+        //   }
+        //
         // Packages placed here are always re-fetched, bypassing the local cache.
         //
         // This might not be so useful now we use ~/.m2/repository as our cache by default when it exists.
