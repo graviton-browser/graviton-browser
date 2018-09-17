@@ -1,6 +1,32 @@
 Newsletters
 ***********
 
+17th September 2018
+===================
+
+Graviton had its first day out last week! I got up on stage and demoed a customised version to the audience at CordaCon,
+a conference dedicated to the Corda decentralised, peer to peer database system (otherwise known as a a distributed ledger
+or blockchain).
+
+Corda is fully based on Java/Kotlin, and is thus a great fit for Graviton. Reception was warm, with one of the questions
+at the end of the talk being "can we have Graviton yesterday?". Equally interesting to me was how many people were
+struck by my demo of Scene Builder: quite a few came up and asked me what that GUI designer was and where they could get it.
+
+To celebrate being introduced to the world, Graviton got a facelift:
+
+.. raw:: html
+
+   <video autoplay controls style="width: 100%"><source src="https://plan99.net/~mike/graviton/graviton-with-corda-720p.mov" type="video/mp4"></video>
+
+Changes since last time:
+
+* App history is now used to create a basic history list. Still lots of work to do here.
+* Some basic support for customising the brand logo and name.
+* Better support for jitpack.io
+* Refactorings and bug fixes to keep the code clean.
+* Added a (currently disabled) login screen, it's a work in progress and I might delete it.
+* Possible to use videos now for the backdrop as well as pictures.
+
 3rd September 2018
 ==================
 
