@@ -119,9 +119,9 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
 
     private class HighestVersionSelector : ConflictResolver.VersionSelector() {
         override fun selectVersion(context: ConflictResolver.ConflictContext) {
-            val items = context.items.toSet()
+            val items = context.items
             var winner = items.first()
-            if (items.size == 1) {
+            if (items.map { it.node.version }.toSet().size == 1) {
                 context.winner = winner
                 return
             }
@@ -159,11 +159,14 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
 
         @Volatile
         var lastFinish: String = ""
+        @Volatile
+        var lastStart: String = ""
 
         override fun transferStarted(event: TransferEvent) {
             info { "Transfer started: $event" }
             if (isBoring(event)) return
             totalBytesToDownload.addAndGet(event.resource.contentLength)
+            lastStart = event.resource.file.name
         }
 
         override fun transferSucceeded(event: TransferEvent) {
@@ -177,7 +180,8 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
                 totalDownloaded.addAndGet(event.dataLength.toLong())
             }
             runBlocking(coroutineContext) {
-                events?.onFetch(lastFinish, totalBytesToDownload.get(), totalDownloaded.get())
+                val fileNameToReport = if (lastStart == event.resource.file.name) lastStart else lastFinish
+                events?.onFetch(fileNameToReport, totalBytesToDownload.get(), totalDownloaded.get())
             }
         }
 
@@ -290,6 +294,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         repo("jcenter", "$protocol://jcenter.bintray.com/")
         repo("central", "$protocol://repo1.maven.org/maven2/")
         repo("jitpack", "$protocol://jitpack.io")
+        // repo("mike", "$protocol://plan99.net/~mike/maven/")
 
         // Add a local repository that users can deploy to if they want to rapidly iterate on an installation.
         // This repo is not the same thing as a "local repository" confusingly enough, they have slightly

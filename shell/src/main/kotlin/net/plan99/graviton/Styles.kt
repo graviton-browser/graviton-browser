@@ -17,6 +17,7 @@ class Styles : Stylesheet() {
         val messageBox by cssclass()
         val historyEntry by cssclass()
         val historyTitle by cssclass()
+        val historyDescription by cssclass()
         val primaryWebButton by cssclass()
     }
 
@@ -76,6 +77,11 @@ class Styles : Stylesheet() {
             fontSize = 25.pt
             padding = box(0.px, 0.px, 15.pt, 0.px)
         }
+
+        historyDescription {
+            fontSize = 16.pt
+        }
+
 
         primaryWebButton {
             backgroundColor = multi(LinearGradient.valueOf("#2fcb53 0%, #269f42 90%"))

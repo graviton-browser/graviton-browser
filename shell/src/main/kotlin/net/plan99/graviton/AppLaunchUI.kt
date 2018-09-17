@@ -66,6 +66,7 @@ class AppLaunchUI : View() {
             alignment = Pos.TOP_CENTER
         }
 
+    @Suppress("JoinDeclarationAndAssignment")
     private fun VBox.coordinateBar() {
         coordinateBar = textfield {
             style {
@@ -123,7 +124,7 @@ class AppLaunchUI : View() {
                     addClass(Styles.historyEntry)
                     label(entry.name) { addClass(Styles.historyTitle) }
                     if (entry.description != null)
-                        label(entry.description)
+                        label(entry.description) { addClass(Styles.historyDescription) }
 
                     setOnMouseClicked {
                         coordinateBar.text = entry.coordinateFragment
@@ -149,7 +150,7 @@ class AppLaunchUI : View() {
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
         val cmdLineParams = app.parameters.raw.joinToString(" ")
-        val options = GravitonCLI.parse("$cmdLineParams $text")
+        val options = GravitonCLI.parse("$cmdLineParams $text".trim())
 
         // These callbacks will run on the FX event thread.
         val events = object : AppLauncher.Events {

@@ -38,9 +38,9 @@ class LinuxTaskScheduler : OSTaskScheduler() {
 }
 
 // Java 8 compatibility
-internal fun Duration.toMinutesPart(): Int = this.toMinutes().toInt() % 60
-internal fun Duration.toHoursPart(): Int = this.toHours().toInt() % 24
-internal fun Duration.toDaysPart(): Long = this.toDays()
+fun Duration.toMinutesPart(): Int = this.toMinutes().toInt() % 60
+fun Duration.toHoursPart(): Int = this.toHours().toInt() % 24
+fun Duration.toDaysPart(): Long = this.toDays()
 
 /**
  * Converts a [Duration] to an unix-style crontab expression.

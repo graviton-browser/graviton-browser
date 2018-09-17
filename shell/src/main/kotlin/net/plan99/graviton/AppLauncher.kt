@@ -96,6 +96,7 @@ open class AppLauncher(private val options: GravitonCLI,
         // TODO: Disassemble the main method if found to see if it just does Application.launch and if so, skip it.
         events.initializingApp()
         val mainClass = loadResult.mainClass
+        // TODO: This is super-slow, re-evaluate if it's really worth it and try upgrading to ClassGraph.
         val jfxApplicationClass: Class<out Application>? = stopwatch("Searching for a JavaFX main class") { loadResult.calculateJFXClass() }
         try {
             when {
