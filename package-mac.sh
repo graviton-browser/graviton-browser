@@ -3,6 +3,7 @@
 set -e
 
 v=$( ./gradlew -q printVersion )
+export GRAVITON_VERSION=$v
 
 echo "Building macOS package for Graviton $v"
 echo
@@ -36,9 +37,9 @@ if [[ "$1" == "--skip-jar" ]]; then
     exit 0
 fi
 
-hdiutil attach "build/packaged/bundles/Graviton Browser-$v.dmg"
-cd "/Volumes/Graviton Browser/Graviton Browser.app/Contents/$v"
+hdiutil attach "build/packaged/bundles/Graviton-$v.dmg"
+cd "/Volumes/Graviton/Graviton.app/Contents/$v"
 jar cvf $jarname .
 cd -
-umount "/Volumes/Graviton Browser"
+umount "/Volumes/Graviton"
 jarsigner -keystore keystore.p12 $jarname $USER
