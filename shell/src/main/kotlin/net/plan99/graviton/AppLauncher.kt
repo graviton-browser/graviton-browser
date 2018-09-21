@@ -47,6 +47,7 @@ open class AppLauncher(private val options: GravitonCLI,
      * in the history list and then invokes the app in a sub-classloader.
      */
     suspend fun start() {
+        // TODO: Detect and block accidental re-entrancy.
         val codeFetcher = CodeFetcher(coroutineContext, options.cachePath.toPath())
         codeFetcher.events = events
         if (options.clearCache)
@@ -96,8 +97,12 @@ open class AppLauncher(private val options: GravitonCLI,
         // TODO: Disassemble the main method if found to see if it just does Application.launch and if so, skip it.
         events.initializingApp()
         val mainClass = loadResult.mainClass
+
         // TODO: This is super-slow, re-evaluate if it's really worth it and try upgrading to ClassGraph.
         val jfxApplicationClass: Class<out Application>? = stopwatch("Searching for a JavaFX main class") { loadResult.calculateJFXClass() }
+        if (jfxApplicationClass != null)
+            info { "JavaFX Application class found: $jfxApplicationClass" }
+
         try {
             when {
                 jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args.drop(1), fetch.artifact.toString())
@@ -243,22 +248,17 @@ open class AppLauncher(private val options: GravitonCLI,
         val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, true, classloader) } }
 
         suspend fun calculateJFXClass(): Class<out Application>? {
-            val clazz = try {
-                mainClass?.asSubclass(Application::class.java)
+            try {
+                return mainClass?.asSubclass(Application::class.java)
             } catch (e: ClassCastException) {
-                return null
             }
-            return if (clazz != null) {
-                clazz
+            val scanner = FastClasspathScanner().overrideClassLoaders(classloader)
+            val scanResult = background { scanner.scan() }
+            val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
+            return if (appClassName != null) {
+                Class.forName(appClassName, false, classloader).asSubclass(Application::class.java)
             } else {
-                val scanner = FastClasspathScanner().overrideClassLoaders(classloader)
-                val scanResult = background { scanner.scan() }
-                val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
-                if (appClassName != null) {
-                    Class.forName(appClassName, false, classloader).asSubclass(Application::class.java)
-                } else {
-                    null
-                }
+                null
             }
         }
     }
