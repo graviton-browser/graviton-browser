@@ -10,7 +10,10 @@ import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
+import kotlinx.coroutines.experimental.Dispatchers
+import kotlinx.coroutines.experimental.GlobalScope
 import kotlinx.coroutines.experimental.javafx.JavaFx
+import kotlinx.coroutines.experimental.launch
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -152,9 +155,8 @@ class AppLaunchUI : View() {
         val cmdLineParams = app.parameters.raw.joinToString(" ")
         val options = GravitonCLI.parse("$cmdLineParams $text".trim())
 
-        // These callbacks will run on the FX event thread.
-        val events = object : AppLauncher.Events {
-            override suspend fun onStartedDownloading(name: String) {
+        val events = object : AppLauncher.Events() {
+            override fun onStartedDownloading(name: String) {
                 downloadProgress.set(0.0)
                 if (name.contains("maven-metadata-")) {
                     messageText1.set("Checking for updates")
@@ -167,7 +169,7 @@ class AppLaunchUI : View() {
 
             var progress = 0.0
 
-            override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
+            override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
                 if (name.contains("maven-metadata-")) {
                     messageText1.set("Checking for updates")
                     messageText2.set("")
@@ -182,18 +184,18 @@ class AppLaunchUI : View() {
                 downloadProgress.set(progress)
             }
 
-            override suspend fun onStoppedDownloading() {
+            override fun onStoppedDownloading() {
                 downloadProgress.set(1.0)
                 messageText1.set("")
                 messageText2.set("")
             }
 
-            override suspend fun initializingApp() {
+            override fun initializingApp() {
                 messageText1.set("Please wait")
                 messageText2.set("App is initializing")
             }
 
-            override suspend fun aboutToStartApp() {
+            override fun aboutToStartApp() {
                 isWorking.set(false)
                 messageText1.set("")
                 messageText2.set("")
@@ -213,9 +215,10 @@ class AppLaunchUI : View() {
         }, true)
 
         // Now start a coroutine that will run everything on the FX thread other than background tasks.
-        kotlinx.coroutines.experimental.launch(JavaFx) {
+        GlobalScope.launch(Dispatchers.JavaFx) {
             try {
-                AppLauncher(options, historyManager, primaryStage, JavaFx, events, printStream, printStream).start()
+                val launcher = AppLauncher(options, historyManager, primaryStage, events, printStream, printStream)
+                launcher.start()
             } catch (e: Throwable) {
                 onStartError(e)
                 coordinateBar.selectAll()

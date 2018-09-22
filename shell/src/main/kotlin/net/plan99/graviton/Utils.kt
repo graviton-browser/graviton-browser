@@ -1,7 +1,9 @@
 package net.plan99.graviton
 
-import kotlinx.coroutines.experimental.CommonPool
+import javafx.application.Platform
+import kotlinx.coroutines.experimental.CoroutineScope
 import kotlinx.coroutines.experimental.CoroutineStart
+import kotlinx.coroutines.experimental.Dispatchers
 import kotlinx.coroutines.experimental.withContext
 import okhttp3.HttpUrl
 import org.eclipse.aether.artifact.Artifact
@@ -132,7 +134,10 @@ class Stopwatch {
  * A simple alias to make it clearer what's going on - it's used for "slow" code that shouldn't block the UI thread.
  * The contents of the code block are run in the background and the coroutine is suspended until the block finishes.
  */
-suspend fun <T> background(block: suspend () -> T): T = withContext(CommonPool, CoroutineStart.DEFAULT, block)
+suspend fun <T> background(block: suspend CoroutineScope.() -> T): T = withContext(Dispatchers.Default, CoroutineStart.DEFAULT, block)
+
+/** Runs the provided block on the JavaFX main thread, an alias for Platform.runLater */
+fun fx(body: () -> Unit): Unit = Platform.runLater(body)
 
 /**
  * Returns an iterator over each [JarEntry]. Each time the iterator is advanced the stream can be read to access the
@@ -172,4 +177,28 @@ fun Artifact.withNameAndDescription(name: String, description: String?): Artifac
     props["model.name"] = name
     props["model.description"] = description
     return setProperties(props)
+}
+
+/**
+ * If instantiated, allows a block of code to be protected in a thread safe manner such that it can only be entered
+ * once. Any other attempt to enter the block will throw [IllegalStateException]. Instances can be used as functions:
+ *
+ * val once = Once()
+ *
+ * once {
+ *    .. can't re-enter here ..
+ * }
+ */
+class Once {
+    private var consumed: Boolean = false
+
+    @Synchronized fun consume() {
+        check(!consumed) { "Operation can only be performed once" }
+        consumed = true
+    }
+
+    inline operator fun <T> invoke(block: () -> T): T {
+        consume()
+        return block()
+    }
 }

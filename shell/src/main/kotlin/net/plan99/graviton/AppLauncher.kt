@@ -5,6 +5,7 @@ import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
 import javafx.stage.Stage
+import kotlinx.coroutines.experimental.yield
 import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
@@ -16,7 +17,6 @@ import java.net.URLClassLoader
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.concurrent.thread
-import kotlin.coroutines.experimental.CoroutineContext
 
 /**
  * An [AppLauncher] performs the tasks needed to start an app, performing callbacks on various methods that can be
@@ -26,7 +26,6 @@ import kotlin.coroutines.experimental.CoroutineContext
 open class AppLauncher(private val options: GravitonCLI,
                        private val historyManager: HistoryManager,
                        private val primaryStage: Stage? = null,
-                       private val coroutineContext: CoroutineContext,
                        private val events: AppLauncher.Events,
                        private val stdOutStream: PrintStream = System.out,
                        private val stdErrStream: PrintStream = System.err) {
@@ -36,19 +35,20 @@ open class AppLauncher(private val options: GravitonCLI,
         constructor(message: String) : this(message, null)
     }
 
-    interface Events : CodeFetcher.Events {
-        suspend fun initializingApp()
-        suspend fun aboutToStartApp()
+    open class Events : CodeFetcher.Events() {
+        open fun initializingApp() {}
+        open fun aboutToStartApp() {}
     }
+
+    private val once = Once()
 
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
      * command line options that should be passed to the app, downloads the app, if successful records the app launch
      * in the history list and then invokes the app in a sub-classloader.
      */
-    suspend fun start() {
-        // TODO: Detect and block accidental re-entrancy.
-        val codeFetcher = CodeFetcher(coroutineContext, options.cachePath.toPath())
+    suspend fun start() = once {
+        val codeFetcher = CodeFetcher(options.cachePath.toPath())
         codeFetcher.events = events
         if (options.clearCache)
             historyManager.clearCache()
@@ -67,6 +67,8 @@ open class AppLauncher(private val options: GravitonCLI,
             historyManager.search(userInput)
         } else null
 
+        yield()
+
         // The history entry contains the classpath to avoid a local POM walk, which is slow (about 0.2 seconds for
         // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
         val fetch: CodeFetcher.Result = if (historyLookup != null) {
@@ -75,6 +77,8 @@ open class AppLauncher(private val options: GravitonCLI,
         } else {
             download(userInput, codeFetcher)
         }
+
+        yield()
 
         info { "App name: ${fetch.name}" }
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
@@ -107,7 +111,7 @@ open class AppLauncher(private val options: GravitonCLI,
             when {
                 jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args.drop(1), fetch.artifact.toString())
                 mainClass != null -> invokeMainMethod(fetch.artifact.toString(), options.args, loadResult, mainClass,
-                                                      stdOutStream, stdErrStream, andWait = primaryStage == null)
+                        stdOutStream, stdErrStream, andWait = primaryStage == null)
                 else -> throw StartException("This application is not an executable program.")
             }
         } catch (e: StartException) {
@@ -124,11 +128,11 @@ open class AppLauncher(private val options: GravitonCLI,
         } catch (e: RepositoryException) {
             val rootCause = e.rootCause
             if (rootCause is MetadataNotFoundException) {
-                throw StartException("Sorry, no package with those coordinates is known.", e)
+                throw AppLauncher.StartException("Sorry, no package with those coordinates is known.", e)
             } else if (rootCause is HttpResponseException && rootCause.statusCode == 401 && CodeFetcher.isPossiblyJitPacked(userInput)) {
                 // JitPack can return 401 Unauthorized when no repository is found e.g. typo, because it
                 // might be a private repository that requires authentication.
-                throw StartException("Sorry, no repository was found with those coordinates.", e)
+                throw AppLauncher.StartException("Sorry, no repository was found with those coordinates.", e)
             } else {
                 // Put all the errors together into some sort of coherent story.
                 val m = StringBuilder()
@@ -141,7 +145,7 @@ open class AppLauncher(private val options: GravitonCLI,
                     }
                     cursor = cursor.cause ?: break
                 }
-                throw StartException(m.toString(), e)
+                throw AppLauncher.StartException(m.toString(), e)
             }
         }
     }
@@ -163,45 +167,46 @@ open class AppLauncher(private val options: GravitonCLI,
         return packageName
     }
 
-    private suspend fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: List<String>, artifactName: String) =
-            if (primaryStage == null) {
-                // Being started from the command line, JavaFX wasn't set up yet.
-                events.aboutToStartApp()
-                Application.launch(jfxApplicationClass, *args.toTypedArray())
-            } else {
-                // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
-                // So we have to do a bit of acrobatics here and create the Application ourselves, then hand it a cleaned
-                // version of our stage.
-                check(Platform.isFxApplicationThread())
-                // contextClassLoader is a Java API wart we have to support. It should never be used but some things
-                // do use it.
+    private suspend fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: List<String>, artifactName: String) {
+        if (primaryStage == null) {
+            // Being started from the command line, JavaFX wasn't set up yet.
+            events.aboutToStartApp()
+            Application.launch(jfxApplicationClass, *args.toTypedArray())
+        } else {
+            // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
+            // So we have to do a bit of acrobatics here and create the Application ourselves, then hand it a cleaned
+            // version of our stage.
+            check(Platform.isFxApplicationThread())
+            // contextClassLoader is a Java API wart we have to support. It should never be used but some things
+            // do use it.
+            Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
+            val app: Application = jfxApplicationClass.getConstructor().newInstance()
+            ModuleHacks.setParams(app, args.toTypedArray())
+            // Application.init is defined by the JavaFX spec as not being run on the main thread, and it's allowed
+            // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
+            background {
+                // We have to set the thread ccl again because this runs on a background thread pool.
                 Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
-                val app: Application = jfxApplicationClass.getConstructor().newInstance()
-                ModuleHacks.setParams(app, args.toTypedArray())
-                // Application.init is defined by the JavaFX spec as not being run on the main thread, and it's allowed
-                // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
-                background {
-                    // We have to set the thread ccl again because this runs on a background thread pool.
-                    Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
-                    app.init()
-                }
-                events.aboutToStartApp()
-                // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
-                // or the shell changes e.g. by adding new properties or binding new ones.
-                primaryStage.unbindAllProperties()
-                val oldScene = primaryStage.scene
-                primaryStage.scene = null
-                primaryStage.title = artifactName
-                primaryStage.hide()
-                try {
-                    app.start(primaryStage)
-                    info { "JavaFX application has been invoked" }
-                } catch (e: Exception) {
-                    primaryStage.title = "Graviton"
-                    primaryStage.scene = oldScene
-                    primaryStage.show()
-                }
+                app.init()
             }
+            events.aboutToStartApp()
+            // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
+            // or the shell changes e.g. by adding new properties or binding new ones.
+            primaryStage.unbindAllProperties()
+            val oldScene = primaryStage.scene
+            primaryStage.scene = null
+            primaryStage.title = artifactName
+            primaryStage.hide()
+            try {
+                app.start(primaryStage)
+                info { "JavaFX application has been invoked" }
+            } catch (e: Exception) {
+                primaryStage.title = "Graviton"
+                primaryStage.scene = oldScene
+                primaryStage.show()
+            }
+        }
+    }
 
     private fun Any.unbindAllProperties() {
         javaClass.methods

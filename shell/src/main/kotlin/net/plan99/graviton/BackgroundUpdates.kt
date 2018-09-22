@@ -1,6 +1,5 @@
 package net.plan99.graviton
 
-import kotlinx.coroutines.experimental.CoroutineScope
 import kotlinx.coroutines.experimental.runBlocking
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
@@ -15,7 +14,6 @@ import java.security.PublicKey
 import java.security.spec.X509EncodedKeySpec
 import java.time.Duration
 import java.util.*
-import kotlin.coroutines.experimental.coroutineContext
 
 // TODO: Test on Windows with a full background update.
 
@@ -172,9 +170,9 @@ object BackgroundUpdates : Logging() {
         return true
     }
 
-    private suspend fun CoroutineScope.refreshRecentApps(cachePath: Path) {
+    private suspend fun refreshRecentApps(cachePath: Path) {
         try {
-            val codeFetcher = CodeFetcher(coroutineContext, cachePath)
+            val codeFetcher = CodeFetcher(cachePath)
             val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))
             historyManager.refreshRecentlyUsedApps(codeFetcher)
         } catch (e: Exception) {

@@ -8,7 +8,6 @@ import org.eclipse.aether.transfer.MetadataNotFoundException
 import picocli.CommandLine
 import java.lang.invoke.MethodHandles
 import java.net.URI
-import kotlin.coroutines.experimental.coroutineContext
 import kotlin.math.max
 import kotlin.system.exitProcess
 
@@ -121,7 +120,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             if (profileDownloads > 1) downloadWithProfiling(coordinates)
             try {
                 val manager = HistoryManager.create()
-                val launcher = AppLauncher(this@GravitonCLI, manager, null, coroutineContext, createProgressBar())
+                val launcher = AppLauncher(this@GravitonCLI, manager, null, createProgressBar())
                 launcher.start()
             } catch (original: Throwable) {
                 val e = original.rootCause
@@ -141,16 +140,16 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     }
 
     private fun createProgressBar(): AppLauncher.Events {
-        return object : AppLauncher.Events {
+        return object : AppLauncher.Events() {
             val stopwatch = Stopwatch()
             var pb: ProgressBar? = null
 
-            override suspend fun onStartedDownloading(name: String) {
+            override fun onStartedDownloading(name: String) {
                 pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
                 pb!!.extraMessage = name
             }
 
-            override suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
+            override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
                 val pb = pb!!
                 if (name.endsWith(".pom"))
                     pb.extraMessage = name
@@ -162,13 +161,10 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
                 pb.stepTo(totalDownloadedSoFar / 1024)
             }
 
-            override suspend fun onStoppedDownloading() {
+            override fun onStoppedDownloading() {
             }
 
-            override suspend fun initializingApp() {
-            }
-
-            override suspend fun aboutToStartApp() {
+            override fun aboutToStartApp() {
                 if (pb != null) {
                     pb!!.close()
                     println("Downloaded successfully in ${stopwatch.elapsedInSec} seconds")
@@ -178,7 +174,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     }
 
     private suspend fun downloadWithProfiling(coordinates: String) {
-        val codeFetcher = CodeFetcher(coroutineContext, cachePath.toPath())
+        val codeFetcher = CodeFetcher(cachePath.toPath())
         codeFetcher.offline = offline
         codeFetcher.useSSL = !noSSL
         val stopwatch = Stopwatch()

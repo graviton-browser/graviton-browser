@@ -30,8 +30,8 @@ if (isPostJ8) {
 dependencies {
     // Kotlin - standard library for the Kotlin language
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.25.0"
-    compile "org.jetbrains.kotlinx:kotlinx-coroutines-javafx:0.25.0"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:0.26.1"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-javafx:0.26.1"
 
     // Maven Resolver - a library for working with Maven repositories.
     if (true) {

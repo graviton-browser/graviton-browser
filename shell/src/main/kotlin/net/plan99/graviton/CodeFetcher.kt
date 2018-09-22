@@ -1,6 +1,7 @@
 package net.plan99.graviton
 
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.currentScope
 import org.apache.maven.model.Model
 import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
@@ -38,13 +39,12 @@ import java.security.Security
 import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.coroutines.experimental.CoroutineContext
 
 /**
  * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
  * and returns calculated classpaths.
  */
-open class CodeFetcher(private val coroutineContext: CoroutineContext, private val cachePath: Path) {
+open class CodeFetcher(private val cachePath: Path) {
     companion object : Logging() {
         fun isPossiblyJitPacked(packageName: String) =
                 packageName.startsWith("com.github.") ||
@@ -151,9 +151,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
             if (event.resource.resourceName.endsWith(".xml")) return
 
             if (!didDownload.getAndSet(true)) {
-                runBlocking(coroutineContext) {
-                    events?.onStartedDownloading(event.resource.file.name)
-                }
+                fx { events?.onStartedDownloading(event.resource.file.name) }
             }
         }
 
@@ -179,7 +177,7 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
             if (!isBoring(event)) {
                 totalDownloaded.addAndGet(event.dataLength.toLong())
             }
-            runBlocking(coroutineContext) {
+            fx {
                 val fileNameToReport = if (lastStart == event.resource.file.name) lastStart else lastFinish
                 events?.onFetch(fileNameToReport, totalBytesToDownload.get(), totalDownloaded.get())
             }
@@ -192,14 +190,14 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
         override fun transferCorrupted(event: TransferEvent) = transferFailed(event)
     }
 
-    interface Events {
+    open class Events {
         /** Called exactly once, if we decide we need to do any network transfers of non-trivial files (like JARs). */
-        suspend fun onStartedDownloading(name: String)
+        open fun onStartedDownloading(name: String) {}
 
-        suspend fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long)
+        open fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {}
 
         /** If [onStartedDownloading] was called, this is called when we are finished or have failed. */
-        suspend fun onStoppedDownloading()
+        open fun onStoppedDownloading() {}
     }
 
     var events: Events? = null
@@ -271,10 +269,12 @@ open class CodeFetcher(private val coroutineContext: CoroutineContext, private v
             // [0,) is magic syntax meaning: any version from 0 to infinity, i.e. all versions.
             val artifact = DefaultArtifact((components + "[0,)").joinToString(":"))
             val request = VersionRangeRequest(artifact, defaultRepositories, null)
-            val result: VersionRangeResult = background {
-                stopwatch("Latest version lookup for " + components.joinToString(":")) {
-                    repoSystem.resolveVersionRange(session, request)
-                }
+            val result: VersionRangeResult = currentScope {
+                async {
+                    stopwatch("Latest version lookup for " + components.joinToString(":")) {
+                        repoSystem.resolveVersionRange(session, request)
+                    }
+                }.await()
             }
             if (result.highestVersion == null)
                 throw result.exceptions.first()
