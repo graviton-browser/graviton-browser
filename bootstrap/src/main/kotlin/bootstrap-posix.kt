@@ -8,8 +8,10 @@ fun main(args: Array<String>) {
     val exePath = "$exeDir/$exeFile"
     setenv("GRAVITON_PATH", fullBinaryPath, 1)
     setenv("GRAVITON_VERSION", "$highestVersionFound", 1)
-    if (execl(exePath, exePath, *args, null) == -1)
+    if (execl(exePath, exePath, *args, null) == -1) {
+        printf("bootstrap: Could not start $exePath\n")
         perror("bootstrap")
+    }
 }
 
 fun String.chop(): String {
@@ -26,7 +28,7 @@ private fun findHighestVersion(): Int {
     while (true) {
         val entry = (readdir(d) ?: break).pointed
         // Skip entries that aren't directories.
-        if (entry.d_type != DT_DIR.toByte()) continue
+        if (entry.d_type != DT_DIR.toUByte()) continue
         // Skip entries that don't have integer names.
         val entryName = entry.d_name.toKString()
         if (entryName.any { !it.isDigit() }) continue

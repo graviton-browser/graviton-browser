@@ -13,7 +13,7 @@ val fullBinaryPath: String
             val length = PROC_PIDPATHINFO_MAXSIZE
             val pathBuf = allocArray<ByteVar>(length)
             val myPid = getpid()
-            val res = proc_pidpath(myPid, pathBuf, length)
+            val res = proc_pidpath(myPid, pathBuf, length.toUInt())
             if (res < 1)
                 throw RuntimeException("proc_pidpath failed: $res")
             // TODO: Do we need to use realpath here to resolve symlinks?
