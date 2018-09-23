@@ -1,6 +1,17 @@
 Newsletters
 ***********
 
+23rd September 2018
+===================
+
+Not much to report this week:
+
+* Windows runtime updates work now, and the Windows installer has been improved. This brings us closer to first release.
+* Some initial work done on upgrading to Kotlin 1.3, but it's not quite ready to go yet.
+* The code was simplified to not use coroutines any longer. It wasn't buying me much.
+* New art: evening forest.
+* Some rudimentary support for cancelling in-flight downloads.
+
 17th September 2018
 ===================
 
