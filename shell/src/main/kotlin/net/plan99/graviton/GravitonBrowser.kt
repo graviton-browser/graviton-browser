@@ -95,9 +95,10 @@ class ShellView : View() {
             Art("forest.jpg", 200,
                     Color.color(0.0, 0.5019608, 0.0, 0.5),
                     LinearGradient.valueOf("transparent,rgb(218,239,244)")
-            )
+            ),
+            Art("evening-forest.jpg", 0, Color.WHITE, Color.WHITE)
     )
-    private val art = allArt[1]
+    private val art = allArt[2]
 
     override val root = stackpane {
         style { backgroundColor = multi(Color.WHITE) }
