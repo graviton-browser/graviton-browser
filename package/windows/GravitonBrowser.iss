@@ -76,11 +76,31 @@ begin
   Result := False;
 end;
 
-function InitializeSetup(): Boolean;
+const
+  BN_CLICKED = 0;
+  WM_COMMAND = $0111;
+  CN_BASE = $BC00;
+  CN_COMMAND = CN_BASE + WM_COMMAND;
+
+{ This code eliminates the startup screen InnoSetup would otherwise make the user click through. }
+{ Yay Object Pascal! It's been too long, my old love.... }
+
+{ InnoSetup doesn't make this easy because the author believes that if the user doesn't have to click }
+{ an "Install" button, this makes them more vulnerable to malware. This seems false to me because the }
+{ user already had to click run, either in their Explorer or more likely their web browser. Adding another }
+{ button that amounts to "did you really mean it" doesn't seem able to increase security in any meaningful }
+{ way or at all - this idea feels a bit like a tiger protecting rock. So we skip it and bank the smoother }
+{ install experience. }
+procedure CurPageChanged(CurPageID: Integer);
+var
+  Param: Longint;
 begin
-// Possible future improvements:
-//   if version less or same => just launch app
-//   if upgrade => check if same app is running and wait for it to exit
-//   Add pack200/unpack200 support? 
-  Result := True;
-end;  
+  { if we are on the ready page, then... }
+  if CurPageID = wpReady then
+  begin
+    { the result of this is 0, just to be precise... }
+    Param := 0 or BN_CLICKED shl 16;
+    { post the click notification message to the next button }
+    PostMessage(WizardForm.NextButton.Handle, CN_COMMAND, Param, 0);
+  end;
+end;
