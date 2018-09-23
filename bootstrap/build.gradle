@@ -18,13 +18,19 @@ buildscript {
 apply plugin: 'konan'
 
 konanArtifacts {
+    // The version number to be embedded in the EXEs. This is used by InnoSetup to decide whether
+    // to overwrite the bootstrapper programs or not. Increment this when we want an update to
+    // refresh the binaries.
+    def ver = 2
+
     program('bootstrap') {
+        enableDebug false
         target('macbook') {
             srcFiles 'src/main/kotlin/mac.kt', 'src/main/kotlin/bootstrap-posix.kt'
         }
         target('mingw') {
             srcFiles 'src/main/kotlin/win.kt'
-            linkerOpts "-Wl,--subsystem,windows"
+            linkerOpts "-Wl,--subsystem,windows", "-Wl,--major-image-version=$ver", "-Wl,--no-insert-timestamp", "-Wl,-S"
         }
         target('linux') {
             srcFiles 'src/main/kotlin/linux.kt', 'src/main/kotlin/bootstrap-posix.kt'
@@ -37,7 +43,7 @@ konanArtifacts {
         program('bootstrap-console') {
             target('mingw') {
                 srcFiles 'src/main/kotlin/win.kt'
-                linkerOpts "-Wl,--subsystem,console"
+                linkerOpts "-Wl,--subsystem,console", "-Wl,--major-image-version=$ver", "-Wl,--no-insert-timestamp"
             }
         }
     }

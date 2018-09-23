@@ -11,7 +11,7 @@ import java.security.KeyStore
 
 open class TestWithFakeJRE {
     // Shared file system that is left alone between tests.
-    private val fs: FileSystem = Jimfs.newFileSystem(
+    protected val fs: FileSystem = Jimfs.newFileSystem(
             Configuration.unix().toBuilder().setAttributeViews("basic", "posix").build()
     )
     protected val root: Path = fs.rootDirectories.first()

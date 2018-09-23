@@ -103,7 +103,9 @@ be typical in the early days when there aren't many apps.
 Update security
 ---------------
 
-Updates take the form of a platform specific JAR file, which is unpacked to the target directory by the update process
+Updates take two forms.
+
+On macOS and Linux, it is a platform specific JAR file that's unpacked to the target directory by the update process
 itself. It is not a platform specific installer. Tasks that are needed will have to be done on first-run (identified
 by an old or missing ``last-run-version`` file). The JAR does not contain class files. Instead we use it only for its
 signing capability.
@@ -111,25 +113,31 @@ signing capability.
 We sign the update pack with the ``jarsigner`` tool. There may be multiple signatures required from different parties,
 to provide a more secure multi-signature update scheme (everyone reproduces the build and a quorum of developers signs it).
 
-The unpacking code verifies each signature against a hard coded list of certificates. If any file fails to present the
+The unpacking code verifies each signature against a hard coded list of public keys. If any file fails to present the
 right list of signatures, the update is discarded and will be retried.
 
 .. note:: This means if a bad update is pushed users will keep trying to re-download it until it's fixed.
+
+On Windows, the update is the same NSIS installer that users download the first time they install the browser. It is
+run with special command line flags that make it run invisibly in the background, and ignore files that are the same
+version or newer (i.e. comparing the PE headers). Because of the numbered install directories, this installer can be
+run whilst Graviton itself is running.
 
 Update protocol
 ---------------
 
 The updater requests the URL ``https://update.graviton.app/<osname>/control?c=5`` where 5 is the current version of the app and
 "osname" is either "mac" or "win". The control file is a properties file that must have at least one key, "Latest-Update-URL" which
-contains a relative URL to a JAR file. The value of this key will be interpreted as if it were an HTML link, so, you can use either
+contains a relative URL to the update pack. The value of this key will be interpreted as if it were an HTML link, so, you can use either
 absolute URLs or a path like "/foo/bar" in it.
 
-The JAR filename must be of the form "5.something.whatever", i.e. a dot separated name where the first component is the integer version
+The filename must be of the form "5.something.whatever", i.e. a dot separated name where the first component is the integer version
 number. It will be downloaded and unpacked only if the version number in the filename is higher than the currently executing version. The
 other components are arbitrary and ignored.
 
-The signed JAR will be downloaded, verified and unpacked into the numbered directory indicated by the file name. The execute bit is set
-on a hard-coded OS specific path to ensure the main executable can be invoked. Once this is done the update is complete.
+The signed pack will be downloaded, verified and either unpacked into the numbered directory indicated by the file name,
+or executed. On UNIX systems the execute bit is set on a hard-coded OS specific path to ensure the main executable can
+be invoked. Once this is done the update is complete.
 
 Updating the updater
 --------------------
