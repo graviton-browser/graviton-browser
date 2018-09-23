@@ -28,7 +28,7 @@ open class TestWithFakeJRE {
     }
     val priv1 = testKeyStore.getEntry("mykey", KeyStore.PasswordProtection("testtest".toCharArray())) as KeyStore.PrivateKeyEntry
     val pub1 = priv1.certificate.publicKey
-    val testUpdate = RuntimeUpdate(javaClass.getResource("/test-update.jar").file.toPath(), pub1)
+    val testUpdate = RuntimeUpdate(javaClass.getResource("/test-update.jar").toPath(), pub1)
 
     enum class FileOrDirectory { FILE, DIRECTORY }
 

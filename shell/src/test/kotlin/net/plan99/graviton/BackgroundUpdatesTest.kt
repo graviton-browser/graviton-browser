@@ -18,7 +18,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
     @Test
     fun checkWinVer() {
         withOverriddenOperatingSystem(OperatingSystem.WIN) {
-            withServer(root / "unused") { baseUrl ->
+            withServer(root / "unused", windowsV3Missing = true) { baseUrl ->
                 // Firstly check the version number was understood.
                 val client = OkHttpClient.Builder()
                         .followRedirects(true)
@@ -66,7 +66,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         }
     }
 
-    private fun startServer(updatePath: Path): Pair<HttpServer, HttpUrl> {
+    private fun startServer(updatePath: Path, windowsV3Missing: Boolean): Pair<HttpServer, HttpUrl> {
         val port = 8888
         val httpServer: HttpServer = HttpServer.create(InetSocketAddress("localhost", port), 0)
         val baseUrl = HttpUrl.Builder()
@@ -81,8 +81,14 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         serveFile(httpServer, root / "control-file-win", "/win/control")
         serveFile(httpServer, root / "control-file-bad", "/linux/control")
         serveFile(httpServer, updatePath, "/2.mac.update.jar")
-        // Oops, we forgot to put the latest version for Windows on the server, let's test that case.
-        serveFile(httpServer, updatePath, "/2.win.update.jar")
+
+        if (windowsV3Missing) {
+            // Oops, we forgot to put the latest version for Windows on the server, let's test that case.
+            serveFile(httpServer, updatePath, "/2.win.update.jar")
+        } else {
+            serveFile(httpServer, updatePath, "/3.win.update.jar")
+        }
+
         httpServer.executor = Executors.newSingleThreadExecutor()
         httpServer.start()
         return Pair(httpServer, baseUrl)
@@ -110,8 +116,8 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         )
     }
 
-    private fun withServer(target: Path, body: (HttpUrl) -> Unit) {
-        val (server: HttpServer, baseUrl: HttpUrl) = startServer(target)
+    private fun withServer(target: Path, windowsV3Missing: Boolean = false, body: (HttpUrl) -> Unit) {
+        val (server: HttpServer, baseUrl: HttpUrl) = startServer(target, windowsV3Missing)
         try {
             body(baseUrl)
         } finally {

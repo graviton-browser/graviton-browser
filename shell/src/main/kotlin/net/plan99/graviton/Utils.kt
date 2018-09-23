@@ -5,6 +5,7 @@ import okhttp3.HttpUrl
 import org.eclipse.aether.artifact.Artifact
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -151,6 +152,15 @@ val JarInputStream.entriesIterator: Iterator<JarEntry>
  * @throws NoSuchFileException if the given path does not exist.
  */
 fun Path.readAsJar(): JarInputStream = JarInputStream(Files.newInputStream(this).buffered())
+
+/**
+ * Returns a file:// URL as a Path, with proper handling of Windows schemes.
+ */
+fun URL.toPath(): Path {
+    val uri = toURI()
+    require(uri.scheme == "file") { "${uri.scheme} is not file://" }
+    return Paths.get(uri)
+}
 
 /**
  * Indicates an HTTP request went wrong. Used because OkHttp doesn't provide its own error codes.
