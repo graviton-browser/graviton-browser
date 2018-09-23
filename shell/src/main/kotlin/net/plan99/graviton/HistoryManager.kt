@@ -167,7 +167,7 @@ class HistoryManager(storagePath: Path,
     /**
      * Re-resolves every item in the history list, to check for and download updates.
      */
-    suspend fun refreshRecentlyUsedApps(codeFetcher: CodeFetcher) {
+    fun refreshRecentlyUsedApps(codeFetcher: CodeFetcher) {
         for ((index, entry) in history.withIndex()) {
             val (age, old) = ageCheck(entry)
             if (old) {

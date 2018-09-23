@@ -1,7 +1,5 @@
 package net.plan99.graviton
 
-import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.currentScope
 import org.apache.maven.model.Model
 import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
@@ -44,7 +42,7 @@ import java.util.concurrent.atomic.AtomicLong
  * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
  * and returns calculated classpaths.
  */
-open class CodeFetcher(private val cachePath: Path) {
+class CodeFetcher(private val cachePath: Path) {
     companion object : Logging() {
         fun isPossiblyJitPacked(packageName: String) =
                 packageName.startsWith("com.github.") ||
@@ -161,19 +159,19 @@ open class CodeFetcher(private val cachePath: Path) {
         var lastStart: String = ""
 
         override fun transferStarted(event: TransferEvent) {
-            info { "Transfer started: $event" }
+            info { "$event" }
             if (isBoring(event)) return
             totalBytesToDownload.addAndGet(event.resource.contentLength)
             lastStart = event.resource.file.name
         }
 
         override fun transferSucceeded(event: TransferEvent) {
-            info { "Transfer succeeded: $event" }
+            info { "$event" }
             lastFinish = event.resource.file.name
         }
 
         override fun transferProgressed(event: TransferEvent) {
-            debug { "Transfer progressed: $event" }
+            debug { "$event" }
             if (!isBoring(event)) {
                 totalDownloaded.addAndGet(event.dataLength.toLong())
             }
@@ -184,7 +182,7 @@ open class CodeFetcher(private val cachePath: Path) {
         }
 
         override fun transferFailed(event: TransferEvent) {
-            debug { "Transfer failed: $event" }
+            debug { "$event" }
         }
 
         override fun transferCorrupted(event: TransferEvent) = transferFailed(event)
@@ -220,7 +218,7 @@ open class CodeFetcher(private val cachePath: Path) {
      *
      * @param packageName Package name as a coordinate fragment.
      */
-    suspend fun downloadAndBuildClasspath(packageName: String): Result {
+    fun downloadAndBuildClasspath(packageName: String): Result {
         val name = try {
             checkLatestVersion(packageName)
         } catch (e: MetadataNotFoundException) {
@@ -244,23 +242,21 @@ open class CodeFetcher(private val cachePath: Path) {
         return Result(classPath, node.artifact)
     }
 
-    private suspend fun resolveArtifact(artifact: DefaultArtifact): DependencyNode {
+    private fun resolveArtifact(artifact: DefaultArtifact): DependencyNode {
         val dependency = Dependency(artifact, "runtime")
         val collectRequest = CollectRequest()
         collectRequest.root = dependency
         defaultRepositories.forEach { collectRequest.addRepository(it) }
         lateinit var node: DependencyNode
-        background {
-            stopwatch("Dependency resolution") {
-                val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
-                node = collectDependencies.root
-                repoSystem.resolveDependencies(session, DependencyRequest(node, null))
-            }
+        stopwatch("Dependency resolution") {
+            val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
+            node = collectDependencies.root
+            repoSystem.resolveDependencies(session, DependencyRequest(node, null))
         }
         return node
     }
 
-    private suspend fun checkLatestVersion(packageName: String): String {
+    private fun checkLatestVersion(packageName: String): String {
         // Parse the coordinate fragment the user entered.
         val components = packageName.split(':').toMutableList()
 
@@ -269,12 +265,8 @@ open class CodeFetcher(private val cachePath: Path) {
             // [0,) is magic syntax meaning: any version from 0 to infinity, i.e. all versions.
             val artifact = DefaultArtifact((components + "[0,)").joinToString(":"))
             val request = VersionRangeRequest(artifact, defaultRepositories, null)
-            val result: VersionRangeResult = currentScope {
-                async {
-                    stopwatch("Latest version lookup for " + components.joinToString(":")) {
-                        repoSystem.resolveVersionRange(session, request)
-                    }
-                }.await()
+            val result: VersionRangeResult = stopwatch("Latest version lookup for " + components.joinToString(":")) {
+                repoSystem.resolveVersionRange(session, request)
             }
             if (result.highestVersion == null)
                 throw result.exceptions.first()

@@ -1,6 +1,5 @@
 package net.plan99.graviton
 
-import kotlinx.coroutines.experimental.runBlocking
 import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -27,25 +26,23 @@ object BackgroundUpdates : Logging() {
     private var currentVersion: Int = 0
 
     fun doBackgroundUpdate(cachePath: Path, currentVersion: Int?, currentInstallDir: Path?, baseUpdateURL: URI) {
-        runBlocking {
-            try {
-                stopwatch("Background update") {
-                    refreshRecentApps(cachePath)
+        try {
+            stopwatch("Background update") {
+                refreshRecentApps(cachePath)
+            }
+            // We won't check for online updates unless run from the main install image, as otherwise we may not have
+            // a version or installation path.
+            if (currentVersion != null && currentInstallDir != null) {
+                this@BackgroundUpdates.currentVersion = currentVersion
+                stopwatch("Graviton update") {
+                    checkForGravitonUpdate(currentVersion, currentInstallDir, baseUpdateURL)
                 }
-                // We won't check for online updates unless run from the main install image, as otherwise we may not have
-                // a version or installation path.
-                if (currentVersion != null && currentInstallDir != null) {
-                    this@BackgroundUpdates.currentVersion = currentVersion
-                    stopwatch("Graviton update") {
-                        checkForGravitonUpdate(currentVersion, currentInstallDir, baseUpdateURL)
-                    }
-                }
-            } catch (e: Exception) {
-                // For some sorts of errors don't bother dumping a giant stack trace to the log; we expect them.
-                when (e) {
-                    is IOException, is HTTPRequestException -> logger.error(e.message)
-                    else -> throw e
-                }
+            }
+        } catch (e: Exception) {
+            // For some sorts of errors don't bother dumping a giant stack trace to the log; we expect them.
+            when (e) {
+                is IOException, is HTTPRequestException -> logger.error(e.message)
+                else -> throw e
             }
         }
     }
@@ -170,7 +167,7 @@ object BackgroundUpdates : Logging() {
         return true
     }
 
-    private suspend fun refreshRecentApps(cachePath: Path) {
+    private fun refreshRecentApps(cachePath: Path) {
         try {
             val codeFetcher = CodeFetcher(cachePath)
             val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))

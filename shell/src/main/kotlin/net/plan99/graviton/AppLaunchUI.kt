@@ -1,19 +1,15 @@
 package net.plan99.graviton
 
-import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.StringProperty
+import javafx.concurrent.Task
 import javafx.geometry.Pos
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
-import kotlinx.coroutines.experimental.Dispatchers
-import kotlinx.coroutines.experimental.GlobalScope
-import kotlinx.coroutines.experimental.javafx.JavaFx
-import kotlinx.coroutines.experimental.launch
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -29,45 +25,47 @@ class AppLaunchUI : View() {
     private lateinit var messageText2: StringProperty
     private lateinit var outputArea: TextArea
     private lateinit var coordinateBar: TextField
+    private val allThreads = ThreadGroup("App Launch")
+    private var launcher: Task<*>? = null
     private val downloadProgress = SimpleDoubleProperty(0.0)
     private val isHistoryVisible = SimpleBooleanProperty(true)
     private val logo = find<LogoView>()
 
     override val root = vbox {
-            children += logo.root
+        children += logo.root
 
-            pane { minHeight = 25.0 }
+        pane { minHeight = 25.0 }
 
-            coordinateBar()
+        coordinateBar()
 
-            pane { minHeight = 25.0 }
+        pane { minHeight = 25.0 }
 
-            downloadTracker()
+        downloadTracker()
 
-            pane { minHeight = 25.0 }
+        pane { minHeight = 25.0 }
 
-            recentAppsPicker()
+        recentAppsPicker()
 
-            outputArea = textarea {
-                addClass(Styles.shellArea)
-                isWrapText = false
-                opacity = 0.0
-                textProperty().addListener { _, oldValue, newValue ->
-                    if (oldValue.isBlank() && newValue.isNotBlank()) {
-                        opacityProperty().animate(1.0, 0.3.seconds)
-                    } else if (newValue.isBlank() && oldValue.isNotBlank()) {
-                        opacityProperty().animate(0.0, 0.3.seconds)
-                    }
+        outputArea = textarea {
+            addClass(Styles.shellArea)
+            isWrapText = false
+            opacity = 0.0
+            textProperty().addListener { _, oldValue, newValue ->
+                if (oldValue.isBlank() && newValue.isNotBlank()) {
+                    opacityProperty().animate(1.0, 0.3.seconds)
+                } else if (newValue.isBlank() && oldValue.isNotBlank()) {
+                    opacityProperty().animate(0.0, 0.3.seconds)
                 }
-                prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
             }
-
-            // Just wide enough for 80 chars in the output area at currently chosen font size.
-            maxWidth = 1024.0
-            maxHeight = Double.POSITIVE_INFINITY
-            spacing = 5.0
-            alignment = Pos.TOP_CENTER
+            prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
         }
+
+        // Just wide enough for 80 chars in the output area at currently chosen font size.
+        maxWidth = 1024.0
+        maxHeight = Double.POSITIVE_INFINITY
+        spacing = 5.0
+        alignment = Pos.TOP_CENTER
+    }
 
     @Suppress("JoinDeclarationAndAssignment")
     private fun VBox.coordinateBar() {
@@ -109,11 +107,27 @@ class AppLaunchUI : View() {
                     }
                 }
             }
-        }.also {
+            button("✖︎") {
+                setOnAction {
+                    cancelIfDownloading()
+                }
+                style = "-fx-base: white; -fx-font-size: 20pt"
+                padding = insets(15.0)
+                translateX = 15.0
+            }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
+
             // If we're not downloading, hide this chunk of UI and take it out of layout.
             val needed = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
-            it.visibleProperty().bind(needed)
-            it.managedProperty().bind(needed)
+            visibleProperty().bind(needed)
+            managedProperty().bind(needed)
+        }
+    }
+
+    private fun cancelIfDownloading() {
+        if (launcher != null) {
+            info { "Cancelling" }
+            launcher!!.cancel()
+            launcher = null
         }
     }
 
@@ -143,6 +157,8 @@ class AppLaunchUI : View() {
 
     //region Event handling
     private fun beginLaunch() {
+        cancelIfDownloading()
+
         val text = coordinateBar.text
         if (text.isBlank()) return
 
@@ -150,52 +166,56 @@ class AppLaunchUI : View() {
         // app can take a bit of time.
         isWorking.set(true)
 
-        // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
-        // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
-        val cmdLineParams = app.parameters.raw.joinToString(" ")
-        val options = GravitonCLI.parse("$cmdLineParams $text".trim())
-
         val events = object : AppLauncher.Events() {
-            override fun onStartedDownloading(name: String) {
+            // Make sure we update the UI on the right thread, and ignore any events that come in after
+            // cancellation by the user.
+            private fun wrap(body: () -> Unit) {
+                fx {
+                    if (launcher == null) return@fx
+                    body()
+                }
+            }
+
+            override fun onStartedDownloading(name: String) = wrap {
                 downloadProgress.set(0.0)
                 if (name.contains("maven-metadata-")) {
                     messageText1.set("Checking for updates")
                     messageText2.set("")
-                    return
+                    return@wrap
                 }
                 messageText1.set("Downloading")
                 messageText2.set(name)
             }
 
-            var progress = 0.0
+            private var progress = 0.0
 
-            override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
+            override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) = wrap {
                 if (name.contains("maven-metadata-")) {
                     messageText1.set("Checking for updates")
                     messageText2.set("")
-                    return
+                    return@wrap
                 }
                 messageText1.set("Downloading")
                 messageText2.set(name)
                 val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
                 // Need to make sure progress only jumps backwards if we genuinely have a big correction.
-                if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return
+                if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return@wrap
                 progress = pr
                 downloadProgress.set(progress)
             }
 
-            override fun onStoppedDownloading() {
+            override fun onStoppedDownloading() = wrap {
                 downloadProgress.set(1.0)
                 messageText1.set("")
                 messageText2.set("")
             }
 
-            override fun initializingApp() {
+            override fun initializingApp() = wrap {
                 messageText1.set("Please wait")
                 messageText2.set("App is initializing")
             }
 
-            override fun aboutToStartApp() {
+            override fun aboutToStartApp() = wrap {
                 isWorking.set(false)
                 messageText1.set("")
                 messageText2.set("")
@@ -207,24 +227,39 @@ class AppLaunchUI : View() {
         // terminal and get rid of it for graphical apps.
         outputArea.text = ""
         val printStream = PrintStream(object : OutputStream() {
-            override fun write(b: Int) {
-                Platform.runLater {
-                    outputArea.text += b.toChar()
-                }
+            override fun write(b: Int) = fx {
+                outputArea.text += b.toChar()
             }
         }, true)
 
-        // Now start a coroutine that will run everything on the FX thread other than background tasks.
-        GlobalScope.launch(Dispatchers.JavaFx) {
-            try {
-                val launcher = AppLauncher(options, historyManager, primaryStage, events, printStream, printStream)
-                launcher.start()
-            } catch (e: Throwable) {
-                onStartError(e)
-                coordinateBar.selectAll()
-                coordinateBar.requestFocus()
-            }
+        // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
+        // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
+        val cmdLineParams = app.parameters.raw.joinToString(" ")
+        val options = GravitonCLI.parse("$cmdLineParams $text".trim())
+
+        fun resetUI() {
+            isWorking.set(false)
+            messageText1.set("")
+            messageText2.set("")
+            coordinateBar.selectAll()
+            coordinateBar.requestFocus()
+            isHistoryVisible.set(true)
         }
+
+        launcher = FXTask {
+            AppLauncher(options, events, historyManager, primaryStage, printStream, printStream).start()
+        } fail { ex ->
+            resetUI()
+            onStartError(ex)
+        } cancel {
+            info { "Cancelled" }
+            // TODO: This works but is ugly and who knows what kind of issues it may cause.
+            //       Change to using our own HTTP stack and then implement cancellation in that.
+            //       This would also let us run the AppLauncher on the JFX thread.
+            allThreads.interrupt()
+            resetUI()
+        }
+        Thread(launcher).start()
     }
 
     private fun onStartError(e: Throwable) {
@@ -242,7 +277,7 @@ class AppLaunchUI : View() {
         messageText1.set("Mock downloading ..")
         thread {
             Thread.sleep(5000)
-            Platform.runLater {
+            fx {
                 downloadProgress.animate(1.0, 5000.millis) {
                     setOnFinished {
                         isWorking.set(false)

@@ -1,7 +1,6 @@
 package net.plan99.graviton
 
 import javafx.application.Application
-import kotlinx.coroutines.experimental.runBlocking
 import me.tongfei.progressbar.ProgressBar
 import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
@@ -103,9 +102,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             BackgroundUpdates.doBackgroundUpdate(cachePath.toPath(), gravitonVersion?.toInt(), gravitonPath?.toPath(), URI.create(updateURL))
         } else {
             if (clearCache) {
-                runBlocking {
-                    HistoryManager.create().clearCache()
-                }
+                HistoryManager.create().clearCache()
             }
             if (packageName != null) {
                 handleCommandLineInvocation(packageName[0])
@@ -116,25 +113,23 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     }
 
     private fun handleCommandLineInvocation(coordinates: String) {
-        runBlocking {
-            if (profileDownloads > 1) downloadWithProfiling(coordinates)
-            try {
-                val manager = HistoryManager.create()
-                val launcher = AppLauncher(this@GravitonCLI, manager, null, createProgressBar())
-                launcher.start()
-            } catch (original: Throwable) {
-                val e = original.rootCause
-                if (e is MetadataNotFoundException) {
-                    println("Sorry, that package is unknown. Check for typos? (${e.metadata})")
-                } else if (e is IndexOutOfBoundsException) {
-                    println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
-                } else {
-                    val msg = e.message
-                    if (msg != null)
-                        println(msg)
-                    else
-                        e.printStackTrace()
-                }
+        if (profileDownloads > 1) downloadWithProfiling(coordinates)
+        try {
+            val manager = HistoryManager.create()
+            val launcher = AppLauncher(this@GravitonCLI, createProgressBar(), manager, null)
+            launcher.start()
+        } catch (original: Throwable) {
+            val e = original.rootCause
+            if (e is MetadataNotFoundException) {
+                println("Sorry, that package is unknown. Check for typos? (${e.metadata})")
+            } else if (e is IndexOutOfBoundsException) {
+                println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
+            } else {
+                val msg = e.message
+                if (msg != null)
+                    println(msg)
+                else
+                    e.printStackTrace()
             }
         }
     }
@@ -173,7 +168,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         }
     }
 
-    private suspend fun downloadWithProfiling(coordinates: String) {
+    private fun downloadWithProfiling(coordinates: String) {
         val codeFetcher = CodeFetcher(cachePath.toPath())
         codeFetcher.offline = offline
         codeFetcher.useSSL = !noSSL

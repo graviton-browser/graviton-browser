@@ -1,10 +1,6 @@
 package net.plan99.graviton
 
 import javafx.application.Platform
-import kotlinx.coroutines.experimental.CoroutineScope
-import kotlinx.coroutines.experimental.CoroutineStart
-import kotlinx.coroutines.experimental.Dispatchers
-import kotlinx.coroutines.experimental.withContext
 import okhttp3.HttpUrl
 import org.eclipse.aether.artifact.Artifact
 import java.io.PrintWriter
@@ -130,12 +126,6 @@ class Stopwatch {
     val elapsedInSec: Double get() = (System.nanoTime() - start) / 100000000 / 10.0
 }
 
-/**
- * A simple alias to make it clearer what's going on - it's used for "slow" code that shouldn't block the UI thread.
- * The contents of the code block are run in the background and the coroutine is suspended until the block finishes.
- */
-suspend fun <T> background(block: suspend CoroutineScope.() -> T): T = withContext(Dispatchers.Default, CoroutineStart.DEFAULT, block)
-
 /** Runs the provided block on the JavaFX main thread, an alias for Platform.runLater */
 fun fx(body: () -> Unit): Unit = Platform.runLater(body)
 
@@ -167,7 +157,7 @@ fun Path.readAsJar(): JarInputStream = JarInputStream(Files.newInputStream(this)
  *
  * @property code HTTP status code if the server responded at the HTTP level, or missing if something went wrong before we could get a code.
  */
-class HTTPRequestException(val code: Int?, message: String, val url: HttpUrl, cause: Exception? = null) : Exception("Failed to fetch $url: $code $message", cause)
+class HTTPRequestException(private val code: Int?, message: String, url: HttpUrl, cause: Exception? = null) : Exception("Failed to fetch $url: $code $message", cause)
 
 /**
  * Stashes the given parameters in the properties of the [Artifact].
