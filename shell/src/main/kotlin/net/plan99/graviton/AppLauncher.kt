@@ -240,7 +240,7 @@ open class AppLauncher(private val options: GravitonCLI,
         if (andWait) t.join()
         info { "App has finished" }
     }
-
+    
     private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
         val mainClassName: String? get() = appManifest.mainAttributes.getValue("Main-Class")
         val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, true, classloader) } }

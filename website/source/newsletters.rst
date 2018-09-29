@@ -1,6 +1,13 @@
 Newsletters
 ***********
 
+29th September 2018
+===================
+
+This week Windows command line tool support was finished. Java apps can now be invoked from the CLI or GUI, with
+all the necessary workarounds for Windows' various console handling issues. ANSI escape support is activated via
+the Win32 API for users on Windows 10.
+
 23rd September 2018
 ===================
 
