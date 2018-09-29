@@ -9,7 +9,7 @@ import net.plan99.graviton.scheduler.OSTaskScheduler
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
-import tornadofx.*
+import tornadofx.Component
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
@@ -48,13 +48,27 @@ val Component.appBrandLogo get() = Image(resources["art/icons8-rocket-take-off-1
 
 fun main(arguments: Array<String>) {
     try {
+        var forceAnsi = false
+        if (currentOperatingSystem == OperatingSystem.WIN) {
+            // Windows has managed to screw up its console handling really, really badly. We need some hacks to
+            // make command line apps and GUI apps work from the same (ish) binary. See the attachToParentConsole
+            // function for the gory details.
+            forceAnsi = attachToParentConsole()
+        }
+
         commandLineArguments = GravitonCLI(arguments)
         val cli = CommandLine(commandLineArguments)
         cli.isStopAtPositional = true
         cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
+
         // TODO: Set up bash/zsh auto completion.
+        // Force ANSI on because we enable it on Windows 10 now.
+        val handler = CommandLine.RunLast()
+        if (forceAnsi)
+            handler.useAnsi(CommandLine.Help.Ansi.ON)
+
         // This call will pass control to GravitonCLI.run (as that's the object in commandLineArguments).
-        cli.parseWithHandlers(CommandLine.RunLast(), CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
+        cli.parseWithHandlers(handler, CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
     } catch (e: Throwable) {
         try {
             mainLog.error("Failed to start up", e)

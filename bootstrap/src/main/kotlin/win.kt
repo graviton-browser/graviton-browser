@@ -3,7 +3,7 @@ import platform.windows.*
 import platform.posix.*
 import kotlin.math.max
 
-typealias WSTR = CPointer<ShortVar>
+typealias WSTR = CPointer<UShortVar>
 
 private fun WSTR.toKString(): String = memScoped {
     // Figure out how much memory we need after UTF-8 conversion.
@@ -18,7 +18,7 @@ private fun WSTR.toKString(): String = memScoped {
 private val fullBinaryPath: String by lazy {
     // Get the path to the EXE.
     val hmodule = GetModuleHandleW(null)
-    val wstr: WSTR = nativeHeap.allocArray<ShortVar>(MAX_PATH)
+    val wstr: WSTR = nativeHeap.allocArray<UShortVar>(MAX_PATH)
     GetModuleFileNameW(hmodule, wstr, MAX_PATH)
     // Strip the filename leaving just the directory.
     PathRemoveFileSpecW(wstr)
@@ -26,7 +26,7 @@ private val fullBinaryPath: String by lazy {
 }
 
 fun error(message: String) {
-    MessageBoxW(null, message, "Error", MB_OK or MB_ICONEXCLAMATION)
+    MessageBoxW(null, message, "Error", MB_OK.toUInt() or MB_ICONEXCLAMATION.toUInt())
     throw RuntimeException(message)
 }
 
@@ -53,14 +53,31 @@ fun findHighestVersion(): Int = memScoped {
 }
 
 fun main(args: Array<String>) {
-    val highestVersionFound = findHighestVersion()
-    val execDir = "$fullBinaryPath\\$highestVersionFound"
-    val execPath = "$execDir\\GravitonBrowser.exe"
-    putenv("GRAVITON_PATH=$fullBinaryPath")
-    putenv("GRAVITON_VERSION=$highestVersionFound")
-    // TODO: Switch to using CreateProcessEx and inherit the console.
-    val r: CPointer<HINSTANCE__>? = ShellExecuteW(null, null, execPath, args.joinToString(" "), execDir, SW_SHOW)
-    if (r!!.toLong() <= 32) {
-        error("ShellExecuteW returned error code $r: $execPath")
+    memScoped {
+        val highestVersionFound = findHighestVersion()
+        val execDir = "$fullBinaryPath\\$highestVersionFound"
+        val execPath = "$execDir\\GravitonBrowser.exe"
+        putenv("GRAVITON_PATH=$fullBinaryPath")
+        putenv("GRAVITON_VERSION=$highestVersionFound")
+
+        // Enable VT-100 ANSI escape sequence handling on Windows 10.
+        // This enables coloured terminal output for all apps.
+        val stdout = GetStdHandle((-11).toUInt())
+        var dwMode = alloc<UIntVar>()
+        GetConsoleMode(stdout, dwMode.ptr)
+        SetConsoleMode(stdout, dwMode.value or 0x0004u or 0x0008u)
+
+        // Start up the versioned binary and wait for it.
+        val startupInfo = alloc<_STARTUPINFOW>()
+        startupInfo.cb = sizeOf<_STARTUPINFOW>().toUInt()
+        val processInfo = alloc<_PROCESS_INFORMATION>()
+        val argStr = "\"$execPath\" " + args.joinToString(" ")
+
+        val result = CreateProcessW(null, argStr.wcstr.ptr, null, null, 1, 0, null, null, startupInfo.ptr, processInfo.ptr)
+        if (result == 0) {
+            val lastError = GetLastError()
+            error("CreateProcess returned $lastError")
+        }
+        WaitForSingleObject(processInfo.hProcess, INFINITE)
     }
 }
