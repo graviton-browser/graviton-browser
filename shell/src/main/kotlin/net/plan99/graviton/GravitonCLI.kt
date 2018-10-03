@@ -89,7 +89,6 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             return
         }
 
-        // TODO: Enable coloured output on Windows 10+, so client apps can use ANSI escapes without fear.
         if (gravitonPath != null && gravitonVersion != null) {
             // This will execute asynchronously.
             startupChecks(gravitonPath, gravitonVersion)

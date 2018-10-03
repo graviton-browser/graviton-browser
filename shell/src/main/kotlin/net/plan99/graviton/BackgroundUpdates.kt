@@ -16,8 +16,6 @@ import java.security.spec.X509EncodedKeySpec
 import java.time.Duration
 import java.util.*
 
-// TODO: Test on Windows with a full background update.
-
 open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
                              private val fs: FileSystem = FileSystems.getDefault()) {
     companion object : Logging() {
