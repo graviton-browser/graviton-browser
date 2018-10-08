@@ -100,7 +100,7 @@ private fun immediatelyInvokeApplication(arguments: Array<String>): Boolean {
     // divert us onto this codepath in case of URL handler bugs (URLs cannot set environment variables).
     val runCP: String = System.getenv("GRAVITON_RUN_CP") ?: return false
     val runClassName: String = System.getenv("GRAVITON_RUN_CLASSNAME") ?: return false
-    val cl = GravitonClassLoader.buildClassLoaderFor(runCP)
+    val cl = GravitonClassLoader.build(runCP)
     val clazz = cl.loadClass(runClassName)
     // This thread will kick off and start running the program. It won't be able to see Graviton's classes because it's
     // in a separate classloader that doesn't chain to the one that loaded us. This isn't perfectly compatible (a few

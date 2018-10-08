@@ -232,8 +232,6 @@ class AppLaunchUI : View() {
 
             override fun aboutToStartApp(outOfProcess: Boolean) = wrap {
                 if (outOfProcess) {
-                    // Prepare the UI for next time.
-                    resetUI()
                     // Hide the shell window.
                     FX.primaryStage.hide()
                     // This little dance is needed to stop FX shutting us down because all our windows are gone.
@@ -243,11 +241,14 @@ class AppLaunchUI : View() {
                     wedgeFX = CountDownLatch(1)
                     runLater {
                         wedgeFX!!.await()
+                        // Prepare the UI for next time.
+                        resetUI()
                         FX.primaryStage.show()
                         // TODO: Why doesn't this work on macOS?
                         FX.primaryStage.requestFocus()
                     }
                 } else {
+                    // Command line console window open.
                     isWorking.set(false)
                     messageText1.set("")
                     messageText2.set("")
@@ -256,8 +257,15 @@ class AppLaunchUI : View() {
             }
 
             override fun appFinished() {
-                info { "App finished, unblocking FX event loop" }
-                wedgeFX!!.countDown()
+                val wedgeFX = wedgeFX
+                if (wedgeFX != null) {
+                    info { "App finished, unblocking FX event loop" }
+                    wedgeFX.countDown()
+                    // The UI will now be reset by the code that was stuffed into the blocked event loop above.
+                } else {
+                    // The app finished, so put the UI back.
+                    resetUI()
+                }
             }
         }
 

@@ -8,10 +8,12 @@ import java.net.URLClassLoader
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 
-/** Nothing special: just a regular URLClassLoader that chains to the boot class loader. */
-class GravitonClassLoader(urls: Array<URL>, private val appManifest: Manifest, val originalClassPath: String) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
+/**
+ * An extended [URLClassLoader] that provides some functionality specific to us.
+ */
+class GravitonClassLoader private constructor(private val urls: Array<URL>, private val appManifest: Manifest, val originalClassPath: String) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
     companion object : Logging() {
-        fun buildClassLoaderFor(classPath: String): GravitonClassLoader {
+        fun build(classPath: String): GravitonClassLoader {
             try {
                 val classpathDelimiter = currentOperatingSystem.classPathDelimiter
                 val files: List<File> = classPath.split(classpathDelimiter).map { File(it) }
@@ -39,7 +41,7 @@ class GravitonClassLoader(urls: Array<URL>, private val appManifest: Manifest, v
                     return@lazy mainClass!!.asSubclass(Application::class.java)
             } catch (e: ClassCastException) {
             }
-            val scanner = FastClasspathScanner().overrideClassLoaders(this)
+            val scanner = FastClasspathScanner().overrideClasspath(urls[0])
             val scanResult = scanner.scan()
             val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
             if (appClassName != null) {

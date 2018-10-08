@@ -1,10 +1,11 @@
 package net.plan99.graviton
 
 import javafx.application.Application
+import javafx.application.Platform
 import javafx.beans.property.Property
 import javafx.stage.Stage
 import net.plan99.graviton.AppLauncher.GuiToolkit.UNKNOWN
-import net.plan99.graviton.GravitonClassLoader.Companion.buildClassLoaderFor
+import net.plan99.graviton.GravitonClassLoader.Companion.build
 import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
@@ -132,11 +133,11 @@ class AppLauncher(private val options: GravitonCLI,
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
 
         val loadResult: GravitonClassLoader = try {
-            buildClassLoaderFor(fetch.classPath)
+            build(fetch.classPath)
         } catch (e: java.io.FileNotFoundException) {
             // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
             // downloaded artifacts but leaves the recent apps list alone. Let's re-resolve and try again.
-            buildClassLoaderFor(download(userInput, codeFetcher).classPath)
+            build(download(userInput, codeFetcher).classPath)
         }
 
         // Update the last used timestamp.
@@ -282,17 +283,45 @@ class AppLauncher(private val options: GravitonCLI,
                         events.aboutToStartApp(false)
                         // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
                         // or the shell changes e.g. by adding new properties or binding new ones.
+                        val curWidth = primaryStage.width
+                        val curHeight = primaryStage.height
                         primaryStage.unbindAllProperties()
                         val oldScene = primaryStage.scene
                         primaryStage.scene = null
                         primaryStage.title = artifactName
                         primaryStage.hide()
-                        try {
-                            app.start(primaryStage)
-                            info { "JavaFX application has been invoked" }
-                        } catch (e: Exception) {
+                        Platform.setImplicitExit(false)
+
+                        fun restore() {
                             primaryStage.title = "Graviton"
                             primaryStage.scene = oldScene
+                            Platform.setImplicitExit(true)
+                        }
+
+                        fun quit() {
+                            info { "Inlined application quitting, back to the shell" }
+                            primaryStage.onCloseRequest = null
+                            restore()
+                            events.appFinished()
+                        }
+
+                        primaryStage.setOnCloseRequest {
+                            it.consume()   // Stop the main window closing.
+                            quit()
+                        }
+
+                        try {
+                            // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
+                            primaryStage.minWidth = curWidth
+                            primaryStage.minHeight = curHeight
+                            app.start(primaryStage)
+                            if (primaryStage.minWidth == curWidth)
+                                primaryStage.minWidth = 0.0
+                            if (primaryStage.minHeight == curHeight)
+                                primaryStage.minHeight = 0.0
+                            info { "JavaFX application has been invoked inline" }
+                        } catch (e: Exception) {
+                            restore()
                             primaryStage.show()
                         }
                     }
