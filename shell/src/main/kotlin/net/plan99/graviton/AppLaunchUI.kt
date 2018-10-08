@@ -10,6 +10,7 @@ import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
+import net.plan99.graviton.mac.stealFocusOnMac
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
@@ -244,8 +245,9 @@ class AppLaunchUI : View() {
                         // Prepare the UI for next time.
                         resetUI()
                         FX.primaryStage.show()
-                        // TODO: Why doesn't this work on macOS?
                         FX.primaryStage.requestFocus()
+                        if (currentOperatingSystem == OperatingSystem.MAC)
+                            FX.primaryStage.stealFocusOnMac()
                     }
                 } else {
                     // Command line console window open.
