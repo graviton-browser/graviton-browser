@@ -30,7 +30,65 @@ class AppLauncher(private val options: GravitonCLI,
                   private val primaryStage: Stage? = null,
                   private val stdOutStream: PrintStream = System.out,
                   private val stdErrStream: PrintStream = System.err) {
-    companion object : Logging()
+    enum class LoadStrategy {
+        SEARCH_FOR_JFX_APP,
+        RESTART_AND_RUN,
+        INVOKE_MAIN_DIRECTLY
+    }
+
+    enum class GuiToolkit(val packageName: String) {
+        JAVAFX("javafx/"),
+        SWING("javax/swing/"),
+        AWT("java/awt/"),
+        SWT("org/eclipse/swt/"),
+        LWJGL("org/lwjgl/"),  // Lightweight Java game library, popular GL based toolkit.
+        UNKNOWN("");
+
+        init {
+            if (packageName.isNotEmpty()) check(packageName.endsWith('/'))
+        }
+    }
+
+    companion object : Logging() {
+        fun selectLoadStrategy(mainClass: Class<*>?, isExecutingFromGUI: Boolean): LoadStrategy {
+            return if (mainClass == null) {
+                LoadStrategy.SEARCH_FOR_JFX_APP
+            } else {
+                val detectedToolkit = scanForGUIToolkit(mainClass)
+                if (isExecutingFromGUI && detectedToolkit != UNKNOWN) {
+                    info { "Detected GUI toolkit $detectedToolkit, not running with attached console." }
+                    LoadStrategy.RESTART_AND_RUN
+                } else {
+                    LoadStrategy.INVOKE_MAIN_DIRECTLY
+                }
+            }
+        }
+
+        private fun ByteArray.scan(toolkit: GuiToolkit): GuiToolkit? {
+            return if (StreamSearcher(toolkit.packageName.toByteArray(Charsets.US_ASCII)).search(inputStream()) != -1L)
+                toolkit
+            else
+                null
+        }
+
+        internal fun scanForGUIToolkit(mainClass: Class<*>): GuiToolkit {
+            // Scan the class bytes for strings that are sure to be present in apps that use various popular toolkits.
+            // We do this rather than parse the file using ASM and reading it 'for real' because we don't really need to,
+            // the chance of false positives with this technique is very low as the strings in question will normally only
+            // appear in the constant pool.
+
+            val classAsResourcePath = mainClass.name.replace('.', '/') + ".class"
+            val bytes = mainClass.classLoader.getResourceAsStream(classAsResourcePath).use { it.readBytes() }
+            //@formatter:off
+            return bytes.scan(GuiToolkit.JAVAFX) ?:
+                   bytes.scan(GuiToolkit.SWING) ?:
+                   bytes.scan(GuiToolkit.AWT) ?:
+                   bytes.scan(GuiToolkit.SWT) ?:
+                   bytes.scan(GuiToolkit.LWJGL) ?:
+                   UNKNOWN
+            //@formatter:on
+        }
+    }
 
     class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
         constructor(message: String) : this(message, null)
@@ -79,7 +137,7 @@ class AppLauncher(private val options: GravitonCLI,
         info { "App name: ${fetch.name}" }
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
 
-        val loadResult: GravitonClassLoader.AppLoadResult = try {
+        val loadResult: GravitonClassLoader = try {
             buildClassLoaderFor(fetch.classPath)
         } catch (e: java.io.FileNotFoundException) {
             // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
@@ -118,52 +176,7 @@ class AppLauncher(private val options: GravitonCLI,
         }
     }
 
-    private enum class LoadStrategy {
-        SEARCH_FOR_JFX_APP,
-        RESTART_AND_RUN,
-        INVOKE_MAIN_DIRECTLY
-    }
-
-    private fun selectLoadStrategy(mainClass: Class<*>?, isExecutingFromGUI: Boolean): LoadStrategy {
-        return if (mainClass == null) {
-            LoadStrategy.SEARCH_FOR_JFX_APP
-        } else {
-            val detectedToolkit = scanForGUIToolkit(mainClass)
-            if (isExecutingFromGUI && detectedToolkit != UNKNOWN) {
-                info { "Detected GUI toolkit $detectedToolkit, not running with attached console." }
-                LoadStrategy.RESTART_AND_RUN
-            } else {
-                LoadStrategy.INVOKE_MAIN_DIRECTLY
-            }
-        }
-    }
-
-    private fun scanForGUIToolkit(mainClass: Class<*>): GuiToolkit {
-        // Scan the class bytes for strings that are sure to be present in apps that use various popular toolkits.
-        // We do this rather than parse the file using ASM and reading it 'for real' because we don't really need to,
-        // the chance of false positives with this technique is very low as the strings in question will normally only
-        // appear in the constant pool.
-
-        fun ByteArray.scan(toolkit: GuiToolkit): GuiToolkit? {
-            return if (StreamSearcher(toolkit.packageName.toByteArray(Charsets.US_ASCII)).search(inputStream()) != -1L)
-                toolkit
-            else
-                null
-        }
-
-        val classAsResourcePath = mainClass.name.replace('.', '/') + ".class"
-        val bytes = mainClass.classLoader.getResourceAsStream(classAsResourcePath).use { it.readBytes() }
-        //@formatter:off
-        return bytes.scan(GuiToolkit.JAVAFX) ?:
-               bytes.scan(GuiToolkit.SWING) ?:
-               bytes.scan(GuiToolkit.AWT) ?:
-               bytes.scan(GuiToolkit.SWT) ?:
-               bytes.scan(GuiToolkit.LWJGL) ?:
-               UNKNOWN
-        //@formatter:on
-    }
-
-    private fun restartAndRun(loadResult: GravitonClassLoader.AppLoadResult, args: Array<String>) {
+    private fun restartAndRun(cl: GravitonClassLoader, args: Array<String>) {
         // Invoke our own binary again, but this time with some special command line flags set, such that we'll boot
         // straight into the requested program. They get a whole JVM process to themselves.
         //
@@ -184,8 +197,8 @@ class AppLauncher(private val options: GravitonCLI,
         info { "Restarting to execute command line: " + startArgs.joinToString(" ") }
         val pb = ProcessBuilder(*startArgs)
         pb.environment() += mapOf(
-                "GRAVITON_RUN_CP" to loadResult.originalClassPath,
-                "GRAVITON_RUN_CLASSNAME" to loadResult.mainClassName!!
+                "GRAVITON_RUN_CP" to cl.originalClassPath,
+                "GRAVITON_RUN_CLASSNAME" to cl.mainClassName!!
         )
         pb.directory(currentOperatingSystem.homeDirectory.toFile())
         events.aboutToStartApp(true)
@@ -197,26 +210,12 @@ class AppLauncher(private val options: GravitonCLI,
         }
     }
 
-    private enum class GuiToolkit(val packageName: String) {
-        JAVAFX("javafx/"),
-        SWING("javax/swing/"),
-        AWT("java/awt/"),
-        SWT("org/eclipse/swt/"),
-        LWJGL("org/lwjgl/"),  // Lightweight Java game library, popular GL based toolkit.
-        UNKNOWN("");
-
-        init {
-            if (packageName.isNotEmpty()) check(packageName.endsWith('/'))
-        }
-    }
-
-    private fun searchForAndInvokeJFXAppClass(loadResult: GravitonClassLoader.AppLoadResult, fetch: CodeFetcher.Result) {
+    private fun searchForAndInvokeJFXAppClass(cl: GravitonClassLoader, fetch: CodeFetcher.Result) {
         // TODO: This is super-slow, re-evaluate if it's really worth it and try upgrading to ClassGraph.
         info { "No main class, searching for a JavaFX Application subclass" }
-        val jfxApplicationClass: Class<out Application>? = stopwatch("Searching for a JavaFX main class") { loadResult.calculateJFXClass() }
-        if (jfxApplicationClass != null) {
-            info { "JavaFX Application class found: $jfxApplicationClass" }
-            invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args.drop(1), fetch.artifact.toString())
+        cl.foundJFXClass?.let {
+            info { "JavaFX Application class found: $it" }
+            invokeJavaFXApplication(it, primaryStage, options.args.drop(1), fetch.artifact.toString())
         }
     }
 
@@ -315,7 +314,7 @@ class AppLauncher(private val options: GravitonCLI,
                 .forEach { it.unbind() }
     }
 
-    private fun invokeMainMethod(args: Array<String>, loadResult: GravitonClassLoader.AppLoadResult, andWait: Boolean) {
+    private fun invokeMainMethod(args: Array<String>, cl: GravitonClassLoader, andWait: Boolean) {
         // Start in a separate thread, so we can continue to intercept IO and render it to the shell.
         // We'll switch to running it properly out of process in a pty at some point.
         val oldstdout = System.out
@@ -323,8 +322,8 @@ class AppLauncher(private val options: GravitonCLI,
         System.setOut(stdOutStream)
         System.setErr(stdErrStream)
         events.aboutToStartApp(false)
-        val mainClass = loadResult.mainClass!!
-        val t = thread(contextClassLoader = loadResult.classloader, name = "main") {
+        val mainClass = cl.mainClass!!
+        val t = thread(contextClassLoader = cl, name = "main") {
             try {
                 // For me it takes about 0.5 seconds to reach here with a non-optimised build and 0.4 with a jlinked
                 // build, but we're hardly using jlink right now. To get faster I bet we need to AOT most of java.base
@@ -334,7 +333,7 @@ class AppLauncher(private val options: GravitonCLI,
             } finally {
                 System.setOut(oldstdout)
                 System.setErr(oldstderr)
-                loadResult.classloader.close()
+                cl.close()
             }
         }
         if (andWait) t.join()
@@ -353,45 +352,43 @@ fun runMain(mainClass: Class<*>, args: Array<String>) {
 }
 
 /** Nothing special: just a regular URLClassLoader that chains to the boot class loader. */
-class GravitonClassLoader(urls: Array<URL>) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
-    class AppLoadResult(val classloader: GravitonClassLoader, val appManifest: Manifest, val originalClassPath: String) {
-        val mainClassName: String? get() = appManifest.mainAttributes.getValue("Main-Class")
-        // Don't initialise the main class, until we're in the right classloading context.
-        val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, false, classloader) } }
-
-        fun calculateJFXClass(): Class<out Application>? {
-            try {
-                if (mainClass != null)
-                    return mainClass!!.asSubclass(Application::class.java)
-            } catch (e: ClassCastException) {
-            }
-            val scanner = FastClasspathScanner().overrideClassLoaders(classloader)
-            val scanResult = scanner.scan()
-            val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
-            return if (appClassName != null) {
-                Class.forName(appClassName, false, classloader).asSubclass(Application::class.java)
-            } else {
-                null
-            }
-        }
-    }
-
-    companion object {
-        // TODO: Refactor so loading the manifest is lazier.
-        fun buildClassLoaderFor(classPath: String): AppLoadResult {
+class GravitonClassLoader(urls: Array<URL>, private val appManifest: Manifest, val originalClassPath: String) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
+    companion object : Logging() {
+        fun buildClassLoaderFor(classPath: String): GravitonClassLoader {
             try {
                 val classpathDelimiter = currentOperatingSystem.classPathDelimiter
                 val files: List<File> = classPath.split(classpathDelimiter).map { File(it) }
                 val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
                 // Chain to the parent classloader so our internals don't interfere with the application.
                 // TODO: J9: Use classloader names.
-                val classloader = GravitonClassLoader(urls)
                 val manifest = JarFile(files[0]).use { it.manifest }
-                return AppLoadResult(classloader, manifest, classPath)
+                return GravitonClassLoader(urls, manifest, classPath)
             } catch (e: java.io.FileNotFoundException) {
                 throw e
             } catch (e: Exception) {
                 throw AppLauncher.StartException("Failed to build classloader given class path: $classPath", e)
+            }
+        }
+    }
+
+    val mainClassName: String? = appManifest.mainAttributes.getValue("Main-Class")
+    // Don't initialise the main class, until we're in the right classloading context.
+    val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, false, this) } }
+
+    val foundJFXClass: Class<out Application>? by lazy {
+        stopwatch("Searching for a JavaFX Application class") {
+            try {
+                if (mainClass != null)
+                    return@lazy mainClass!!.asSubclass(Application::class.java)
+            } catch (e: ClassCastException) {
+            }
+            val scanner = FastClasspathScanner().overrideClassLoaders(this)
+            val scanResult = scanner.scan()
+            val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
+            if (appClassName != null) {
+                Class.forName(appClassName, false, this).asSubclass(Application::class.java)
+            } else {
+                null
             }
         }
     }

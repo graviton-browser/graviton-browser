@@ -101,13 +101,13 @@ private fun immediatelyInvokeApplication(arguments: Array<String>): Boolean {
     val runCP: String = System.getenv("GRAVITON_RUN_CP") ?: return false
     val runClassName: String = System.getenv("GRAVITON_RUN_CLASSNAME") ?: return false
     val cl = GravitonClassLoader.buildClassLoaderFor(runCP)
-    val clazz = cl.classloader.loadClass(runClassName)
+    val clazz = cl.loadClass(runClassName)
     // This thread will kick off and start running the program. It won't be able to see Graviton's classes because it's
     // in a separate classloader that doesn't chain to the one that loaded us. This isn't perfectly compatible (a few
     // big/complex apps expect the classloader to be a sun.misc.AppClassLoader) but it'll do for now. This thread will
     // continue, die, and the new thread will be the only one left. Eventually the GC should clear out the code in
     // this file.
-    thread(name = "main", contextClassLoader = cl.classloader) {
+    thread(name = "main", contextClassLoader = cl) {
         runMain(clazz, arguments)
     }
     return true
