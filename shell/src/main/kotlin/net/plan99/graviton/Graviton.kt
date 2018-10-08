@@ -17,6 +17,10 @@ import java.nio.file.Paths
 import java.time.Duration
 import kotlin.concurrent.thread
 
+//
+// The main method, argument parsing, first run checks, last run handling (uninstall), console setup.
+//
+
 //region Global variables
 /** The installed path of the browser, when packaged as a native installer. */
 val gravitonPath: String? = System.getenv("GRAVITON_PATH")
@@ -25,7 +29,7 @@ val gravitonPath: String? = System.getenv("GRAVITON_PATH")
 val gravitonVersion: String? = System.getenv("GRAVITON_VERSION")
 
 /** The top level logger for the app. */
-val mainLog: Logger get() = LoggerFactory.getLogger("main")
+val mainLog: Logger by lazy { LoggerFactory.getLogger("main") }
 
 /** Global access to parsed command line flags. */
 var commandLineArguments = GravitonCLI(arrayOf(""))
@@ -48,27 +52,7 @@ val Component.appBrandLogo get() = Image(resources["art/icons8-rocket-take-off-1
 
 fun main(arguments: Array<String>) {
     try {
-        var forceAnsi = false
-        if (currentOperatingSystem == OperatingSystem.WIN) {
-            // Windows has managed to screw up its console handling really, really badly. We need some hacks to
-            // make command line apps and GUI apps work from the same (ish) binary. See the attachToParentConsole
-            // function for the gory details.
-            forceAnsi = attachToParentConsole()
-        }
-
-        commandLineArguments = GravitonCLI(arguments)
-        val cli = CommandLine(commandLineArguments)
-        cli.isStopAtPositional = true
-        cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
-
-        // TODO: Set up bash/zsh auto completion.
-        // Force ANSI on because we enable it on Windows 10 now.
-        val handler = CommandLine.RunLast()
-        if (forceAnsi)
-            handler.useAnsi(CommandLine.Help.Ansi.ON)
-
-        // This call will pass control to GravitonCLI.run (as that's the object in commandLineArguments).
-        cli.parseWithHandlers(handler, CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
+        main1(arguments)
     } catch (e: Throwable) {
         try {
             mainLog.error("Failed to start up", e)
@@ -80,6 +64,53 @@ fun main(arguments: Array<String>) {
             // Just not our day today.....
         }
     }
+}
+
+private fun main1(arguments: Array<String>) {
+    // The shell may request that we just immediately run a program with a provided classpath, as part of starting
+    // up a non-Graviton app outside the shell process.
+    if (immediatelyInvokeApplication(arguments))
+        return
+
+    var forceAnsi = false
+    if (currentOperatingSystem == OperatingSystem.WIN) {
+        // Windows has managed to screw up its console handling really, really badly. We need some hacks to
+        // make command line apps and GUI apps work from the same (ish) binary. See the attachToParentConsole
+        // function for the gory details.
+        forceAnsi = attachToParentConsole()
+    }
+
+    commandLineArguments = GravitonCLI(arguments)
+    val cli = CommandLine(commandLineArguments)
+    cli.isStopAtPositional = true
+    cli.usageHelpWidth = if (arguments.isNotEmpty()) getTermWidth() else 80  // Don't care
+
+    // Force ANSI on because we enable it on Windows 10 now.
+    val handler = CommandLine.RunLast()
+    if (forceAnsi)
+        handler.useAnsi(CommandLine.Help.Ansi.ON)
+
+    // This call will pass control to GravitonCLI.run (as that's the object in commandLineArguments).
+    cli.parseWithHandlers(handler, CommandLine.DefaultExceptionHandler<List<Any>>(), *arguments)
+}
+
+private fun immediatelyInvokeApplication(arguments: Array<String>): Boolean {
+    // This is only called when an app is invoked from the Graviton GUI, so we don't care about ANSI or console stuff here.
+    // Use environment variables to allow us to keep the arguments list clean, and to stop anyone from being able to
+    // divert us onto this codepath in case of URL handler bugs (URLs cannot set environment variables).
+    val runCP: String = System.getenv("GRAVITON_RUN_CP") ?: return false
+    val runClassName: String = System.getenv("GRAVITON_RUN_CLASSNAME") ?: return false
+    val cl = GravitonClassLoader.buildClassLoaderFor(runCP)
+    val clazz = cl.classloader.loadClass(runClassName)
+    // This thread will kick off and start running the program. It won't be able to see Graviton's classes because it's
+    // in a separate classloader that doesn't chain to the one that loaded us. This isn't perfectly compatible (a few
+    // big/complex apps expect the classloader to be a sun.misc.AppClassLoader) but it'll do for now. This thread will
+    // continue, die, and the new thread will be the only one left. Eventually the GC should clear out the code in
+    // this file.
+    thread(name = "main", contextClassLoader = cl.classloader) {
+        runMain(clazz, arguments)
+    }
+    return true
 }
 
 private fun getTermWidth(): Int {

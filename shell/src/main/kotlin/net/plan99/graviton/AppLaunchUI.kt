@@ -13,6 +13,7 @@ import javafx.scene.text.TextAlignment
 import tornadofx.*
 import java.io.OutputStream
 import java.io.PrintStream
+import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 /**
@@ -30,6 +31,7 @@ class AppLaunchUI : View() {
     private val downloadProgress = SimpleDoubleProperty(0.0)
     private val isHistoryVisible = SimpleBooleanProperty(true)
     private val logo = find<LogoView>()
+    private lateinit var recentAppsPicker: VBox
 
     override val root = vbox {
         children += logo.root
@@ -44,7 +46,10 @@ class AppLaunchUI : View() {
 
         pane { minHeight = 25.0 }
 
-        recentAppsPicker()
+        recentAppsPicker = vbox {
+            spacing = 15.0
+            populateRecentAppsPicker()
+        }
 
         outputArea = textarea {
             addClass(Styles.shellArea)
@@ -131,26 +136,24 @@ class AppLaunchUI : View() {
         }
     }
 
-    private fun VBox.recentAppsPicker() {
-        vbox {
-            spacing = 15.0
+    private fun VBox.populateRecentAppsPicker() {
+        children.clear()
 
-            // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
-            for (entry: HistoryEntry in historyManager.history.take(10)) {
-                vbox {
-                    addClass(Styles.historyEntry)
-                    label(entry.name) { addClass(Styles.historyTitle) }
-                    if (entry.description != null)
-                        label(entry.description) { addClass(Styles.historyDescription) }
+        // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
+        for (entry: HistoryEntry in historyManager.history.take(10)) {
+            vbox {
+                addClass(Styles.historyEntry)
+                label(entry.name) { addClass(Styles.historyTitle) }
+                if (entry.description != null)
+                    label(entry.description) { addClass(Styles.historyDescription) }
 
-                    setOnMouseClicked {
-                        coordinateBar.text = entry.coordinateFragment
-                        beginLaunch()
-                    }
-
-                    visibleWhen(isHistoryVisible)
-                    managedProperty().bind(isHistoryVisible)
+                setOnMouseClicked {
+                    coordinateBar.text = entry.coordinateFragment
+                    beginLaunch()
                 }
+
+                visibleWhen(isHistoryVisible)
+                managedProperty().bind(isHistoryVisible)
             }
         }
     }
@@ -165,6 +168,16 @@ class AppLaunchUI : View() {
         // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
         // app can take a bit of time.
         isWorking.set(true)
+
+        fun resetUI() {
+            isWorking.set(false)
+            messageText1.set("")
+            messageText2.set("")
+            coordinateBar.selectAll()
+            coordinateBar.requestFocus()
+            isHistoryVisible.set(true)
+            recentAppsPicker.populateRecentAppsPicker()
+        }
 
         val events = object : AppLauncher.Events() {
             // Make sure we update the UI on the right thread, and ignore any events that come in after
@@ -215,11 +228,36 @@ class AppLaunchUI : View() {
                 messageText2.set("App is initializing")
             }
 
-            override fun aboutToStartApp() = wrap {
-                isWorking.set(false)
-                messageText1.set("")
-                messageText2.set("")
-                isHistoryVisible.set(false)
+            private var wedgeFX: CountDownLatch? = null
+
+            override fun aboutToStartApp(outOfProcess: Boolean) = wrap {
+                if (outOfProcess) {
+                    // Prepare the UI for next time.
+                    resetUI()
+                    // Hide the shell window.
+                    FX.primaryStage.hide()
+                    // This little dance is needed to stop FX shutting us down because all our windows are gone.
+                    // Shutdown will begin if there are no windows, no pending event loop lambdas and no nested event
+                    // loops. We want to hide our window, can't start a nested event loop, so, we have to keep the
+                    // event loop paused until we're ready to come back.
+                    wedgeFX = CountDownLatch(1)
+                    runLater {
+                        wedgeFX!!.await()
+                        FX.primaryStage.show()
+                        // TODO: Why doesn't this work on macOS?
+                        FX.primaryStage.requestFocus()
+                    }
+                } else {
+                    isWorking.set(false)
+                    messageText1.set("")
+                    messageText2.set("")
+                    isHistoryVisible.set(false)
+                }
+            }
+
+            override fun appFinished() {
+                info { "App finished, unblocking FX event loop" }
+                wedgeFX!!.countDown()
             }
         }
 
@@ -236,15 +274,6 @@ class AppLaunchUI : View() {
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
         val cmdLineParams = app.parameters.raw.joinToString(" ")
         val options = GravitonCLI.parse("$cmdLineParams $text".trim())
-
-        fun resetUI() {
-            isWorking.set(false)
-            messageText1.set("")
-            messageText2.set("")
-            coordinateBar.selectAll()
-            coordinateBar.requestFocus()
-            isHistoryVisible.set(true)
-        }
 
         launcher = FXTask {
             AppLauncher(options, events, historyManager, primaryStage, printStream, printStream).start()

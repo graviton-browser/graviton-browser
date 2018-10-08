@@ -10,7 +10,6 @@ import org.eclipse.aether.RepositorySystemSession
 import org.eclipse.aether.artifact.Artifact
 import org.eclipse.aether.artifact.DefaultArtifact
 import org.eclipse.aether.collection.CollectRequest
-import org.eclipse.aether.collection.CollectResult
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory
 import org.eclipse.aether.graph.Dependency
 import org.eclipse.aether.graph.DependencyNode
@@ -249,8 +248,7 @@ class CodeFetcher(private val cachePath: Path) {
         defaultRepositories.forEach { collectRequest.addRepository(it) }
         lateinit var node: DependencyNode
         stopwatch("Dependency resolution") {
-            val collectDependencies: CollectResult = repoSystem.collectDependencies(session, collectRequest)
-            node = collectDependencies.root
+            node = repoSystem.collectDependencies(session, collectRequest).root
             repoSystem.resolveDependencies(session, DependencyRequest(node, null))
         }
         return node
@@ -283,8 +281,8 @@ class CodeFetcher(private val cachePath: Path) {
         }
 
         val protocol = if (useSSL) "https" else "http"
-        repo("jcenter", "$protocol://jcenter.bintray.com/")
         repo("central", "$protocol://repo1.maven.org/maven2/")
+        repo("jcenter", "$protocol://jcenter.bintray.com/")
         repo("jitpack", "$protocol://jitpack.io")
         // repo("mike", "$protocol://plan99.net/~mike/maven/")
 

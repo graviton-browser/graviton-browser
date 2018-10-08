@@ -4,6 +4,8 @@ import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import javafx.application.Application
 import javafx.beans.property.Property
 import javafx.stage.Stage
+import net.plan99.graviton.AppLauncher.GuiToolkit.UNKNOWN
+import net.plan99.graviton.GravitonClassLoader.Companion.buildClassLoaderFor
 import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
@@ -15,18 +17,19 @@ import java.net.URLClassLoader
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.concurrent.thread
+import kotlin.reflect.jvm.javaMethod
 
 /**
  * An [AppLauncher] performs the tasks needed to start an app, performing callbacks on various methods that can be
  * overridden as it goes. It uses coroutines and must be started from inside a suspending function, so even though
  * it does many slow background tasks, you do not have to think about blocking operations or background sync.
  */
-open class AppLauncher(private val options: GravitonCLI,
-                       private val events: Events,
-                       private val historyManager: HistoryManager,
-                       private val primaryStage: Stage? = null,
-                       private val stdOutStream: PrintStream = System.out,
-                       private val stdErrStream: PrintStream = System.err) {
+class AppLauncher(private val options: GravitonCLI,
+                  private val events: Events,
+                  private val historyManager: HistoryManager,
+                  private val primaryStage: Stage? = null,
+                  private val stdOutStream: PrintStream = System.out,
+                  private val stdErrStream: PrintStream = System.err) {
     companion object : Logging()
 
     class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
@@ -35,7 +38,8 @@ open class AppLauncher(private val options: GravitonCLI,
 
     open class Events : CodeFetcher.Events() {
         open fun initializingApp() {}
-        open fun aboutToStartApp() {}
+        open fun aboutToStartApp(outOfProcess: Boolean) {}
+        open fun appFinished() {}
     }
 
     /**
@@ -75,41 +79,144 @@ open class AppLauncher(private val options: GravitonCLI,
         info { "App name: ${fetch.name}" }
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
 
-        val loadResult: AppLoadResult = try {
-            buildClassLoaderFor(fetch)
+        val loadResult: GravitonClassLoader.AppLoadResult = try {
+            buildClassLoaderFor(fetch.classPath)
         } catch (e: java.io.FileNotFoundException) {
             // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
             // downloaded artifacts but leaves the recent apps list alone. Let's re-resolve and try again.
-            buildClassLoaderFor(download(userInput, codeFetcher))
+            buildClassLoaderFor(download(userInput, codeFetcher).classPath)
         }
 
         // Update the last used timestamp.
         historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
 
-        // We try to run a JavaFX app first, to bypass the main method and give a smoother transition.
-        // This also avoids problems with us trying to launch JavaFX twice. However it does mean if the
-        // main method has non-trivial logic in it, then it won't be run!
-        //
-        // TODO: Disassemble the main method if found to see if it just does Application.launch and if so, skip it.
         events.initializingApp()
-        val mainClass = loadResult.mainClass
 
-        // TODO: This is super-slow, re-evaluate if it's really worth it and try upgrading to ClassGraph.
-        val jfxApplicationClass: Class<out Application>? = stopwatch("Searching for a JavaFX main class") { loadResult.calculateJFXClass() }
-        if (jfxApplicationClass != null)
-            info { "JavaFX Application class found: $jfxApplicationClass" }
+        // Apps are started in different ways based on various heuristics
+        //
+        // 1. If the JAR doesn't specify a main class, search for a JavaFX Application class and use that.
+        // 2. If the specified main class doesn't seem to use JavaFX, Swing or AWT then assume it's a console app
+        //    and run it in a separate thread, piped to the UI.
+        // 3. If it does, and the app hasn't opted into Graviton hosting, then run out of process.
+        // 4. Otherwise, give it control over our Scene.
+        //
+        // TODO: Define a "Graviton App" format and allow this to be customised.
 
         try {
-            when {
-                jfxApplicationClass != null -> invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args.drop(1), fetch.artifact.toString())
-                mainClass != null -> invokeMainMethod(fetch.artifact.toString(), options.args, loadResult, mainClass,
-                        stdOutStream, stdErrStream, andWait = primaryStage == null)
-                else -> throw StartException("This application is not an executable program.")
+            val mainClass = loadResult.mainClass
+            val args = options.args.drop(1).toTypedArray()
+            val isExecutingFromGUI = primaryStage != null
+            when (selectLoadStrategy(mainClass, isExecutingFromGUI)) {
+                LoadStrategy.SEARCH_FOR_JFX_APP -> searchForAndInvokeJFXAppClass(loadResult, fetch)
+                LoadStrategy.RESTART_AND_RUN -> restartAndRun(loadResult, args)
+                LoadStrategy.INVOKE_MAIN_DIRECTLY -> invokeMainMethod(args, loadResult, andWait = !isExecutingFromGUI)
             }
         } catch (e: StartException) {
             throw e
         } catch (e: Throwable) {
             throw StartException("Application failed to start", e)
+        }
+    }
+
+    private enum class LoadStrategy {
+        SEARCH_FOR_JFX_APP,
+        RESTART_AND_RUN,
+        INVOKE_MAIN_DIRECTLY
+    }
+
+    private fun selectLoadStrategy(mainClass: Class<*>?, isExecutingFromGUI: Boolean): LoadStrategy {
+        return if (mainClass == null) {
+            LoadStrategy.SEARCH_FOR_JFX_APP
+        } else {
+            val detectedToolkit = scanForGUIToolkit(mainClass)
+            if (isExecutingFromGUI && detectedToolkit != UNKNOWN) {
+                info { "Detected GUI toolkit $detectedToolkit, not running with attached console." }
+                LoadStrategy.RESTART_AND_RUN
+            } else {
+                LoadStrategy.INVOKE_MAIN_DIRECTLY
+            }
+        }
+    }
+
+    private fun scanForGUIToolkit(mainClass: Class<*>): GuiToolkit {
+        // Scan the class bytes for strings that are sure to be present in apps that use various popular toolkits.
+        // We do this rather than parse the file using ASM and reading it 'for real' because we don't really need to,
+        // the chance of false positives with this technique is very low as the strings in question will normally only
+        // appear in the constant pool.
+
+        fun ByteArray.scan(toolkit: GuiToolkit): GuiToolkit? {
+            return if (StreamSearcher(toolkit.packageName.toByteArray(Charsets.US_ASCII)).search(inputStream()) != -1L)
+                toolkit
+            else
+                null
+        }
+
+        val classAsResourcePath = mainClass.name.replace('.', '/') + ".class"
+        val bytes = mainClass.classLoader.getResourceAsStream(classAsResourcePath).use { it.readBytes() }
+        //@formatter:off
+        return bytes.scan(GuiToolkit.JAVAFX) ?:
+               bytes.scan(GuiToolkit.SWING) ?:
+               bytes.scan(GuiToolkit.AWT) ?:
+               bytes.scan(GuiToolkit.SWT) ?:
+               bytes.scan(GuiToolkit.LWJGL) ?:
+               UNKNOWN
+        //@formatter:on
+    }
+
+    private fun restartAndRun(loadResult: GravitonClassLoader.AppLoadResult, args: Array<String>) {
+        // Invoke our own binary again, but this time with some special command line flags set, such that we'll boot
+        // straight into the requested program. They get a whole JVM process to themselves.
+        //
+        // The arguments are passed straight through. The JVM does not get a chance to see them, so the user cannot control
+        // JVM options this way. This is both intended, but also a limitation of the program javapackager creates, which
+        // really wants us to edit a config file to alter JVM options.
+        //
+        // Force a full GC to release memory back to the OS (G1 doesn't do that but we don't use it)
+        System.gc()
+        val startPath = if (gravitonPath != null) {
+            arrayOf(gravitonPath)
+        } else {
+            // Running not packaged, probably during development. We reflect the name "net.plan99.graviton.Graviton"
+            // here in case one day the main method gets moved.
+            arrayOf("java", "-cp", System.getProperty("java.class.path"), ::main.javaMethod!!.declaringClass.name)
+        }
+        val startArgs = arrayOf(*startPath, *args)
+        info { "Restarting to execute command line: " + startArgs.joinToString(" ") }
+        val pb = ProcessBuilder(*startArgs)
+        pb.environment() += mapOf(
+                "GRAVITON_RUN_CP" to loadResult.originalClassPath,
+                "GRAVITON_RUN_CLASSNAME" to loadResult.mainClassName!!
+        )
+        pb.directory(currentOperatingSystem.homeDirectory.toFile())
+        events.aboutToStartApp(true)
+        val proc = pb.start()
+        thread {
+            proc.waitFor()
+            info { "Sub-process finished" }
+            events.appFinished()
+        }
+    }
+
+    private enum class GuiToolkit(val packageName: String) {
+        JAVAFX("javafx/"),
+        SWING("javax/swing/"),
+        AWT("java/awt/"),
+        SWT("org/eclipse/swt/"),
+        LWJGL("org/lwjgl/"),  // Lightweight Java game library, popular GL based toolkit.
+        UNKNOWN("");
+
+        init {
+            if (packageName.isNotEmpty()) check(packageName.endsWith('/'))
+        }
+    }
+
+    private fun searchForAndInvokeJFXAppClass(loadResult: GravitonClassLoader.AppLoadResult, fetch: CodeFetcher.Result) {
+        // TODO: This is super-slow, re-evaluate if it's really worth it and try upgrading to ClassGraph.
+        info { "No main class, searching for a JavaFX Application subclass" }
+        val jfxApplicationClass: Class<out Application>? = stopwatch("Searching for a JavaFX main class") { loadResult.calculateJFXClass() }
+        if (jfxApplicationClass != null) {
+            info { "JavaFX Application class found: $jfxApplicationClass" }
+            invokeJavaFXApplication(jfxApplicationClass, primaryStage, options.args.drop(1), fetch.artifact.toString())
         }
     }
 
@@ -162,7 +269,7 @@ open class AppLauncher(private val options: GravitonCLI,
     private fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: List<String>, artifactName: String) {
         if (primaryStage == null) {
             // Being started from the command line, JavaFX wasn't set up yet.
-            events.aboutToStartApp()
+            events.aboutToStartApp(false)
             Application.launch(jfxApplicationClass, *args.toTypedArray())
         } else {
             // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
@@ -179,7 +286,7 @@ open class AppLauncher(private val options: GravitonCLI,
                     // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
                     app.init()
                     fx {
-                        events.aboutToStartApp()
+                        events.aboutToStartApp(false)
                         // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
                         // or the shell changes e.g. by adding new properties or binding new ones.
                         primaryStage.unbindAllProperties()
@@ -208,29 +315,22 @@ open class AppLauncher(private val options: GravitonCLI,
                 .forEach { it.unbind() }
     }
 
-    private fun invokeMainMethod(artifactName: String, args: Array<String>, loadResult: AppLoadResult,
-                                 mainClass: Class<*>, outStream: PrintStream, errStream: PrintStream,
-                                 andWait: Boolean) {
-        val mainMethod = mainClass.getMethod("main", Array<String>::class.java)
-        val subArgs = args.drop(1).toTypedArray()
+    private fun invokeMainMethod(args: Array<String>, loadResult: GravitonClassLoader.AppLoadResult, andWait: Boolean) {
         // Start in a separate thread, so we can continue to intercept IO and render it to the shell.
-        // That feature will probably go away soon and we'll get pickier about which thread we run the
-        // sub-program on, because the sub-program probably has expectations about this.
+        // We'll switch to running it properly out of process in a pty at some point.
         val oldstdout = System.out
         val oldstderr = System.err
-        System.setOut(outStream)
-        System.setErr(errStream)
-        events.aboutToStartApp()
-        val t = thread(contextClassLoader = loadResult.classloader, name = "Main thread for $artifactName") {
-            // TODO: Stop the program quitting itself.
+        System.setOut(stdOutStream)
+        System.setErr(stdErrStream)
+        events.aboutToStartApp(false)
+        val mainClass = loadResult.mainClass!!
+        val t = thread(contextClassLoader = loadResult.classloader, name = "main") {
             try {
                 // For me it takes about 0.5 seconds to reach here with a non-optimised build and 0.4 with a jlinked
                 // build, but we're hardly using jlink right now. To get faster I bet we need to AOT most of java.base
                 //
                 // println("Took ${startupStopwatch.elapsedInSec} seconds to reach main()")
-                mainMethod.invoke(null, subArgs)
-            } catch (e: InvocationTargetException) {
-                throw e.cause!!
+                runMain(mainClass, args)
             } finally {
                 System.setOut(oldstdout)
                 System.setErr(oldstderr)
@@ -240,10 +340,24 @@ open class AppLauncher(private val options: GravitonCLI,
         if (andWait) t.join()
         info { "App has finished" }
     }
-    
-    private class AppLoadResult(val classloader: URLClassLoader, val appManifest: Manifest) {
+
+}
+
+fun runMain(mainClass: Class<*>, args: Array<String>) {
+    try {
+        val mainMethod = mainClass.getMethod("main", Array<String>::class.java)
+        mainMethod.invoke(null, args)
+    } catch (e: InvocationTargetException) {
+        throw e.cause!!
+    }
+}
+
+/** Nothing special: just a regular URLClassLoader that chains to the boot class loader. */
+class GravitonClassLoader(urls: Array<URL>) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
+    class AppLoadResult(val classloader: GravitonClassLoader, val appManifest: Manifest, val originalClassPath: String) {
         val mainClassName: String? get() = appManifest.mainAttributes.getValue("Main-Class")
-        val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, true, classloader) } }
+        // Don't initialise the main class, until we're in the right classloading context.
+        val mainClass: Class<*>? by lazy { mainClassName?.let { Class.forName(it, false, classloader) } }
 
         fun calculateJFXClass(): Class<out Application>? {
             try {
@@ -262,26 +376,27 @@ open class AppLauncher(private val options: GravitonCLI,
         }
     }
 
-    private fun buildClassLoaderFor(fetch: CodeFetcher.Result): AppLoadResult {
-        try {
-            val classpathDelimiter = currentOperatingSystem.classPathDelimiter
-            val files = fetch.classPath.split(classpathDelimiter).map { File(it) }
-            val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
-            // Chain to the parent classloader so our internals don't interfere with the application.
-            // TODO: J9: Use classloader names.
-            val classloader = GravitonClassLoader(urls)
-            val manifest = JarFile(files[0]).use { it.manifest }
-            return AppLoadResult(classloader, manifest)
-        } catch (e: java.io.FileNotFoundException) {
-            throw e
-        } catch (e: Exception) {
-            throw AppLauncher.StartException("Failed to build classloader given class path: ${fetch.classPath}", e)
+    companion object {
+        // TODO: Refactor so loading the manifest is lazier.
+        fun buildClassLoaderFor(classPath: String): AppLoadResult {
+            try {
+                val classpathDelimiter = currentOperatingSystem.classPathDelimiter
+                val files: List<File> = classPath.split(classpathDelimiter).map { File(it) }
+                val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
+                // Chain to the parent classloader so our internals don't interfere with the application.
+                // TODO: J9: Use classloader names.
+                val classloader = GravitonClassLoader(urls)
+                val manifest = JarFile(files[0]).use { it.manifest }
+                return AppLoadResult(classloader, manifest, classPath)
+            } catch (e: java.io.FileNotFoundException) {
+                throw e
+            } catch (e: Exception) {
+                throw AppLauncher.StartException("Failed to build classloader given class path: $classPath", e)
+            }
         }
     }
 
-    fun cancel() {
-
+    init {
+        ClassLoader.registerAsParallelCapable()
     }
-
-    private class GravitonClassLoader(urls: Array<URL>) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent)
 }
