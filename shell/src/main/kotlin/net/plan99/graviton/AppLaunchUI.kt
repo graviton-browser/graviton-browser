@@ -49,6 +49,7 @@ class AppLaunchUI : View() {
 
         scrollpane {
             addClass(Styles.appsPicker)
+            addClass("scroll-pane-thin")
             isFitToWidth = true
 
             recentAppsPicker = vbox {

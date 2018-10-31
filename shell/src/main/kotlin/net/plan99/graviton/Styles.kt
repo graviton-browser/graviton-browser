@@ -83,7 +83,6 @@ class Styles : Stylesheet() {
             fontSize = 16.pt
         }
 
-
         primaryWebButton {
             backgroundColor = multi(LinearGradient.valueOf("#2fcb53 0%, #269f42 90%"))
             alignment = Pos.CENTER_RIGHT

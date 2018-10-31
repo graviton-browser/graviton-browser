@@ -25,3 +25,24 @@
             derive(-fx-accent, 30%) 99%
     );
 }
+
+/** thin scrollbar, mac style **/
+
+.scroll-pane-thin .scroll-bar:vertical {
+    -fx-background-color: transparent, transparent, transparent, transparent;
+    -fx-background-insets: 0, 0 1 0 1;
+    -fx-padding: 0 0 0 5;
+}
+
+.scroll-pane-thin .scroll-bar:vertical > .thumb {
+    -fx-background-color: #00000033;
+}
+
+.scroll-pane-thin .scroll-bar > .increment-button, .scroll-bar > .decrement-button {
+    -fx-padding: 0 5 0 5;
+}
+
+.scroll-pane-thin .increment-button > .increment-arrow, .scroll-pane-thin .decrement-button  > .decrement-arrow {
+    -fx-padding: 0;
+    -fx-shape: "";
+}
