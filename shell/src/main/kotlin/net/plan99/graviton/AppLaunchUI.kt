@@ -47,9 +47,14 @@ class AppLaunchUI : View() {
 
         pane { minHeight = 25.0 }
 
-        recentAppsPicker = vbox {
-            spacing = 15.0
-            populateRecentAppsPicker()
+        scrollpane {
+            addClass(Styles.appsPicker)
+            isFitToWidth = true
+
+            recentAppsPicker = vbox {
+                spacing = 15.0
+                populateRecentAppsPicker()
+            }
         }
 
         outputArea = textarea {

@@ -19,6 +19,7 @@ class Styles : Stylesheet() {
         val historyTitle by cssclass()
         val historyDescription by cssclass()
         val primaryWebButton by cssclass()
+        val appsPicker by cssclass()
     }
 
     private val wireFont: Font = loadFont("/net/plan99/graviton/art/Wire One regular.ttf", 25.0)!!
@@ -97,6 +98,13 @@ class Styles : Stylesheet() {
         primaryWebButton and hover {
             backgroundColor = multi(LinearGradient.valueOf("#34d058 0%, #28a745 90%"))
             cursor = Cursor.HAND
+        }
+
+        appsPicker {
+            backgroundColor = multi(Color.TRANSPARENT)
+            viewport {
+                backgroundColor = multi(Color.TRANSPARENT)
+            }
         }
     }
 }
