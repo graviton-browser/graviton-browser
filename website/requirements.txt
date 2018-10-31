@@ -16,7 +16,7 @@ pyparsing==2.2.0
 pytz==2018.3
 recommonmark==0.4.0
 reportlab==3.4.0
-requests==2.18.4
+requests==2.20.0
 rst2pdf==0.93.dev0
 six==1.11.0
 snowballstemmer==1.2.1
