@@ -159,7 +159,9 @@ class AppLauncher(private val options: GravitonCLI,
             val mainClass = loadResult.mainClass
             val args = options.args.drop(1).toTypedArray()
             val isExecutingFromGUI = primaryStage != null
-            when (selectLoadStrategy(mainClass, isExecutingFromGUI)) {
+            val strategy = selectLoadStrategy(mainClass, isExecutingFromGUI)
+            info { "Load strategy is $strategy" }
+            when (strategy) {
                 LoadStrategy.SEARCH_FOR_JFX_APP -> searchForAndInvokeJFXAppClass(loadResult, fetch)
                 LoadStrategy.RESTART_AND_RUN -> restartAndRun(loadResult, args)
                 LoadStrategy.INVOKE_MAIN_DIRECTLY -> invokeMainMethod(args, loadResult, andWait = !isExecutingFromGUI)
@@ -206,11 +208,13 @@ class AppLauncher(private val options: GravitonCLI,
     }
 
     private fun searchForAndInvokeJFXAppClass(cl: GravitonClassLoader, fetch: CodeFetcher.Result) {
-        // TODO: This is super-slow, re-evaluate if it's really worth it and try upgrading to ClassGraph.
         info { "No main class, searching for a JavaFX Application subclass" }
-        cl.foundJFXClass?.let {
-            info { "JavaFX Application class found: $it" }
-            invokeJavaFXApplication(it, primaryStage, options.args.drop(1), fetch.artifact.toString())
+        val clazz = cl.foundJFXClass
+        if (clazz != null) {
+            info { "JavaFX Application class found: $clazz" }
+            invokeJavaFXApplication(clazz, primaryStage, options.args.drop(1), fetch.artifact.toString())
+        } else {
+            warn { "Couldn't locate any JavaFX application class" }
         }
     }
 

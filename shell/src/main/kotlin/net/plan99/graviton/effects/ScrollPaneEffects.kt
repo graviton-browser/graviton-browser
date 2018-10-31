@@ -17,6 +17,8 @@ import tornadofx.seconds
  */
 fun ScrollPane.addTopBottomFades() {
     clip = Rectangle().apply {
+        // We make the clip rect a bit wider than the scroll pane, to avoid accidentally clipping small overspill
+        // from the children e.g. due to effects.
         widthProperty().bind(this@addTopBottomFades.widthProperty())
         heightProperty().bind(this@addTopBottomFades.heightProperty())
         fill = LinearGradient(
