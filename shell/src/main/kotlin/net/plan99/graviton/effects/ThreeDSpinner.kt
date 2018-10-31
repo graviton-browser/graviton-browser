@@ -1,4 +1,4 @@
-package net.plan99.graviton
+package net.plan99.graviton.effects
 
 import javafx.animation.Animation
 import javafx.beans.binding.Bindings

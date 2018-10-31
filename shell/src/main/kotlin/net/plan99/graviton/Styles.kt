@@ -104,6 +104,9 @@ class Styles : Stylesheet() {
             viewport {
                 backgroundColor = multi(Color.TRANSPARENT)
             }
+            scrollBar {
+                padding = box(20.px, 0.px, 20.px, 0.px)
+            }
         }
     }
 }

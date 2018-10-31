@@ -5,11 +5,14 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.StringProperty
 import javafx.concurrent.Task
+import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
+import net.plan99.graviton.effects.addMacStyleScrolling
+import net.plan99.graviton.effects.addTopBottomFades
 import net.plan99.graviton.mac.stealFocusOnMac
 import tornadofx.*
 import java.io.OutputStream
@@ -54,9 +57,14 @@ class AppLaunchUI : View() {
 
             recentAppsPicker = vbox {
                 spacing = 15.0
+                padding = Insets(20.0, 0.0, 20.0, 0.0)
                 populateRecentAppsPicker()
             }
+
+            addTopBottomFades()
+            addMacStyleScrolling()
         }
+
 
         outputArea = textarea {
             addClass(Styles.shellArea)

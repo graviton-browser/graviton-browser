@@ -35,10 +35,10 @@
 }
 
 .scroll-pane-thin .scroll-bar:vertical > .thumb {
-    -fx-background-color: #00000033;
+    -fx-background-color: #00000066;
 }
 
-.scroll-pane-thin .scroll-bar > .increment-button, .scroll-bar > .decrement-button {
+.scroll-pane-thin .scroll-bar > .increment-button, .scroll-pane-thin .scroll-bar > .decrement-button {
     -fx-padding: 0 5 0 5;
 }
 
