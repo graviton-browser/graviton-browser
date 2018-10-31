@@ -281,10 +281,10 @@ class AppLauncher(private val options: GravitonCLI,
                     app.init()
                     fx {
                         events.aboutToStartApp(false)
-                        // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
-                        // or the shell changes e.g. by adding new properties or binding new ones.
                         val curWidth = primaryStage.width
                         val curHeight = primaryStage.height
+                        // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
+                        // or the shell changes e.g. by adding new properties or binding new ones.
                         primaryStage.unbindAllProperties()
                         val oldScene = primaryStage.scene
                         primaryStage.scene = null
