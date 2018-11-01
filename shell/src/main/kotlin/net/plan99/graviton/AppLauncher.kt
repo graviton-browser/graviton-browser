@@ -214,40 +214,41 @@ class AppLauncher(private val options: GravitonCLI,
         }
     }
 
-    private fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {
+    private fun download(userInput: String, codeFetcher: CodeFetcher, reverseInput: Boolean = false): CodeFetcher.Result {
         return try {
-            val coordinates: String = calculateCoordinates(userInput)
+            val coordinates: String = calculateCoordinates(userInput, reverseInput)
             codeFetcher.downloadAndBuildClasspath(coordinates)
         } catch (e: RepositoryException) {
-            val rootCause = e.rootCause
-            if (rootCause is MetadataNotFoundException) {
-                throw AppLauncher.StartException("Sorry, no package with those coordinates is known.", e)
-            } else if (rootCause is HttpResponseException && rootCause.statusCode == 401 && CodeFetcher.isPossiblyJitPacked(userInput)) {
-                // JitPack can return 401 Unauthorized when no repository is found e.g. typo, because it
-                // might be a private repository that requires authentication.
-                throw AppLauncher.StartException("Sorry, no repository was found with those coordinates.", e)
-            } else {
-                // Put all the errors together into some sort of coherent story.
-                val m = StringBuilder()
-                var cursor: Throwable = e.cause!!
-                var lastMessage = ""
-                while (true) {
-                    if (cursor.message != lastMessage) {
-                        lastMessage = cursor.message ?: ""
-                        m.appendln(lastMessage)
+            if (reverseInput) {
+                val rootCause = e.rootCause
+                if (rootCause is MetadataNotFoundException) {
+                    throw AppLauncher.StartException("Sorry, no package with those coordinates is known.", e)
+                } else if (rootCause is HttpResponseException && rootCause.statusCode == 401 && CodeFetcher.isPossiblyJitPacked(userInput)) {
+                    // JitPack can return 401 Unauthorized when no repository is found e.g. typo, because it
+                    // might be a private repository that requires authentication.
+                    throw AppLauncher.StartException("Sorry, no repository was found with those coordinates.", e)
+                } else {
+                    // Put all the errors together into some sort of coherent story.
+                    val m = StringBuilder()
+                    var cursor: Throwable = e.cause!!
+                    var lastMessage = ""
+                    while (true) {
+                        if (cursor.message != lastMessage) {
+                            lastMessage = cursor.message ?: ""
+                            m.appendln(lastMessage)
+                        }
+                        cursor = cursor.cause ?: break
                     }
-                    cursor = cursor.cause ?: break
+                    throw AppLauncher.StartException(m.toString(), e)
                 }
-                throw AppLauncher.StartException(m.toString(), e)
+            } else {
+                download(userInput, codeFetcher, true)
             }
         }
     }
 
-    private fun calculateCoordinates(userInput: String): String {
-        var packageName: String = userInput
-
-        // TODO: Detect if the group ID was entered the "wrong" way around (i.e. normal web style).
-        // We can do this using the TLD suffix list. If the user did that, let's flip it first.
+    private fun calculateCoordinates(userInput: String, reverseInput: Boolean): String {
+        var packageName: String = if (reverseInput) reversedCoordinates(userInput) else userInput
 
         // If there's no : anywhere in it, it's just a reverse domain name, then assume the artifact ID is the
         // same as the last component of the group ID.

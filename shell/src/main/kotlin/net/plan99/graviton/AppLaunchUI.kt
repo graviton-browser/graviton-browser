@@ -161,13 +161,10 @@ class AppLaunchUI : View() {
 
     //region Event handling
     private fun beginLaunch() {
-        beginLaunch(coordinateBar.text)
-    }
-
-    private fun beginLaunch(coordinates: String, firstAttempt: Boolean = true) {
         cancelIfDownloading()
 
-        if (coordinates.isBlank()) return
+        val text = coordinateBar.text
+        if (text.isBlank()) return
 
         // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
         // app can take a bit of time.
@@ -286,13 +283,13 @@ class AppLaunchUI : View() {
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
         val cmdLineParams = app.parameters.raw.joinToString(" ")
-        val options = GravitonCLI.parse("$cmdLineParams $coordinates".trim())
+        val options = GravitonCLI.parse("$cmdLineParams $text".trim())
 
         launcher = FXTask {
             AppLauncher(options, events, historyManager, primaryStage, printStream, printStream).start()
         } fail { ex ->
             resetUI()
-            onStartError(ex, firstAttempt)
+            onStartError(ex)
         } cancel {
             info { "Cancelled" }
             // TODO: This works but is ugly and who knows what kind of issues it may cause.
@@ -304,17 +301,12 @@ class AppLaunchUI : View() {
         Thread(launcher).start()
     }
 
-    private fun onStartError(e: Throwable, firstAttempt: Boolean) {
-        if (firstAttempt && e is AppLauncher.StartException) {
-            val reversedCoordinates = reversedCoordinates(coordinateBar.text)
-            beginLaunch(reversedCoordinates, false)
-        } else {
-            isWorking.set(false)
-            downloadProgress.set(0.0)
-            messageText1.set("Start failed")
-            messageText2.set(e.message)
-            ShellView.logger.error("Start failed", e)
-        }
+    private fun onStartError(e: Throwable) {
+        isWorking.set(false)
+        downloadProgress.set(0.0)
+        messageText1.set("Start failed")
+        messageText2.set(e.message)
+        ShellView.logger.error("Start failed", e)
     }
 
     @Suppress("unused")
