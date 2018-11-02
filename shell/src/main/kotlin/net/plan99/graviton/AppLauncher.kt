@@ -297,6 +297,7 @@ class AppLauncher(private val options: GravitonCLI,
                         Platform.setImplicitExit(false)
 
                         fun restore() {
+                            primaryStage.titleProperty().unbind()
                             primaryStage.title = "Graviton"
                             primaryStage.scene = oldScene
                             Platform.setImplicitExit(true)
