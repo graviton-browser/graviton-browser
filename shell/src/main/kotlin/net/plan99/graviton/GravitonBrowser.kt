@@ -8,6 +8,7 @@ import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Paint
 import javafx.stage.Stage
+import net.plan99.graviton.effects.ThreeDSpinner
 import net.plan99.graviton.mac.configureMacWindow
 import net.plan99.graviton.mac.setupMacMenuBar
 import tornadofx.*

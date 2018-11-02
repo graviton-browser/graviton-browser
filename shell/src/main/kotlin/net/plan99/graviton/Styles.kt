@@ -19,6 +19,7 @@ class Styles : Stylesheet() {
         val historyTitle by cssclass()
         val historyDescription by cssclass()
         val primaryWebButton by cssclass()
+        val appsPicker by cssclass()
     }
 
     private val wireFont: Font = loadFont("/net/plan99/graviton/art/Wire One regular.ttf", 25.0)!!
@@ -51,25 +52,16 @@ class Styles : Stylesheet() {
         }
 
         messageBox {
-            backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.5))
-            backgroundRadius = multi(box(5.px))
-            borderWidth = multi(box(3.px))
-            borderColor = multi(box(Color.LIGHTGREY))
-            borderRadius = multi(box(5.px))
+            crispWhiteBox()
             fontSize = 25.pt
         }
 
         historyEntry {
-            borderWidth = multi(box(2.px))
-            borderColor = multi(box(Color.web("#dddddd")))
-            borderRadius = cornerRadius
-            backgroundColor = multi(LinearGradient.valueOf("white,#eeeeeedd"))
-            backgroundRadius = cornerRadius
+            crispWhiteBox()
             padding = box(20.px)
         }
 
         historyEntry and hover {
-            borderColor = multi(box(Color.web("#555555")))
             cursor = javafx.scene.Cursor.HAND
         }
 
@@ -81,7 +73,6 @@ class Styles : Stylesheet() {
         historyDescription {
             fontSize = 16.pt
         }
-
 
         primaryWebButton {
             backgroundColor = multi(LinearGradient.valueOf("#2fcb53 0%, #269f42 90%"))
@@ -97,6 +88,29 @@ class Styles : Stylesheet() {
         primaryWebButton and hover {
             backgroundColor = multi(LinearGradient.valueOf("#34d058 0%, #28a745 90%"))
             cursor = Cursor.HAND
+        }
+
+        appsPicker {
+            backgroundColor = multi(Color.TRANSPARENT)
+            viewport {
+                backgroundColor = multi(Color.TRANSPARENT)
+            }
+            scrollBar {
+                padding = box(20.px, 0.px, 20.px, 0.px)
+            }
+        }
+    }
+
+    private fun CssSelectionBlock.crispWhiteBox() {
+        borderWidth = multi(box(2.px))
+        backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
+        effect = DropShadow().apply {
+            width = 21.0
+            height = 21.0
+            radius = 10.0
+            offsetX = 5.0
+            offsetY = 5.0
+            color = Color.color(0.0, 0.0, 0.0, 0.5)
         }
     }
 }

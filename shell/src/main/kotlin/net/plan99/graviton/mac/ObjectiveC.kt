@@ -15,6 +15,7 @@ import com.sun.jna.Structure
  * @author shannah
  * @see [Objective-C Runtime Reference](https://developer.apple.com/library/mac/.documentation/Cocoa/Reference/ObjCRuntimeRef/Reference/reference.html)
  */
+@Suppress("FunctionName")
 interface ObjectiveCRuntime : Library {
     fun objc_lookUpClass(name: String): Pointer
     fun class_getName(id: Pointer): String

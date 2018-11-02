@@ -5,11 +5,14 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.beans.property.StringProperty
 import javafx.concurrent.Task
+import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
+import net.plan99.graviton.effects.addMacStyleScrolling
+import net.plan99.graviton.effects.addTopBottomFades
 import net.plan99.graviton.mac.stealFocusOnMac
 import tornadofx.*
 import java.io.OutputStream
@@ -34,43 +37,57 @@ class AppLaunchUI : View() {
     private val logo = find<LogoView>()
     private lateinit var recentAppsPicker: VBox
 
-    override val root = vbox {
-        children += logo.root
+    override val root = scrollpane {
+        addClass(Styles.appsPicker)
+        addClass("scroll-pane-thin")
+        isFitToWidth = true
+        addTopBottomFades()
+        addMacStyleScrolling()
 
-        pane { minHeight = 25.0 }
+        // This stack pane is just to vertically center the content.
+        stackpane {
+            alignment = Pos.TOP_CENTER
+            vbox {
+                children += logo.root
 
-        coordinateBar()
+                pane { minHeight = 25.0 }
 
-        pane { minHeight = 25.0 }
+                coordinateBar()
 
-        downloadTracker()
+                pane { minHeight = 25.0 }
 
-        pane { minHeight = 25.0 }
+                downloadTracker()
 
-        recentAppsPicker = vbox {
-            spacing = 15.0
-            populateRecentAppsPicker()
-        }
+                pane { minHeight = 25.0 }
 
-        outputArea = textarea {
-            addClass(Styles.shellArea)
-            isWrapText = false
-            opacity = 0.0
-            textProperty().addListener { _, oldValue, newValue ->
-                if (oldValue.isBlank() && newValue.isNotBlank()) {
-                    opacityProperty().animate(1.0, 0.3.seconds)
-                } else if (newValue.isBlank() && oldValue.isNotBlank()) {
-                    opacityProperty().animate(0.0, 0.3.seconds)
+                recentAppsPicker = vbox {
+                    spacing = 15.0
+                    padding = Insets(20.0, 0.0, 20.0, 0.0)
+                    populateRecentAppsPicker()
+                    isCache = true
                 }
-            }
-            prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
-        }
 
-        // Just wide enough for 80 chars in the output area at currently chosen font size.
-        maxWidth = 1024.0
-        maxHeight = Double.POSITIVE_INFINITY
-        spacing = 5.0
-        alignment = Pos.TOP_CENTER
+                outputArea = textarea {
+                    addClass(Styles.shellArea)
+                    isWrapText = false
+                    opacity = 0.0
+                    textProperty().addListener { _, oldValue, newValue ->
+                        if (oldValue.isBlank() && newValue.isNotBlank()) {
+                            opacityProperty().animate(1.0, 0.3.seconds)
+                        } else if (newValue.isBlank() && oldValue.isNotBlank()) {
+                            opacityProperty().animate(0.0, 0.3.seconds)
+                        }
+                    }
+                    prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
+                }
+
+                // Just wide enough for 80 chars in the output area at currently chosen font size.
+                maxWidth = 1024.0
+                maxHeight = Double.POSITIVE_INFINITY
+                spacing = 5.0
+                alignment = Pos.TOP_CENTER
+            }
+        }
     }
 
     @Suppress("JoinDeclarationAndAssignment")
@@ -139,9 +156,9 @@ class AppLaunchUI : View() {
 
     private fun VBox.populateRecentAppsPicker() {
         children.clear()
+        alignment = Pos.TOP_CENTER
 
-        // Take 10 entries even though we track 20 for now, just to keep it more manageable until we do scrolling.
-        for (entry: HistoryEntry in historyManager.history.take(10)) {
+        for (entry: HistoryEntry in historyManager.history) {
             vbox {
                 addClass(Styles.historyEntry)
                 label(entry.name) { addClass(Styles.historyTitle) }
