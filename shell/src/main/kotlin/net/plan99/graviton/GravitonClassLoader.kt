@@ -2,6 +2,7 @@ package net.plan99.graviton
 
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import javafx.application.Application
+import tornadofx.App
 import java.io.File
 import java.net.URL
 import java.net.URLClassLoader
@@ -43,12 +44,14 @@ class GravitonClassLoader private constructor(private val urls: Array<URL>, priv
             }
             val scanner = FastClasspathScanner().overrideClasspath(urls[0])
             val scanResult = scanner.scan()
-            val appClassName: String? = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
+            var appClassName: String? = scanResult.getNamesOfSubclassesOf(App::class.java).firstOrNull()
+            if (appClassName == null) {
+                appClassName = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
+            }
             if (appClassName != null) {
                 Class.forName(appClassName, false, this).asSubclass(Application::class.java)
-            } else {
-                null
-            }
+            } else
+                throw AppLauncher.StartException("Failed to find a JavaFX Application class")
         }
     }
 
