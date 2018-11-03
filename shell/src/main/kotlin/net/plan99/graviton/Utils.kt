@@ -132,6 +132,21 @@ class Stopwatch {
 /** Runs the provided block on the JavaFX main thread, an alias for Platform.runLater */
 fun fx(body: () -> Unit): Unit = Platform.runLater(body)
 
+/** Returns the given Maven coordinates in reversed form. That is, components of the groupId are returned in reversed order. */
+fun reversedCoordinates(coordinates: String): String {
+    val parts = coordinates.split(' ')
+
+    val firstPart = parts[0]
+    val groupId = firstPart.substringBefore(':')
+    val reversedGroupId = groupId.split('.').asReversed().joinToString(".")
+    val afterGroupId = firstPart.substringAfter(':', "")
+    val reversedFirstPart = if (afterGroupId.isEmpty()) reversedGroupId else "$reversedGroupId:$afterGroupId"
+
+    val afterFirstPart = parts.asSequence().drop(1).joinToString(" ")
+
+    return if (afterFirstPart.isEmpty()) reversedFirstPart else "$reversedFirstPart $afterFirstPart"
+}
+
 /**
  * Returns an iterator over each [JarEntry]. Each time the iterator is advanced the stream can be read to access the
  * underlying entry bytes.
