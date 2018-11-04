@@ -95,17 +95,19 @@ class AppLauncher(private val options: GravitonCLI,
         open fun appFinished() {}
     }
 
+    val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath()).also {
+        it.events = events
+        it.useSSL = !(commandLineArguments.noSSL || options.noSSL)
+    }
+
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
      * command line options that should be passed to the app, downloads the app, if successful records the app launch
      * in the history list and then invokes the app in a sub-classloader.
      */
     fun start() {
-        val codeFetcher = CodeFetcher(options.cachePath.toPath())
-        codeFetcher.events = events
         if (options.clearCache)
             historyManager.clearCache()
-        codeFetcher.useSSL = !(commandLineArguments.noSSL || options.noSSL)
 
         val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
         check(userInput.isNotBlank())

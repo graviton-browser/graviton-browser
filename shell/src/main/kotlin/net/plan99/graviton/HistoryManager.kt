@@ -173,18 +173,28 @@ class HistoryManager(storagePath: Path,
             if (old) {
                 info { "Refreshing entry $index: $entry" }
                 try {
-                    val fetch: CodeFetcher.Result = codeFetcher.downloadAndBuildClasspath(entry.coordinateFragment)
-                    val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact.toString(), classPath = fetch.classPath)
-                    history[index] = newEntry
+                    refresh(codeFetcher, entry)
                 } catch (e: Exception) {
                     logger.error("Failed to refresh ${entry.coordinateFragment}, skipping", e)
-                    continue
                 }
-                writeToFile(history)
             } else {
                 info { "We refreshed ${entry.coordinateFragment} ${age.seconds} seconds ago, skipping" }
             }
         }
+    }
+
+    /**
+     * Refreshes the given entry in the history list, updating it and saving the new history file to disk. Blocks
+     * the current thread.
+     */
+    fun refresh(codeFetcher: CodeFetcher, entry: HistoryEntry): HistoryEntry {
+        // TODO: Do we need to take a file lock here to stop a background update happening concurrently, or is a race OK here?
+        val index = history.indexOf(entry)
+        val fetch: CodeFetcher.Result = codeFetcher.downloadAndBuildClasspath(entry.coordinateFragment)
+        val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact.toString(), classPath = fetch.classPath)
+        history[index] = newEntry
+        writeToFile(history)
+        return newEntry
     }
 
     fun clearCache() {

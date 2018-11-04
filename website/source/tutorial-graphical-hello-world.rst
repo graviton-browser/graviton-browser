@@ -69,11 +69,9 @@ for your users after their first run too, as updates are applied asynchronously 
 offline.
 
 Now change the label on the button and make a new GitHub release. Either go do something else for a few hours, or
-you can run ``graviton --background-update`` from the command line (on macOS you should use, e.g.
-``/Applications/Graviton.app/Contents/Home/Graviton --background-update``). When you start your app from Graviton
-again, it'll be on the latest version. Of course your users wouldn't force an update from the command line: they'd get
-the new version within about 6 hours or so if their computer is switched on, or shortly after they've logged in when
-it's been off for a while.
+just right click on the app tile and select 'Refresh'. When you start your app from Graviton again, it'll be on the
+latest version. Your users should get the new version within about 6 hours or so if their computer is switched on,
+or shortly after they've logged in when it's been off for a while.
 
 That's it! You just published your first desktop app, direct from your git repository.
 

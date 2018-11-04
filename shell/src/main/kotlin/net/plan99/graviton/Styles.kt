@@ -103,7 +103,7 @@ class Styles : Stylesheet() {
 
     private fun CssSelectionBlock.crispWhiteBox() {
         borderWidth = multi(box(2.px))
-        backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.9))
+        backgroundColor = multi(Color.color(1.0, 1.0, 1.0, 0.95))
         effect = DropShadow().apply {
             width = 21.0
             height = 21.0

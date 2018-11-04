@@ -1,14 +1,17 @@
 package net.plan99.graviton
 
 import javafx.beans.binding.Bindings
-import javafx.beans.property.SimpleBooleanProperty
-import javafx.beans.property.SimpleDoubleProperty
-import javafx.beans.property.StringProperty
+import javafx.beans.property.*
 import javafx.concurrent.Task
 import javafx.geometry.Insets
 import javafx.geometry.Pos
+import javafx.scene.control.Alert
+import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
+import javafx.scene.input.MouseButton
+import javafx.scene.layout.HBox
+import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
 import net.plan99.graviton.effects.addMacStyleScrolling
@@ -64,7 +67,6 @@ class AppLaunchUI : View() {
                     spacing = 15.0
                     padding = Insets(20.0, 0.0, 20.0, 0.0)
                     populateRecentAppsPicker()
-                    isCache = true
                 }
 
                 outputArea = textarea {
@@ -159,24 +161,87 @@ class AppLaunchUI : View() {
         alignment = Pos.TOP_CENTER
 
         for (entry: HistoryEntry in historyManager.history) {
-            vbox {
-                addClass(Styles.historyEntry)
-                label(entry.name) { addClass(Styles.historyTitle) }
-                if (entry.description != null)
-                    label(entry.description) { addClass(Styles.historyDescription) }
+            createAppTile(entry)
+        }
+    }
 
-                setOnMouseClicked {
-                    coordinateBar.text = entry.coordinateFragment
-                    beginLaunch()
+    private fun VBox.createAppTile(entry: HistoryEntry) {
+        hbox {
+            val observableEntry = SimpleObjectProperty(entry)
+
+            // Give it a white card look, make it only appear when it should be here.
+            addClass(Styles.historyEntry)
+            visibleWhen(isHistoryVisible)
+            managedProperty().bind(isHistoryVisible)
+
+            isWorking.addListener { _, _, newValue ->
+                val delay = 0.5.seconds
+                opacityProperty().animate(if (newValue) 0.2 else 1.0, delay)
+            }
+
+            // Name, description
+            vbox {
+                label(observableEntry.select { SimpleStringProperty(it.name) }) { addClass(Styles.historyTitle) }
+                label(observableEntry.select { SimpleStringProperty(it.description ?: "") }) { addClass(Styles.historyDescription) }
+            }
+
+            // Push the next bit to the right.
+            pane { HBox.setHgrow(this, Priority.ALWAYS) }
+
+            // Right click menu.
+            val menu = contextmenu {
+                item("Refresh") {
+                    setOnAction {
+                        isWorking.set(true)
+                        task {
+                            info { "User requested refresh of $entry" }
+                            val curEntry = observableEntry.get()
+                            val fetcher = AppLauncher(GravitonCLI.parse(curEntry.coordinateFragment), appLaunchEventHandler, historyManager).codeFetcher
+                            fetcher.events = appLaunchEventHandler
+                            historyManager.refresh(fetcher, curEntry)
+                        } success { newEntry: HistoryEntry ->
+                            observableEntry.set(newEntry)
+                        } finally {
+                            isWorking.set(false)
+                        }
+                    }
                 }
 
-                visibleWhen(isHistoryVisible)
-                managedProperty().bind(isHistoryVisible)
+                item("Clear cache") {
+                    setOnAction {
+                        clearCache()
+                        recentAppsPicker.populateRecentAppsPicker()
+                    }
+                }
+            }
+
+            // Handle left and right clicks.
+            setOnMouseClicked {
+                if (isWorking.get()) return@setOnMouseClicked
+                when {
+                    it.button == MouseButton.PRIMARY -> {
+                        coordinateBar.text = entry.coordinateFragment
+                        beginLaunch()
+                    }
+                    // For some reason without checking if the secondary button is down, this gets duplicated and
+                    // yields visual corruption.
+                    it.button == MouseButton.SECONDARY && it.isSecondaryButtonDown -> menu.show(this@hbox, it.screenX, it.screenY)
+                }
             }
         }
     }
 
     //region Event handling
+    fun resetUI() {
+        isWorking.set(false)
+        messageText1.set("")
+        messageText2.set("")
+        coordinateBar.selectAll()
+        coordinateBar.requestFocus()
+        isHistoryVisible.set(true)
+        recentAppsPicker.populateRecentAppsPicker()
+    }
+
     private fun beginLaunch() {
         cancelIfDownloading()
 
@@ -186,107 +251,6 @@ class AppLaunchUI : View() {
         // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
         // app can take a bit of time.
         isWorking.set(true)
-
-        fun resetUI() {
-            isWorking.set(false)
-            messageText1.set("")
-            messageText2.set("")
-            coordinateBar.selectAll()
-            coordinateBar.requestFocus()
-            isHistoryVisible.set(true)
-            recentAppsPicker.populateRecentAppsPicker()
-        }
-
-        val events = object : AppLauncher.Events() {
-            // Make sure we update the UI on the right thread, and ignore any events that come in after
-            // cancellation by the user.
-            private fun wrap(body: () -> Unit) {
-                fx {
-                    if (launcher == null) return@fx
-                    body()
-                }
-            }
-
-            override fun onStartedDownloading(name: String) = wrap {
-                downloadProgress.set(0.0)
-                if (name.contains("maven-metadata-")) {
-                    messageText1.set("Checking for updates")
-                    messageText2.set("")
-                    return@wrap
-                }
-                messageText1.set("Downloading")
-                messageText2.set(name)
-            }
-
-            private var progress = 0.0
-
-            override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) = wrap {
-                if (name.contains("maven-metadata-")) {
-                    messageText1.set("Checking for updates")
-                    messageText2.set("")
-                    return@wrap
-                }
-                messageText1.set("Downloading")
-                messageText2.set(name)
-                val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
-                // Need to make sure progress only jumps backwards if we genuinely have a big correction.
-                if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return@wrap
-                progress = pr
-                downloadProgress.set(progress)
-            }
-
-            override fun onStoppedDownloading() = wrap {
-                downloadProgress.set(1.0)
-                messageText1.set("")
-                messageText2.set("")
-            }
-
-            override fun initializingApp() = wrap {
-                messageText1.set("Please wait")
-                messageText2.set("App is initializing")
-            }
-
-            private var wedgeFX: CountDownLatch? = null
-
-            override fun aboutToStartApp(outOfProcess: Boolean) = wrap {
-                if (outOfProcess) {
-                    // Hide the shell window.
-                    FX.primaryStage.hide()
-                    // This little dance is needed to stop FX shutting us down because all our windows are gone.
-                    // Shutdown will begin if there are no windows, no pending event loop lambdas and no nested event
-                    // loops. We want to hide our window, can't start a nested event loop, so, we have to keep the
-                    // event loop paused until we're ready to come back.
-                    wedgeFX = CountDownLatch(1)
-                    runLater {
-                        wedgeFX!!.await()
-                        // Prepare the UI for next time.
-                        resetUI()
-                        FX.primaryStage.show()
-                        FX.primaryStage.requestFocus()
-                        if (currentOperatingSystem == OperatingSystem.MAC)
-                            FX.primaryStage.stealFocusOnMac()
-                    }
-                } else {
-                    // Command line console window open.
-                    isWorking.set(false)
-                    messageText1.set("")
-                    messageText2.set("")
-                    isHistoryVisible.set(false)
-                }
-            }
-
-            override fun appFinished() {
-                val wedgeFX = wedgeFX
-                if (wedgeFX != null) {
-                    info { "App finished, unblocking FX event loop" }
-                    wedgeFX.countDown()
-                    // The UI will now be reset by the code that was stuffed into the blocked event loop above.
-                } else {
-                    // The app finished, so put the UI back.
-                    resetUI()
-                }
-            }
-        }
 
         // Capture the output of the program and redirect it to a text area. In future we'll switch this to be a real
         // terminal and get rid of it for graphical apps.
@@ -303,7 +267,7 @@ class AppLaunchUI : View() {
         val options = GravitonCLI.parse("$cmdLineParams $text".trim())
 
         launcher = FXTask {
-            AppLauncher(options, events, historyManager, primaryStage, printStream, printStream).start()
+            AppLauncher(options, appLaunchEventHandler, historyManager, primaryStage, printStream, printStream).start()
         } fail { ex ->
             resetUI()
             onStartError(ex)
@@ -317,6 +281,98 @@ class AppLaunchUI : View() {
         }
         Thread(launcher).start()
     }
+
+    private val appLaunchEventHandler = object : AppLauncher.Events() {
+        // Make sure we update the UI on the right thread, and ignore any events that come in after
+        // cancellation by the user.
+        private fun wrap(body: () -> Unit) {
+            fx {
+                if (launcher == null) return@fx
+                body()
+            }
+        }
+
+        override fun onStartedDownloading(name: String) = wrap {
+            downloadProgress.set(0.0)
+            if (name.contains("maven-metadata-")) {
+                messageText1.set("Checking for updates")
+                messageText2.set("")
+                return@wrap
+            }
+            messageText1.set("Downloading")
+            messageText2.set(name)
+        }
+
+        private var progress = 0.0
+
+        override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) = wrap {
+            if (name.contains("maven-metadata-")) {
+                messageText1.set("Checking for updates")
+                messageText2.set("")
+                return@wrap
+            }
+            messageText1.set("Downloading")
+            messageText2.set(name)
+            val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
+            // Need to make sure progress only jumps backwards if we genuinely have a big correction.
+            if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return@wrap
+            progress = pr
+            downloadProgress.set(progress)
+        }
+
+        override fun onStoppedDownloading() = wrap {
+            downloadProgress.set(1.0)
+            messageText1.set("")
+            messageText2.set("")
+        }
+
+        override fun initializingApp() = wrap {
+            messageText1.set("Please wait")
+            messageText2.set("App is initializing")
+        }
+
+        private var wedgeFX: CountDownLatch? = null
+
+        override fun aboutToStartApp(outOfProcess: Boolean) = wrap {
+            if (outOfProcess) {
+                // Hide the shell window.
+                FX.primaryStage.hide()
+                // This little dance is needed to stop FX shutting us down because all our windows are gone.
+                // Shutdown will begin if there are no windows, no pending event loop lambdas and no nested event
+                // loops. We want to hide our window, can't start a nested event loop, so, we have to keep the
+                // event loop paused until we're ready to come back.
+                wedgeFX = CountDownLatch(1)
+                runLater {
+                    wedgeFX!!.await()
+                    // Prepare the UI for next time.
+                    resetUI()
+                    FX.primaryStage.show()
+                    FX.primaryStage.requestFocus()
+                    if (currentOperatingSystem == OperatingSystem.MAC)
+                        FX.primaryStage.stealFocusOnMac()
+                }
+            } else {
+                // Command line console window open.
+                isWorking.set(false)
+                messageText1.set("")
+                messageText2.set("")
+                isHistoryVisible.set(false)
+            }
+        }
+
+        override fun appFinished() {
+            val wedgeFX = wedgeFX
+            if (wedgeFX != null) {
+                info { "App finished, unblocking FX event loop" }
+                wedgeFX.countDown()
+                // The UI will now be reset by the code that was stuffed into the blocked event loop above.
+            } else {
+                // The app finished, so put the UI back.
+                resetUI()
+            }
+        }
+    }
+
 
     private fun onStartError(e: Throwable) {
         isWorking.set(false)
@@ -344,4 +400,10 @@ class AppLaunchUI : View() {
             }
         }
     }
+}
+
+fun clearCache() {
+    historyManager.clearCache()
+    Alert(Alert.AlertType.INFORMATION, "Cache has been cleared. Apps will re-download next time they are " +
+            "invoked or a background update occurs.", ButtonType.CLOSE).showAndWait()
 }

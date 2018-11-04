@@ -266,6 +266,7 @@ class CodeFetcher(private val cachePath: Path) {
             val result: VersionRangeResult = stopwatch("Latest version lookup for " + components.joinToString(":")) {
                 repoSystem.resolveVersionRange(session, request)
             }
+            info { "Latest version is $result" }
             if (result.highestVersion == null)
                 throw result.exceptions.first()
             components += result.highestVersion.toString()

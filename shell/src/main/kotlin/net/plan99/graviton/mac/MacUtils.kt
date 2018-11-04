@@ -3,8 +3,6 @@ package net.plan99.graviton.mac
 import com.sun.jna.Pointer
 import de.codecentric.centerdevice.MenuToolkit
 import de.codecentric.centerdevice.dialogs.about.AboutStageBuilder
-import javafx.scene.control.Alert
-import javafx.scene.control.ButtonType
 import javafx.stage.Stage
 import javafx.stage.StageStyle
 import net.plan99.graviton.*
@@ -32,9 +30,7 @@ fun View.setupMacMenuBar() {
             separator()
             item("Clear cache ...") {
                 setOnAction {
-                    historyManager.clearCache()
-                    Alert(Alert.AlertType.INFORMATION, "Cache has been cleared. Apps will re-download next time they are " +
-                            "invoked or a background update occurs.", ButtonType.CLOSE).showAndWait()
+                    clearCache()
                 }
             }
             separator()
