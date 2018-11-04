@@ -1,6 +1,23 @@
 Newsletters
 ***********
 
+4th November 2018
+=================
+
+Many exciting things have happened since the last update. Most importantly a new contributor has arrived! Welcome to
+Bernhard Luztmann who has contributed several improvements.
+
+* Startup of the invoked program has been totally reworked. By default the program gets its own JVM process now,
+  which increases app compatibility. However in some cases JavaFX apps are still invoked inline.
+* The ``Cmd-Q`` key, which normally quits an app, now goes back to the shell window for inlined apps.
+* Reverse DNS cooordinates work now, again thanks to Bernhard. Try ``plan99.net:tictactoe``
+* Together we've added scrolling to the history list, which was one of the last items blocking release.
+* The look has been refreshed to be cleaner.
+* You can now right click on individual app history tiles to force a refresh.
+* A new tutorial has been started, showing you how to start with the tiniest GUI app possible and incrementally adapt it for Graviton.
+
+.. image:: _static/nov4th.jpg
+
 29th September 2018
 ===================
 
