@@ -130,7 +130,7 @@ class AppLaunchUI : View() {
                     }
                 }
             }
-            button("✖") {
+            button("◼") {
                 setOnAction {
                     cancelIfDownloading()
                 }
