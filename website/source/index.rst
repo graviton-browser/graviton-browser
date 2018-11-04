@@ -8,14 +8,7 @@ Graviton gives you:
 * A browser-like shell that downloads and runs desktop apps that target the JVM.
 * Silently background upgrades via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
   Graviton itself are all upgraded regularly, whether or not the user is currently running an app.
-* Apps can be written in any language with a JVM backend, such as:
-   * Java
-   * `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_
-   * Python
-   * Scala
-   * Kotlin
-   * `Haskell <https://eta-lang.org/>`_
-   * `Ruby <https://github.com/oracle/truffleruby>`_
+* Apps can be written in any language with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_
    * ... with support for sandboxed C, C++ and Rust coming in future.
 * First class support for cross platform command line apps that also smoothly upgrade, even if the app is running
   at the time (good for servers). Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be
@@ -59,5 +52,10 @@ terminal output.
    newsletters
    online-update
    command-line
-   incremental-adaptation
    code-fetching
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorial-graphical-hello-world
