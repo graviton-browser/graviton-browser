@@ -1,9 +1,7 @@
 pluginManagement {
     repositories {
         maven { url 'http://dl.bintray.com/kotlin/kotlin-eap' }
-
         mavenCentral()
-
         maven { url 'https://plugins.gradle.org/m2/' }
     }
 }
@@ -13,5 +11,3 @@ include 'scheduler'
 findProject(':scheduler')?.name = 'graviton-scheduler'
 include 'shell'
 findProject(':shell')?.name = 'graviton-shell'
-include 'temp'
-
