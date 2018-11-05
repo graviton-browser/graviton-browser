@@ -213,6 +213,13 @@ class AppLaunchUI : View() {
                         recentAppsPicker.populateRecentAppsPicker()
                     }
                 }
+
+                item("Remove") {
+                    setOnAction {
+                        historyManager.removeEntry(entry)
+                        recentAppsPicker.populateRecentAppsPicker()
+                    }
+                }
             }
 
             // Handle left and right clicks.

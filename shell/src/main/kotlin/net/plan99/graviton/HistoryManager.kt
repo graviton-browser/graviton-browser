@@ -80,21 +80,25 @@ class HistoryManager(storagePath: Path,
 
     private fun writeToFile(snapshot: List<HistoryEntry>) {
         val stringWriter = StringWriter()
-        val yaml = YamlWriter(stringWriter, yamlConfig)
-        for (e in snapshot) {
-            fun <K, V> map(vararg pairs: Pair<K, V>): HashMap<K, V> = pairs.toMap(HashMap(pairs.size))
-            val map = map(
-                    "coordinate" to e.coordinateFragment,
-                    "last refresh time" to DateTimeFormatter.ISO_INSTANT.format(e.lastRefreshTime),
-                    "resolved artifact" to e.resolvedArtifact,
-                    "classpath" to e.classPath,
-                    "name" to e.name
-            )
-            if (e.description != null)
-                map["description"] = e.description
-            yaml.write(map)
+
+        if (!snapshot.isEmpty()) {
+            // TODO Use try-with-resources or similar
+            val yaml = YamlWriter(stringWriter, yamlConfig)
+            for (e in snapshot) {
+                fun <K, V> map(vararg pairs: Pair<K, V>): HashMap<K, V> = pairs.toMap(HashMap(pairs.size))
+                val map = map(
+                        "coordinate" to e.coordinateFragment,
+                        "last refresh time" to DateTimeFormatter.ISO_INSTANT.format(e.lastRefreshTime),
+                        "resolved artifact" to e.resolvedArtifact,
+                        "classpath" to e.classPath,
+                        "name" to e.name
+                )
+                if (e.description != null)
+                    map["description"] = e.description
+                yaml.write(map)
+            }
+            yaml.close()
         }
-        yaml.close()
         val str = stringWriter.toString()
         historyFile.parent.createDirectories()
         Files.write(historyFile, str.toByteArray())
@@ -115,6 +119,12 @@ class HistoryManager(storagePath: Path,
             info { "Forgetting old history entry $removed because we have more than $maxHistorySize entries" }
         }
 
+        writeHistory()
+
+        return toWrite
+    }
+
+    private fun writeHistory() {
         // Do the writing on a background thread to get out of the way of startup.
         val snapshot = history
         if (blocking) {
@@ -124,7 +134,6 @@ class HistoryManager(storagePath: Path,
                 writeToFile(snapshot)
             }
         }
-        return toWrite
     }
 
     private fun maybeTouchExistingEntry(entry: HistoryEntry): HistoryEntry? {
@@ -133,6 +142,13 @@ class HistoryManager(storagePath: Path,
         val copy = entry.copy(lastRefreshTime = clock.instant())
         history.removeAt(i)
         return copy
+    }
+
+    fun removeEntry(entry: HistoryEntry) {
+        val found = history.remove(entry)
+        if (found) {
+            writeHistory()
+        }
     }
 
     /**
