@@ -190,6 +190,14 @@ class AppLaunchUI : View() {
 
             // Right click menu.
             val menu = contextmenu {
+                item("Copy coordinates") {
+                    action {
+                        val curEntry = observableEntry.get()
+                        coordinateBar.text = curEntry.coordinateFragment
+                        resetUI()
+                    }
+                }
+
                 item("Refresh") {
                     setOnAction {
                         isWorking.set(true)
