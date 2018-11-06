@@ -139,6 +139,7 @@ class AppLaunchUI : View() {
                 style = "-fx-base: white; -fx-font-size: 20pt"
                 padding = insets(15.0)
                 translateX = 15.0
+                visibleProperty().bind(isWorking)
             }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
 
             // If we're not downloading, hide this chunk of UI and take it out of layout.
