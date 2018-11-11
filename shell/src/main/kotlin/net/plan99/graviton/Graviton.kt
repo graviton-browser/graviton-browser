@@ -1,11 +1,11 @@
 @file:JvmName("Graviton")
 package net.plan99.graviton
 
+import app.graviton.scheduler.OSScheduledTaskDefinition
+import app.graviton.scheduler.OSTaskScheduler
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.scene.effect.Effect
 import javafx.scene.image.Image
-import net.plan99.graviton.scheduler.OSScheduledTaskDefinition
-import net.plan99.graviton.scheduler.OSTaskScheduler
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import picocli.CommandLine

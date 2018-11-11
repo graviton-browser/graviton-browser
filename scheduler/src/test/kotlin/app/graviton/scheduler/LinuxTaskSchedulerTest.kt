@@ -1,4 +1,4 @@
-package net.plan99.graviton.scheduler
+package app.graviton.scheduler
 
 import org.junit.Assert.assertEquals
 import org.junit.Test

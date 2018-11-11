@@ -1,4 +1,4 @@
-package net.plan99.graviton.scheduler
+package app.graviton.scheduler
 
 import com.google.common.jimfs.Configuration
 import com.google.common.jimfs.Jimfs

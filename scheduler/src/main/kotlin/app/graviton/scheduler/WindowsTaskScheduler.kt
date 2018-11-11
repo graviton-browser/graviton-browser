@@ -1,4 +1,4 @@
-package net.plan99.graviton.scheduler
+package app.graviton.scheduler
 
 import java.nio.file.Files
 import java.nio.file.Paths
