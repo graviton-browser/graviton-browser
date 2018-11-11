@@ -100,9 +100,6 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             mainLog.info("BACKGROUND UPDATE")
             BackgroundUpdates().doBackgroundUpdate(cachePath.toPath(), gravitonVersion?.toInt(), gravitonPath?.toPath(), URI.create(updateURL))
         } else {
-            if (clearCache) {
-                HistoryManager.create().clearCache()
-            }
             if (packageName != null) {
                 handleCommandLineInvocation(packageName[0])
             } else {
