@@ -50,6 +50,7 @@ terminal output.
 
    introduction
    newsletters
+   graviton-apps
 
 .. toctree::
    :maxdepth: 2
