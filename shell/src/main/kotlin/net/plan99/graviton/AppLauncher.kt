@@ -37,18 +37,16 @@ class AppLauncher(private val options: GravitonCLI,
 
     companion object : Logging() {
         fun selectLoadStrategy(mainClass: Class<*>?, executingFromGUI: Boolean): LoadStrategy {
-            return if (mainClass == null) {
-                LoadStrategy.SEARCH_FOR_JFX_APP
-            } else if (executingFromGUI) {
-                // Start a new JVM to avoid all the GUI stuff we've loaded from interfering. In particular this
-                // is necessary for JavaFX apps that haven't opted into being Graviton apps, as you can't start
-                // up JavaFX runtime more than once per process.
-                //
-                // TODO: Allow developers to override the load strategy.
-                LoadStrategy.RESTART_AND_RUN
-            } else {
-                // From the command line, so pass control directly to main.
-                LoadStrategy.INVOKE_MAIN_DIRECTLY
+            return when {
+                mainClass == null -> LoadStrategy.SEARCH_FOR_JFX_APP
+                executingFromGUI -> // Start a new JVM to avoid all the GUI stuff we've loaded from interfering. In particular this
+                    // is necessary for JavaFX apps that haven't opted into being Graviton apps, as you can't start
+                    // up JavaFX runtime more than once per process.
+                    //
+                    // TODO: Allow developers to override the load strategy.
+                    LoadStrategy.RESTART_AND_RUN
+                else -> // From the command line, so pass control directly to main.
+                    LoadStrategy.INVOKE_MAIN_DIRECTLY
             }
         }
     }
@@ -65,10 +63,7 @@ class AppLauncher(private val options: GravitonCLI,
         open fun onError(e: Exception) {}
     }
 
-    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath()).also {
-        it.events = events
-        it.useSSL = !(commandLineArguments.noSSL || options.noSSL)
-    }
+    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events)
 
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any

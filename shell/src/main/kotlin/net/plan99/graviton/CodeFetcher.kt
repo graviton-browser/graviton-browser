@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicLong
  * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
  * and returns calculated classpaths.
  */
-class CodeFetcher(private val cachePath: Path) {
+class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.Events?) {
     companion object : Logging() {
         fun isPossiblyJitPacked(packageName: String) =
                 packageName.startsWith("com.github.") ||
@@ -57,9 +57,6 @@ class CodeFetcher(private val cachePath: Path) {
         // This essentally eliminates the overhead of enabling SSL using JSSE and doubles download performance.
         Security.insertProviderAt(Conscrypt.newProvider(), 1)
     }
-
-    /** Disabling SSL fetches from Maven repos can double the speed of downloading :( */
-    var useSSL: Boolean = true
 
     private val repoSystem: RepositorySystem by lazy {
         val locator: DefaultServiceLocator = MavenRepositorySystemUtils.newServiceLocator()
@@ -196,8 +193,6 @@ class CodeFetcher(private val cachePath: Path) {
         open fun onStoppedDownloading() {}
     }
 
-    var events: Events? = null
-
     /** If set to true, Aether will be configured to not use the network. */
     var offline: Boolean = false
 
@@ -280,10 +275,9 @@ class CodeFetcher(private val cachePath: Path) {
             repos += RemoteRepository.Builder(id, "default", url).build()
         }
 
-        val protocol = if (useSSL) "https" else "http"
-        repo("central", "$protocol://repo1.maven.org/maven2/")
-        repo("jcenter", "$protocol://jcenter.bintray.com/")
-        repo("jitpack", "$protocol://jitpack.io")
+        repo("central", "https://repo1.maven.org/maven2/")
+        repo("jcenter", "https://jcenter.bintray.com/")
+        repo("jitpack", "https://jitpack.io")
         // repo("mike", "$protocol://plan99.net/~mike/maven/")
 
         // Add a local repository that users can deploy to if they want to rapidly iterate on an installation.

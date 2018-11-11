@@ -64,9 +64,6 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     @CommandLine.Option(names = ["--profile-downloads"], description = ["If larger than one downloads the coordinates the given number of times and prints statistics"], hidden = true)
     var profileDownloads: Int = -1
 
-    @CommandLine.Option(names = ["--no-ssl"], description = ["If set, SSL encryption to the Maven repositories will be disabled. This can make downloads much faster, but also less safe."])
-    var noSSL: Boolean = false
-
     @CommandLine.Option(names = ["--verbose"], description = ["Enable logging"])
     var verboseLogging: Boolean = false
 
@@ -181,13 +178,11 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     }
 
     private fun downloadWithProfiling(coordinates: String) {
-        val codeFetcher = CodeFetcher(cachePath.toPath())
-        codeFetcher.offline = offline
-        codeFetcher.useSSL = !noSSL
         val stopwatch = Stopwatch()
         repeat(profileDownloads) {
             HistoryManager.create().clearCache()
-            codeFetcher.events = createProgressBar()
+            val codeFetcher = CodeFetcher(cachePath.toPath(), createProgressBar())
+            codeFetcher.offline = offline
             codeFetcher.downloadAndBuildClasspath(coordinates)
         }
         val totalSec = stopwatch.elapsedInSec
@@ -196,8 +191,6 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     }
 
     class VersionProvider : CommandLine.IVersionProvider {
-        override fun getVersion(): Array<String> {
-            return arrayOf(gravitonShellVersionNum)
-        }
+        override fun getVersion() = arrayOf(gravitonShellVersionNum)
     }
 }
