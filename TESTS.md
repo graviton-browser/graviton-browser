@@ -31,6 +31,10 @@ Ensure there are no Graviton cache directories anywhere and remove them if so.
 - [ ] Run `graviton com.github.ricksbrown:cowsay --cowthink moo!` and ensure it downloads and runs correctly.
 - [ ] Run it again and ensure there's no download or other UI text this time, just the cow.
 - [ ] Run `graviton --clear-cache com.github.ricksbrown:cowsay "Downloaded again!"` and ensure it re-downloads and runs like before.
+- [ ] Run `graviton -r com.github.ricksbrown:cowsay moo` and ensure it checks for an update again.
+- [ ] Edit the history file to set the time of the last update to more than 24 hours ago. Then run 
+      `graviton --offline com.github.ricksbrown:cowsay moo` and ensure it doesn't check for an update even though 
+      the history entry is old.
 
 ## GUI shell
 
@@ -40,4 +44,12 @@ Ensure there are no Graviton cache directories anywhere and remove them if so.
 - [ ] Start Everest again, this time, quit during the download and ensure Graviton properly quits.
 - [ ] Start it for a third time and this time let it succeed.
 - [ ] Right click on one of the tiles and ensure each item works.
- 
+
+## Online update
+
+- [ ] Clear your cache. Start `net.plan99:tictactoe:1.0.1` - it should download an old version of the app. Now go into
+      your history file and edit it so the version number is missing from the coordinate fragment field.
+      This makes it look like the user just hasn't updated for a while and a new version has been released. 
+      Start Graviton GUI. Now from the command line run `graviton --background-update`
+      and check the log file to ensure it updated you to the latest version of tictactoe. Start the app
+      in the GUI ensure it's now the latest version.
