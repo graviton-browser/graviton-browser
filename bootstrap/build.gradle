@@ -1,6 +1,6 @@
 import org.apache.tools.ant.taskdefs.condition.Os
 
-group 'net.plan99.graviton'
+group 'app.graviton'
 
 buildscript {
     repositories {

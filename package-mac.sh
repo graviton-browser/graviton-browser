@@ -24,14 +24,14 @@ javapackager -deploy \
              -outdir build/packaged \
              -outfile "Graviton" \
              -name "Graviton" \
-             -appclass net.plan99.graviton.Graviton \
+             -appclass app.graviton.shell.Graviton \
              -srcdir build/install/graviton/lib \
              -srcfiles $srcfiles \
              "-Bicons=package/macosx/Graviton.icns" \
-             -Bidentifier=net.plan99.graviton \
+             -Bidentifier=app.graviton \
              -BmainJar=graviton-$v.jar \
              -BappVersion=$v \
-             -Bmac.CFBundleIdentifier=net.plan99.graviton \
+             -Bmac.CFBundleIdentifier=app.graviton \
              -verbose
 
 if [[ "$1" == "--skip-jar" ]]; then

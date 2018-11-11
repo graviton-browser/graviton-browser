@@ -3,7 +3,7 @@
 ;This file will be executed next to the application bundle image
 ;I.e. current directory will contain folder GravitonBrowser with application files
 [Setup]
-AppId={{net.plan99.graviton.browser}}
+AppId={{app.graviton.browser}}
 AppName=Graviton Browser
 AppVersion={#GRAVITON_VERSION}
 AppVerName=Graviton Browser {#GRAVITON_VERSION}

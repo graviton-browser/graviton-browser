@@ -13,7 +13,7 @@
   <key>CFBundleIconFile</key>
   <string>Graviton.icns</string>
   <key>CFBundleIdentifier</key>
-  <string>net.plan99.graviton</string>
+  <string>app.graviton</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>

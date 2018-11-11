@@ -16,7 +16,7 @@ plugins {
     id 'com.github.ben-manes.versions' version '0.20.0'
 }
 
-group 'net.plan99.graviton'
+group 'app.graviton'
 version '1'
 
 apply plugin: 'java'
@@ -26,7 +26,7 @@ apply plugin: 'kotlin'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-mainClassName = "net.plan99.graviton.Graviton"
+mainClassName = "app.graviton.shell.Graviton"
 ext.moduleName = "graviton.browser"
 
 allprojects {
@@ -112,7 +112,7 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-appclass', mainClassName,
             '-srcdir', 'build/install/graviton/lib',
             "-BmainJar=graviton-${project.version}.jar",
-            '-Bidentifier=net.plan99.graviton.browser',
+            '-Bidentifier=app.graviton.browser',
             "-Bappversion=${project.version}",
             '-BsystemWide=false',   // So UAC/admin privs aren't needed for update
             '-BinstalldirChooser=false',
@@ -144,7 +144,7 @@ task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-name', 'Graviton Browser',
             '-appclass', mainClassName,
             '-srcdir', 'build/install/graviton/lib',
-            '-Bidentifier=net.plan99.graviton.browser',
+            '-Bidentifier=app.graviton.browser',
             "-BmainJar=graviton-${project.version}.jar",
             "-BappVersion=${project.version}",
             "-Bcategory=Network",
