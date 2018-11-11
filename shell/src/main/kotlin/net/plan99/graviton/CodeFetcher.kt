@@ -140,16 +140,13 @@ class CodeFetcher(private val cachePath: Path) {
 
         private fun isBoring(event: TransferEvent): Boolean {
             val name = event.resource.resourceName
-            return name.endsWith(".xml") || name.endsWith(".pom") || name.endsWith(".md5") || name.endsWith(".sha1")
+            return name.endsWith(".xml") || name.endsWith(".md5") || name.endsWith(".sha1")
         }
 
         override fun transferInitiated(event: TransferEvent) {
-            // Don't notify about maven-metadata.xml files as they are frequently checked as part of version probes.
-            if (event.resource.resourceName.endsWith(".xml")) return
-
-            if (!didDownload.getAndSet(true)) {
-                fx { events?.onStartedDownloading(event.resource.file.name) }
-            }
+            if (isBoring(event)) return
+            if (!didDownload.getAndSet(true))
+                events?.onStartedDownloading(event.resource.file.name)
         }
 
         @Volatile
@@ -166,17 +163,19 @@ class CodeFetcher(private val cachePath: Path) {
 
         override fun transferSucceeded(event: TransferEvent) {
             info { "$event" }
+            if (isBoring(event)) return
             lastFinish = event.resource.file.name
         }
 
         override fun transferProgressed(event: TransferEvent) {
             debug { "$event" }
-            if (!isBoring(event)) {
-                totalDownloaded.addAndGet(event.dataLength.toLong())
-            }
-            fx {
-                val fileNameToReport = if (lastStart == event.resource.file.name) lastStart else lastFinish
+            if (isBoring(event)) return
+            totalDownloaded.addAndGet(event.dataLength.toLong())
+            val fileNameToReport = if (lastStart == event.resource.file.name) lastStart else lastFinish
+            try {
                 events?.onFetch(fileNameToReport, totalBytesToDownload.get(), totalDownloaded.get())
+            } catch (e: Exception) {
+                logger.error("Exception in event handler", e)
             }
         }
 
