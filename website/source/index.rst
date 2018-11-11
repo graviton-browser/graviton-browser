@@ -50,12 +50,18 @@ terminal output.
 
    introduction
    newsletters
-   online-update
-   command-line
-   code-fetching
 
 .. toctree::
    :maxdepth: 2
    :caption: Tutorials
 
    tutorial-graphical-hello-world
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Design docs
+
+   online-update
+   command-line
+   code-fetching
+

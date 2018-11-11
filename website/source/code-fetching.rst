@@ -21,6 +21,15 @@ Because of this decision, all code modules in Graviton are identified by Maven "
 version). An "artifact" in Maven-speak is just a file. A group ID is a Java-style reverse DNS name. And a version is
 self explanatory (if you need more info here is `a good article on Maven version numbers <https://docs.oracle.com/middleware/1212/core/MAVEN/maven_version.htm>`_.
 
+Future support
+==============
+
+It's not intended to use Maven repositories forever. Over time we could develop better formats with higher security
+and performance. For example, apps could commit to the hashes of their dependency tree for more security against
+compromised repository mirrors, pack200 could be brought back from the grave, and classes from many modules could be
+multiplexed together into a single stream with a 'watermark' where execution should begin to allow apps to be started
+before they've fully downloaded.
+
 Jitpack
 =======
 
