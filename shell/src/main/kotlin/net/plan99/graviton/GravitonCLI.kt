@@ -71,7 +71,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     var verboseLogging: Boolean = false
 
     @CommandLine.Option(names = ["--default-coordinate"], description = ["The default launch coordinate put in the address bar of the browser shell, may contain command line arguments"])
-    var defaultCoordinate: String = "com.github.ricksbrown:cowsay \"A fat cow is a happy cow!\""
+    var defaultCoordinate: String = "plan99.net:tictactoe"
 
     @CommandLine.Option(names = ["--refresh", "-r"], description = ["Re-check with the servers to see if a newer version is available. A new version check occurs every 24 hours by default."])
     var refresh: Boolean = false

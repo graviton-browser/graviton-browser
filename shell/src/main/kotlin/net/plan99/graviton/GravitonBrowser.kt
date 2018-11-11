@@ -50,9 +50,18 @@ class ShellView : View() {
     private val appLaunchUI: AppLaunchUI by inject()
     private val loginUI: LoginUI by inject()
     private lateinit var mainStackPane: StackPane
+
+    // The idea of this is to let the shell have multiple 'screens' that nicely transition between them, and
+    // maybe Graviton apps can also be a screen. However the support isn't finished yet.
     private val screens = buildIterator {
         // yield(loginUI)
         yield(appLaunchUI)
+    }
+
+    init {
+        primaryStage.setOnCloseRequest {
+            appLaunchUI.stop()
+        }
     }
 
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)

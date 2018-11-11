@@ -11,15 +11,18 @@ import java.util.jar.Manifest
 
 /**
  * An extended [URLClassLoader] that provides some functionality specific to us.
+ * Chains to the *parent* classloader, so our internals don't interfere with the application.
  */
-class GravitonClassLoader private constructor(private val urls: Array<URL>, private val appManifest: Manifest, val originalClassPath: String) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
+class GravitonClassLoader private constructor(
+        private val urls: Array<URL>,
+        private val appManifest: Manifest,
+        val originalClassPath: String) : URLClassLoader(urls, GravitonClassLoader::class.java.classLoader.parent) {
     companion object : Logging() {
         fun build(classPath: String): GravitonClassLoader {
             try {
                 val classpathDelimiter = currentOperatingSystem.classPathDelimiter
                 val files: List<File> = classPath.split(classpathDelimiter).map { File(it) }
                 val urls: Array<URL> = files.map { it.toURI().toURL() }.toTypedArray()
-                // Chain to the parent classloader so our internals don't interfere with the application.
                 // TODO: J9: Use classloader names.
                 val manifest = JarFile(files[0]).use { it.manifest }
                 return GravitonClassLoader(urls, manifest, classPath)

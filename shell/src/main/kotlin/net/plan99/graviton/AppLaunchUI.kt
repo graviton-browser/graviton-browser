@@ -111,6 +111,7 @@ class AppLaunchUI : View() {
 
     private fun VBox.downloadTracker() {
         stackpane {
+            addClass(Styles.messageBox)
             progressbar {
                 fitToParentSize()
                 progressProperty().bind(downloadProgress)
@@ -119,7 +120,6 @@ class AppLaunchUI : View() {
                 }
             }
             vbox {
-                addClass(Styles.messageBox)
                 padding = insets(15.0)
                 alignment = Pos.CENTER
                 label {
@@ -298,7 +298,7 @@ class AppLaunchUI : View() {
             allThreads.interrupt()
             resetUI()
         }
-        Thread(launcher).start()
+        Thread(launcher).also { it.isDaemon = true }.start()
     }
 
     private val appLaunchEventHandler = object : AppLauncher.Events() {
@@ -418,6 +418,10 @@ class AppLaunchUI : View() {
                 }
             }
         }
+    }
+
+    fun stop() {
+        cancelIfDownloading()
     }
 }
 
