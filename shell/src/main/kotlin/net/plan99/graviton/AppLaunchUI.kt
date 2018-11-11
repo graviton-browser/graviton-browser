@@ -114,7 +114,9 @@ class AppLaunchUI : View() {
             progressbar {
                 fitToParentSize()
                 progressProperty().bind(downloadProgress)
-                style = "-fx-opacity: 0.85"
+                style {
+                    opacity = 0.85
+                }
             }
             vbox {
                 addClass(Styles.messageBox)
@@ -136,7 +138,9 @@ class AppLaunchUI : View() {
                 setOnAction {
                     cancelIfDownloading()
                 }
-                style = "-fx-base: white; -fx-font-size: 20pt"
+                style {
+                    fontSize = 20.pt
+                }
                 padding = insets(15.0)
                 translateX = 15.0
             }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
