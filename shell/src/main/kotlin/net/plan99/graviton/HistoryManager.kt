@@ -208,7 +208,7 @@ class HistoryManager(storagePath: Path,
         val index = history.indexOf(entry)
         // Go via the AppLauncher because it knows how to turn the user's input (coordinate fragment) into a full
         // coordinate.
-        val fetch: CodeFetcher.Result = appLauncher.download(entry.coordinateFragment, true)
+        val fetch: CodeFetcher.Result = appLauncher.lookupOrDownload(entry.coordinateFragment, true)
         val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact.toString(), classPath = fetch.classPath)
         history[index] = newEntry
         writeToFile(history)

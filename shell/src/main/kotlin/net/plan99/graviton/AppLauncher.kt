@@ -58,9 +58,11 @@ class AppLauncher(private val options: GravitonCLI,
     }
 
     open class Events : CodeFetcher.Events() {
+        open fun preparingToDownload() {}
         open fun initializingApp() {}
         open fun aboutToStartApp(outOfProcess: Boolean) {}
         open fun appFinished() {}
+        open fun onError(e: Exception) {}
     }
 
     private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath()).also {
@@ -71,23 +73,28 @@ class AppLauncher(private val options: GravitonCLI,
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
      * command line options that should be passed to the app, downloads the app, if successful records the app launch
-     * in the history list and then invokes the app in a sub-classloader. A small wrapper around [download] and [runApp].
+     * in the history list and then invokes the app in a sub-classloader. A small wrapper around [lookupOrDownload] and [runApp].
      */
     fun start() {
-        if (options.clearCache)
-            historyManager.clearCache()
-        val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
-        check(userInput.isNotBlank())
-        val fetch: CodeFetcher.Result = download(userInput, options.refresh)
-        // Update the entry in the history list to move it to the top.
-        historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
-        runApp(userInput, fetch)
+        try {
+            if (options.clearCache)
+                historyManager.clearCache()
+            val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
+            check(userInput.isNotBlank())
+            val fetch: CodeFetcher.Result = lookupOrDownload(userInput, options.refresh)
+            // Update the entry in the history list to move it to the top.
+            historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
+            runApp(userInput, fetch)
+        } catch (e: Exception) {
+            events?.onError(e)
+            throw e
+        }
     }
 
     /**
      * Performs a download from the user's input, reversing coordinates and filling out missing parts if necessary.
      */
-    fun download(userInput: String, forceRefresh: Boolean): CodeFetcher.Result {
+    fun lookupOrDownload(userInput: String, forceRefresh: Boolean): CodeFetcher.Result {
         val historyLookup: HistoryEntry? = if (!forceRefresh) {
             // The user has probably specified a coordinate fragment, missing the artifact name or version number.
             // If we never saw this input before, we'll just continue and clean it up later. If we resolved it
@@ -107,6 +114,7 @@ class AppLauncher(private val options: GravitonCLI,
             //   2. Found in history list but not on disk, which can happen if the user wiped the cache.
             //
             // ... so attempt to (re)download from our repositories.
+            events?.preparingToDownload()
             download(userInput, codeFetcher)
         }
 
@@ -202,13 +210,23 @@ class AppLauncher(private val options: GravitonCLI,
         }
     }
 
-    private fun download(userInput: String, codeFetcher: CodeFetcher, reverseInput: Boolean = false): CodeFetcher.Result {
-        return try {
+    private fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {
+        fun download1(reverseInput: Boolean): CodeFetcher.Result {
             val coordinates: String = calculateCoordinates(userInput, reverseInput)
             info { "Attempt fetch for $coordinates" }
-            codeFetcher.downloadAndBuildClasspath(coordinates)
+            return codeFetcher.downloadAndBuildClasspath(coordinates)
+        }
+        return try {
+            download1(false)
         } catch (e: RepositoryException) {
-            if (reverseInput) {
+            info { "User input '$userInput' not found, reversing the coordinates and trying again" }
+            try {
+                download1(true)
+            } catch (_: RepositoryException) {
+                // We deliberately ignore the second exception here, instead we report the first as we
+                // don't want to expose reversed names to the end user in error messages (the Maven
+                // coordinate in its unmolested form is still canonical and seeing unexpectedly reversed
+                // coordinates might be confusing).
                 val rootCause = e.rootCause
                 if (rootCause is MetadataNotFoundException) {
                     throw AppLauncher.StartException("Sorry, no package with those coordinates is known.", e)
@@ -230,9 +248,6 @@ class AppLauncher(private val options: GravitonCLI,
                     }
                     throw AppLauncher.StartException(m.toString(), e)
                 }
-            } else {
-                info { "User input '$userInput' not found, reversing the coordinates and trying again" }
-                download(userInput, codeFetcher, true)
             }
         }
     }

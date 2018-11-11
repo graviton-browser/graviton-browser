@@ -132,10 +132,26 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
 
     private fun createProgressBar(): AppLauncher.Events {
         return object : AppLauncher.Events() {
-            val stopwatch = Stopwatch()
-            var pb: ProgressBar? = null
+            private val stopwatch = Stopwatch()
+            private var pb: ProgressBar? = null
+            private val startupMessage = "Please wait ... "
+            private var havePrintedStartupMessage = false
+            private fun wipe() {
+                if (havePrintedStartupMessage)
+                    print("\r" + " ".repeat(startupMessage.length) + "\r")
+            }
+
+            override fun preparingToDownload() {
+                print(startupMessage)
+                havePrintedStartupMessage = true
+            }
+
+            override fun onError(e: Exception) {
+                wipe()
+            }
 
             override fun onStartedDownloading(name: String) {
+                wipe()
                 pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
                 pb!!.extraMessage = name
             }
