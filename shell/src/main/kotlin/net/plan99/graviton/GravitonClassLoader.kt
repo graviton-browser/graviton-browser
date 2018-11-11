@@ -46,10 +46,10 @@ class GravitonClassLoader private constructor(private val urls: Array<URL>, priv
             if (appClassName == null) {
                 appClassName = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
             }
-            if (appClassName != null) {
+            if (appClassName != null)
                 Class.forName(appClassName, false, this).asSubclass(Application::class.java)
-            } else
-                throw AppLauncher.StartException("Failed to find a JavaFX Application class")
+            else
+                null
         }
     }
 

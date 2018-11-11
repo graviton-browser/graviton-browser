@@ -198,7 +198,7 @@ class AppLauncher(private val options: GravitonCLI,
             info { "JavaFX Application class found: $clazz" }
             invokeJavaFXApplication(clazz, primaryStage, options.args.drop(1), fetch.artifact.toString())
         } else {
-            warn { "Couldn't locate any JavaFX application class" }
+            throw StartException("Could not locate any way to start the app.")
         }
     }
 
