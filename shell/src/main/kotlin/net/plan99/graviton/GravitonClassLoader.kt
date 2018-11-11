@@ -23,8 +23,6 @@ class GravitonClassLoader private constructor(private val urls: Array<URL>, priv
                 // TODO: J9: Use classloader names.
                 val manifest = JarFile(files[0]).use { it.manifest }
                 return GravitonClassLoader(urls, manifest, classPath)
-            } catch (e: java.io.FileNotFoundException) {
-                throw e
             } catch (e: Exception) {
                 throw AppLauncher.StartException("Failed to build classloader given class path: $classPath", e)
             }

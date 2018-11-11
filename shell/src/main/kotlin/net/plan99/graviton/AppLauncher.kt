@@ -4,11 +4,11 @@ import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
 import javafx.stage.Stage
-import net.plan99.graviton.AppLauncher.GuiToolkit.UNKNOWN
 import net.plan99.graviton.GravitonClassLoader.Companion.build
 import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
+import java.io.File
 import java.io.FileNotFoundException
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
@@ -35,57 +35,21 @@ class AppLauncher(private val options: GravitonCLI,
         INVOKE_MAIN_DIRECTLY
     }
 
-    enum class GuiToolkit(val packageName: String) {
-        JAVAFX("javafx/"),
-        SWING("javax/swing/"),
-        AWT("java/awt/"),
-        SWT("org/eclipse/swt/"),
-        LWJGL("org/lwjgl/"),  // Lightweight Java game library, popular GL based toolkit.
-        UNKNOWN("");
-
-        init {
-            if (packageName.isNotEmpty()) check(packageName.endsWith('/'))
-        }
-    }
-
     companion object : Logging() {
-        fun selectLoadStrategy(mainClass: Class<*>?, isExecutingFromGUI: Boolean): LoadStrategy {
+        fun selectLoadStrategy(mainClass: Class<*>?, executingFromGUI: Boolean): LoadStrategy {
             return if (mainClass == null) {
                 LoadStrategy.SEARCH_FOR_JFX_APP
+            } else if (executingFromGUI) {
+                // Start a new JVM to avoid all the GUI stuff we've loaded from interfering. In particular this
+                // is necessary for JavaFX apps that haven't opted into being Graviton apps, as you can't start
+                // up JavaFX runtime more than once per process.
+                //
+                // TODO: Allow developers to override the load strategy.
+                LoadStrategy.RESTART_AND_RUN
             } else {
-                val detectedToolkit = scanForGUIToolkit(mainClass)
-                if (isExecutingFromGUI && detectedToolkit != UNKNOWN) {
-                    info { "Detected GUI toolkit $detectedToolkit, not running with attached console." }
-                    LoadStrategy.RESTART_AND_RUN
-                } else {
-                    LoadStrategy.INVOKE_MAIN_DIRECTLY
-                }
+                // From the command line, so pass control directly to main.
+                LoadStrategy.INVOKE_MAIN_DIRECTLY
             }
-        }
-
-        private fun ByteArray.scan(toolkit: GuiToolkit): GuiToolkit? {
-            return if (StreamSearcher(toolkit.packageName.toByteArray(Charsets.US_ASCII)).search(inputStream()) != -1L)
-                toolkit
-            else
-                null
-        }
-
-        internal fun scanForGUIToolkit(mainClass: Class<*>): GuiToolkit {
-            // Scan the class bytes for strings that are sure to be present in apps that use various popular toolkits.
-            // We do this rather than parse the file using ASM and reading it 'for real' because we don't really need to,
-            // the chance of false positives with this technique is very low as the strings in question will normally only
-            // appear in the constant pool.
-
-            val classAsResourcePath = mainClass.name.replace('.', '/') + ".class"
-            val bytes = mainClass.classLoader.getResourceAsStream(classAsResourcePath).use { it.readBytes() }
-            //@formatter:off
-            return bytes.scan(GuiToolkit.JAVAFX) ?:
-                   bytes.scan(GuiToolkit.SWING) ?:
-                   bytes.scan(GuiToolkit.AWT) ?:
-                   bytes.scan(GuiToolkit.SWT) ?:
-                   bytes.scan(GuiToolkit.LWJGL) ?:
-                   UNKNOWN
-            //@formatter:on
         }
     }
 
@@ -99,7 +63,7 @@ class AppLauncher(private val options: GravitonCLI,
         open fun appFinished() {}
     }
 
-    val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath()).also {
+    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath()).also {
         it.events = events
         it.useSSL = !(commandLineArguments.noSSL || options.noSSL)
     }
@@ -132,13 +96,17 @@ class AppLauncher(private val options: GravitonCLI,
             historyManager.search(userInput)
         } else null
 
-        val fetch: CodeFetcher.Result = if (historyLookup != null) {
+        val fetch: CodeFetcher.Result = if (historyLookup != null && entryStillOnDisk(historyLookup)) {
             // The history entry contains the classpath to avoid a local POM walk, which is slow (about 0.2 seconds for
             // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
             info { "Used previously resolved coordinates $historyLookup" }
             CodeFetcher.Result(historyLookup.classPath, historyLookup.artifact)
         } else {
-            // Not found in the history list, so attempt to download from our repositories.
+            // Either:
+            //   1. Not found in the history list, or
+            //   2. Found in history list but not on disk, which can happen if the user wiped the cache.
+            //
+            // ... so attempt to (re)download from our repositories.
             download(userInput, codeFetcher)
         }
 
@@ -146,6 +114,9 @@ class AppLauncher(private val options: GravitonCLI,
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
         return fetch
     }
+
+    private fun entryStillOnDisk(historyLookup: HistoryEntry) =
+            File(historyLookup.classPath.split(currentOperatingSystem.classPathDelimiter)[0]).exists()
 
     private fun runApp(userInput: String, fetch: CodeFetcher.Result) {
         val loadResult: GravitonClassLoader = try {

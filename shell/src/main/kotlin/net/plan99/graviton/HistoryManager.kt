@@ -224,7 +224,9 @@ class HistoryManager(storagePath: Path,
         info { "Clearing cache: $path" }
         if (!path.toFile().deleteRecursively())
             error { "Failed to clear disk cache" }
-        history.clear()
+        // Now re-write the history data to disk, as it will have been erased. This is a temp hack: we should really
+        // be storing the history file and other important user data in a different location to transient caching.
+        writeToFile(history)
     }
 }
 
