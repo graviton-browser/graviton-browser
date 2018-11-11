@@ -183,13 +183,13 @@ class HistoryManager(storagePath: Path,
     /**
      * Re-resolves every item in the history list, to check for and download updates.
      */
-    fun refreshRecentlyUsedApps(codeFetcher: CodeFetcher) {
+    fun refreshRecentlyUsedApps(appLauncher: AppLauncher) {
         for ((index, entry) in history.withIndex()) {
             val (age, old) = ageCheck(entry)
             if (old) {
                 info { "Refreshing entry $index: $entry" }
                 try {
-                    refresh(codeFetcher, entry)
+                    refresh(appLauncher, entry)
                 } catch (e: Exception) {
                     logger.error("Failed to refresh ${entry.coordinateFragment}, skipping", e)
                 }
@@ -203,10 +203,12 @@ class HistoryManager(storagePath: Path,
      * Refreshes the given entry in the history list, updating it and saving the new history file to disk. Blocks
      * the current thread.
      */
-    fun refresh(codeFetcher: CodeFetcher, entry: HistoryEntry): HistoryEntry {
+    fun refresh(appLauncher: AppLauncher, entry: HistoryEntry): HistoryEntry {
         // TODO: Do we need to take a file lock here to stop a background update happening concurrently, or is a race OK here?
         val index = history.indexOf(entry)
-        val fetch: CodeFetcher.Result = codeFetcher.downloadAndBuildClasspath(entry.coordinateFragment)
+        // Go via the AppLauncher because it knows how to turn the user's input (coordinate fragment) into a full
+        // coordinate.
+        val fetch: CodeFetcher.Result = appLauncher.download(entry.coordinateFragment, true)
         val newEntry = entry.copy(lastRefreshTime = clock.instant(), resolvedArtifact = fetch.artifact.toString(), classPath = fetch.classPath)
         history[index] = newEntry
         writeToFile(history)

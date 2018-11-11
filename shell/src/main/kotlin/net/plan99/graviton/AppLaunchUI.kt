@@ -209,8 +209,7 @@ class AppLaunchUI : View() {
                         task {
                             info { "User requested refresh of $entry" }
                             val curEntry = observableEntry.get()
-                            val fetcher = AppLauncher(GravitonCLI.parse(curEntry.coordinateFragment), appLaunchEventHandler, historyManager).codeFetcher
-                            fetcher.events = appLaunchEventHandler
+                            val fetcher = AppLauncher(GravitonCLI.parse(""), appLaunchEventHandler, historyManager)
                             historyManager.refresh(fetcher, curEntry)
                         } success { newEntry: HistoryEntry ->
                             observableEntry.set(newEntry)

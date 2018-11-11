@@ -9,6 +9,7 @@ import net.plan99.graviton.GravitonClassLoader.Companion.build
 import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
+import java.io.FileNotFoundException
 import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
 import kotlin.concurrent.thread
@@ -16,18 +17,21 @@ import kotlin.reflect.jvm.javaMethod
 
 /**
  * An [AppLauncher] performs the tasks needed to start an app, performing callbacks on various methods that can be
- * overridden as it goes. It uses coroutines and must be started from inside a suspending function, so even though
- * it does many slow background tasks, you do not have to think about blocking operations or background sync.
+ * overridden as it goes.
  */
 class AppLauncher(private val options: GravitonCLI,
-                  private val events: Events,
+                  private val events: Events?,
                   private val historyManager: HistoryManager,
                   private val primaryStage: Stage? = null,
                   private val stdOutStream: PrintStream = System.out,
                   private val stdErrStream: PrintStream = System.err) {
+    /** How we plan to find the app's entry point and give it control. */
     enum class LoadStrategy {
+        /** Look for a subclass of [Application] */
         SEARCH_FOR_JFX_APP,
+        /** Run it via the main method in a separate JVM process. */
         RESTART_AND_RUN,
+        /** Just call straight into the main method, in this JVM. Used for simple CLI apps - may go away. */
         INVOKE_MAIN_DIRECTLY
     }
 
@@ -103,49 +107,56 @@ class AppLauncher(private val options: GravitonCLI,
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
      * command line options that should be passed to the app, downloads the app, if successful records the app launch
-     * in the history list and then invokes the app in a sub-classloader.
+     * in the history list and then invokes the app in a sub-classloader. A small wrapper around [download] and [runApp].
      */
     fun start() {
         if (options.clearCache)
             historyManager.clearCache()
-
         val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
         check(userInput.isNotBlank())
-        val historyLookup: HistoryEntry? = if (!options.refresh) {
+        val fetch: CodeFetcher.Result = download(userInput, options.refresh)
+        // Update the entry in the history list to move it to the top.
+        historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
+        runApp(userInput, fetch)
+    }
+
+    /**
+     * Performs a download from the user's input, reversing coordinates and filling out missing parts if necessary.
+     */
+    fun download(userInput: String, forceRefresh: Boolean): CodeFetcher.Result {
+        val historyLookup: HistoryEntry? = if (!forceRefresh) {
             // The user has probably specified a coordinate fragment, missing the artifact name or version number.
             // If we never saw this input before, we'll just continue and clean it up later. If we resolved it
             // before to a specific artifact coordinate, we'll look it up again from our history file. That'll
-            // let us skip the latest version check. Put another way, this step gives us the following policy:
-            //
-            // - Check for new versions ONLY every AppManager.refreshInterval seconds
-            // - But allow the user to always specify a newer version by hand
+            // let us skip the latest version check.
             historyManager.search(userInput)
         } else null
 
-        // The history entry contains the classpath to avoid a local POM walk, which is slow (about 0.2 seconds for
-        // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
         val fetch: CodeFetcher.Result = if (historyLookup != null) {
+            // The history entry contains the classpath to avoid a local POM walk, which is slow (about 0.2 seconds for
+            // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
             info { "Used previously resolved coordinates $historyLookup" }
             CodeFetcher.Result(historyLookup.classPath, historyLookup.artifact)
         } else {
+            // Not found in the history list, so attempt to download from our repositories.
             download(userInput, codeFetcher)
         }
 
         info { "App name: ${fetch.name}" }
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
+        return fetch
+    }
 
+    private fun runApp(userInput: String, fetch: CodeFetcher.Result) {
         val loadResult: GravitonClassLoader = try {
             build(fetch.classPath)
-        } catch (e: java.io.FileNotFoundException) {
+        } catch (e: FileNotFoundException) {
             // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
             // downloaded artifacts but leaves the recent apps list alone. Let's re-resolve and try again.
             build(download(userInput, codeFetcher).classPath)
         }
 
-        // Update the last used timestamp.
-        historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
-
-        events.initializingApp()
+        events?.initializingApp()
 
         // Apps are started in different ways based on various heuristics
         //
@@ -200,12 +211,12 @@ class AppLauncher(private val options: GravitonCLI,
                 "GRAVITON_RUN_CLASSNAME" to cl.mainClassName!!
         )
         pb.directory(currentOperatingSystem.homeDirectory.toFile())
-        events.aboutToStartApp(true)
+        events?.aboutToStartApp(true)
         val proc = pb.start()
         thread {
             proc.waitFor()
             info { "Sub-process finished" }
-            events.appFinished()
+            events?.appFinished()
         }
     }
 
@@ -223,6 +234,7 @@ class AppLauncher(private val options: GravitonCLI,
     private fun download(userInput: String, codeFetcher: CodeFetcher, reverseInput: Boolean = false): CodeFetcher.Result {
         return try {
             val coordinates: String = calculateCoordinates(userInput, reverseInput)
+            info { "Attempt fetch for $coordinates" }
             codeFetcher.downloadAndBuildClasspath(coordinates)
         } catch (e: RepositoryException) {
             if (reverseInput) {
@@ -248,6 +260,7 @@ class AppLauncher(private val options: GravitonCLI,
                     throw AppLauncher.StartException(m.toString(), e)
                 }
             } else {
+                info { "User input '$userInput' not found, reversing the coordinates and trying again" }
                 download(userInput, codeFetcher, true)
             }
         }
@@ -270,7 +283,7 @@ class AppLauncher(private val options: GravitonCLI,
     private fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: List<String>, artifactName: String) {
         if (primaryStage == null) {
             // Being started from the command line, JavaFX wasn't set up yet.
-            events.aboutToStartApp(false)
+            events?.aboutToStartApp(false)
             Application.launch(jfxApplicationClass, *args.toTypedArray())
         } else {
             // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
@@ -287,7 +300,7 @@ class AppLauncher(private val options: GravitonCLI,
                     // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
                     app.init()
                     fx {
-                        events.aboutToStartApp(false)
+                        events?.aboutToStartApp(false)
                         val curWidth = primaryStage.width
                         val curHeight = primaryStage.height
                         // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
@@ -310,7 +323,7 @@ class AppLauncher(private val options: GravitonCLI,
                             info { "Inlined application quitting, back to the shell" }
                             primaryStage.onCloseRequest = null
                             restore()
-                            events.appFinished()
+                            events?.appFinished()
                         }
 
                         primaryStage.setOnCloseRequest {
@@ -352,7 +365,7 @@ class AppLauncher(private val options: GravitonCLI,
         val oldstderr = System.err
         System.setOut(stdOutStream)
         System.setErr(stdErrStream)
-        events.aboutToStartApp(false)
+        events?.aboutToStartApp(false)
         val mainClass = cl.mainClass!!
         val t = thread(contextClassLoader = cl, name = "main") {
             try {

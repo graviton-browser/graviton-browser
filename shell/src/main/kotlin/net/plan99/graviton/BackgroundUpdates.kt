@@ -201,9 +201,9 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
 
     private fun refreshRecentApps(cachePath: Path) {
         try {
-            val codeFetcher = CodeFetcher(cachePath)
             val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))
-            historyManager.refreshRecentlyUsedApps(codeFetcher)
+            val appLauncher = AppLauncher(GravitonCLI.parse(""), null, historyManager)
+            historyManager.refreshRecentlyUsedApps(appLauncher)
         } catch (e: Exception) {
             logger.error("App refresh failed", e)
             // Fall through.
