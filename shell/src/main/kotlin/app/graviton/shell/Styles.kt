@@ -66,12 +66,12 @@ class Styles : Stylesheet() {
         }
 
         historyTitle {
-            fontSize = 25.pt
+            fontSize = 20.pt
             padding = box(0.px, 0.px, 15.pt, 0.px)
         }
 
         historyDescription {
-            fontSize = 16.pt
+            fontSize = 12.pt
         }
 
         primaryWebButton {
