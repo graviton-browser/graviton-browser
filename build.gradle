@@ -158,5 +158,10 @@ task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
 
     // TODO: Signing
     // TODO: Icons
+}
 
+task refreshAPIDocs(type: Copy) {
+    dependsOn(getTasks().findByPath(":api:javadoc"))
+    from 'api/build/docs/javadoc'
+    into 'website/source/_static/api'
 }

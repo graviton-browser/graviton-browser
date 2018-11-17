@@ -30,7 +30,7 @@ import javafx.stage.Stage;
  * <li>Don't mess with the JVM process, like by calling {@link System#exit(int)}. In future these sorts of operations
  *     may be blocked.</li>
  * <li>This is all ignored if the user runs the app from the command line. In that case a main method is required.</li>
- * </ul>
+ * </ul><p>
  *
  * Here's an example of how you might adapt a typical JavaFX application:<p>
  *

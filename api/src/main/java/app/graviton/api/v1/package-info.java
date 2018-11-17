@@ -7,4 +7,4 @@
  * at runtime if you are writing some other kind of app: simply avoiding using those types is sufficient because
  * the JVM does late binding on everything.
  */
-package app.graviton.api;
+package app.graviton.api.v1;
