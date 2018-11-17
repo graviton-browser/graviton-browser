@@ -34,7 +34,7 @@ and Truffle languages we can combine not only scripting languages like JavaScrip
 modules via Sulong. This gives us a direct equivalent to WebAssembly.
 
 **Aren't JVMs bloated and sluggish?** Historically yes. We aren't worried about this though for three reasons.
-(1) Our competition isn't expertly written C++ apps but web apps, which are even worse. (2) The bulk of the JVM's
+(1) Our competition isn't expertly written C++ apps but web apps, which are much worse. (2) The bulk of the JVM's
 reputation for sluggishness comes from startup time and memory usage, not peak runtime performance. All of these
 are being tackled by the JVM team through recently added features like ahead of time compilation, AppCDS (class data
 pre-computation and sharing), GCs that don't pause the application and other such features. (3) The JVM's reputation
@@ -44,7 +44,7 @@ bigger and JVMs got more efficient. So we aren't worried about this so much anym
 **Do apps need to be written specifically for it?** No, Graviton can download and run ordinary Java apps with a main
 method that have been uploaded to a Maven repository or github. There are many such apps already. But with small
 adaptations, the user experience will get a lot better. As such there is no bright line between a JVM app and a
-Graviton app. We call this :doc:`incremental-adaptation`.
+Graviton app. Learn more about :doc:`graviton-apps`.
 
 Details
 =======
@@ -72,7 +72,7 @@ apps (it's faster for them and reduces the risk of browser makers trying to kill
 
 **Incremental adaptation.** Because the shell is resolving and invoking main classes from Maven coordinates, it is capable
 of running any ordinary Java app that has a main method. By implementing a series of small, simple tweaks to an app,
-it can be made to run better, faster and more safely inside Graviton. See :doc:`incremental-adaptation` for more details.
+it can be made to run better, faster and more safely inside Graviton. See :doc:`graviton-apps` for more details.
 
 **App streaming.** The average web page is 2mb in size. Experimentation shows that many apps can easily be
 made to fit within this size budget using pack200 compression and by not re-downloading commonly used dependencies.

@@ -8,9 +8,9 @@ opt-in to new features only available when running inside Graviton by using the 
 
    <a href="_static/api/index.html"><button class="button button2">Read the Graviton API documentation</button></a><br><br>
 
-To use the API add a dependency on the ``app.graviton:graviton-api:1.0`` library. This provides various types that can
-be used to opt-in to features and communicate with Graviton. Although this will become a runtime dependency, it's very
-small and adds no overhead when Graviton is not in use.
+To use the API add a dependency on the ``app.graviton:graviton-api`` library.
+This provides various types that can be used to opt-in to features and communicate with Graviton. Although this will
+become a runtime dependency, it's very small and adds no overhead when Graviton is not in use.
 
 Testing your app locally
 ------------------------

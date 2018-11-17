@@ -6,7 +6,7 @@ Graviton can run unmodified Java apps, but you can improve the user experience b
 This tutorial takes you through how to make a simple GUI app and then improve how it runs. This isn't the only way
 to publish software for Graviton - it's just a gentle getting started guide.
 
-.. note:: You can find the code for this app with one commit per stage `here, on GitHub <https://github.com/graviton-browser/hello-world`_.
+.. note:: You can find the code for this app with one commit per stage `here, on GitHub <https://github.com/graviton-browser/hello-world>`_.
 
 Step 1: publish from GitHub
 ===========================
