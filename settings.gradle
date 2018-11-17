@@ -11,3 +11,5 @@ include 'scheduler'
 findProject(':scheduler')?.name = 'graviton-scheduler'
 include 'shell'
 findProject(':shell')?.name = 'graviton-shell'
+include 'api'
+

@@ -26,7 +26,7 @@ import kotlin.concurrent.thread
 val gravitonPath: String? = System.getenv("GRAVITON_PATH")
 
 /** The current version, as discovered by the bootstrapper. */
-val gravitonVersion: String? = System.getenv("GRAVITON_VERSION")
+val gravitonVersion: Int? = System.getenv("GRAVITON_VERSION")?.toInt()
 
 /** The top level logger for the app. */
 val mainLog: Logger by lazy { LoggerFactory.getLogger("main") }
@@ -106,7 +106,7 @@ private fun immediatelyInvokeApplication(arguments: Array<String>): Boolean {
     // in a separate classloader that doesn't chain to the one that loaded us. This isn't perfectly compatible (a few
     // big/complex apps expect the classloader to be a sun.misc.AppClassLoader) but it'll do for now. This thread will
     // continue, die, and the new thread will be the only one left. Eventually the GC should clear out the code in
-    // this file.
+    // this file from memory, and the new app will have a relatively clean stack trace.
     thread(name = "main", contextClassLoader = cl) {
         runMain(clazz, arguments)
     }
@@ -130,7 +130,7 @@ private fun getTermWidth(): Int {
     }
 }
 
-fun startupChecks(myPath: String, myVersion: String) {
+fun startupChecks(myPath: String, myVersion: Int) {
     // Do it in the background to keep the slow file IO away from blocking startup.
     thread(start = true) {
         try {
@@ -139,7 +139,7 @@ fun startupChecks(myPath: String, myVersion: String) {
             val taskSchedulerErrorFile = appPath / "task-scheduler-error-log.txt"
             if (!versionPath.exists || taskSchedulerErrorFile.exists)
                 firstRun(appPath, taskSchedulerErrorFile)
-            Files.write(versionPath, listOf(myVersion))
+            Files.write(versionPath, listOf("$myVersion"))
         } catch (e: Exception) {
             // Log but don't block startup.
             mainLog.error("Failed to do background startup checks", e)

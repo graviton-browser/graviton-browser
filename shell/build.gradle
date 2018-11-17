@@ -58,6 +58,9 @@ dependencies {
 
     // Graviton Scheduler - an interface to operating system cron functionalities.
     compile project(":graviton-scheduler")
+    
+    // Graviton API - a way for apps to talk to the shell host.
+    compile project(":api")
 
     // SLF4J and TinyLog - convenient, small and fast logging libraries.
     compile "org.slf4j:slf4j-api:$slf4j_version"

@@ -1,0 +1,49 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+repositories {
+    mavenCentral()
+}
+
+group = 'app.graviton'
+version '1.0'
+
+compileJava {
+    options.compilerArgs << '-parameters'
+}
+
+task sourcesJar(type: Jar) {
+    from sourceSets.main.allJava
+    classifier = 'sources'
+}
+
+task javadocJar(type: Jar) {
+    from javadoc
+    classifier = 'javadoc'
+}
+
+publishing {
+    publications {
+        api(MavenPublication) {
+            from components.java
+            artifactId = 'graviton-api'
+
+            artifact sourcesJar
+            artifact javadocJar
+
+            pom {
+                name = 'Graviton API'
+                description = 'Interfaces and annotations useful for customising how your app executes in Graviton.'
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = 'gravitonLocal'
+            def homePath = System.properties['user.home']
+            url = "file://${homePath}/.m2/dev-local"
+        }
+    }
+}

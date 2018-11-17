@@ -3,14 +3,12 @@ package app.graviton.shell
 import app.graviton.effects.addMacStyleScrolling
 import app.graviton.effects.addTopBottomFades
 import app.graviton.mac.stealFocusOnMac
-import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.concurrent.Task
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
-import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
@@ -18,8 +16,6 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.scene.text.TextAlignment
 import tornadofx.*
-import java.io.OutputStream
-import java.io.PrintStream
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
@@ -31,7 +27,6 @@ class AppLaunchUI : View() {
 
     private lateinit var messageText1: StringProperty
     private lateinit var messageText2: StringProperty
-    private lateinit var outputArea: TextArea
     private lateinit var coordinateBar: TextField
     private val allThreads = ThreadGroup("App Launch")
     private var launcher: Task<*>? = null
@@ -67,20 +62,6 @@ class AppLaunchUI : View() {
                     spacing = 15.0
                     padding = Insets(20.0, 0.0, 20.0, 0.0)
                     populateRecentAppsPicker()
-                }
-
-                outputArea = textarea {
-                    addClass(Styles.shellArea)
-                    isWrapText = false
-                    opacity = 0.0
-                    textProperty().addListener { _, oldValue, newValue ->
-                        if (oldValue.isBlank() && newValue.isNotBlank()) {
-                            opacityProperty().animate(1.0, 0.3.seconds)
-                        } else if (newValue.isBlank() && oldValue.isNotBlank()) {
-                            opacityProperty().animate(0.0, 0.3.seconds)
-                        }
-                    }
-                    prefRowCountProperty().bind(Bindings.`when`(textProperty().isNotEmpty).then(20).otherwise(0))
                 }
 
                 // Just wide enough for 80 chars in the output area at currently chosen font size.
@@ -271,22 +252,15 @@ class AppLaunchUI : View() {
         // app can take a bit of time.
         isWorking.set(true)
 
-        // Capture the output of the program and redirect it to a text area. In future we'll switch this to be a real
-        // terminal and get rid of it for graphical apps.
-        outputArea.text = ""
-        val printStream = PrintStream(object : OutputStream() {
-            override fun write(b: Int) = fx {
-                outputArea.text += b.toChar()
-            }
-        }, true)
-
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
         val cmdLineParams = app.parameters.raw.joinToString(" ")
         val options = GravitonCLI.parse("$cmdLineParams $text".trim())
 
         launcher = FXTask {
-            AppLauncher(options, appLaunchEventHandler, historyManager, primaryStage, printStream, printStream).start()
+            AppLauncher(options, appLaunchEventHandler, historyManager, primaryStage).start()
+        } success {
+            resetUI()
         } fail { ex ->
             resetUI()
             onStartError(ex)
@@ -384,6 +358,7 @@ class AppLaunchUI : View() {
             if (wedgeFX != null) {
                 info { "App finished, unblocking FX event loop" }
                 wedgeFX.countDown()
+                this.wedgeFX = null
                 // The UI will now be reset by the code that was stuffed into the blocked event loop above.
             } else {
                 // The app finished, so put the UI back.

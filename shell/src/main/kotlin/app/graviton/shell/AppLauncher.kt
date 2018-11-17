@@ -1,6 +1,8 @@
 package app.graviton.shell
 
 import app.graviton.ModuleHacks
+import app.graviton.api.v1.Graviton
+import app.graviton.api.v1.GravitonRunInShell
 import app.graviton.shell.GravitonClassLoader.Companion.build
 import javafx.application.Application
 import javafx.application.Platform
@@ -9,9 +11,9 @@ import javafx.stage.Stage
 import org.apache.http.client.HttpResponseException
 import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.transfer.MetadataNotFoundException
+import tornadofx.find
 import java.io.File
 import java.io.FileNotFoundException
-import java.io.PrintStream
 import java.lang.reflect.InvocationTargetException
 import kotlin.concurrent.thread
 import kotlin.reflect.jvm.javaMethod
@@ -23,33 +25,42 @@ import kotlin.reflect.jvm.javaMethod
 class AppLauncher(private val options: GravitonCLI,
                   private val events: Events?,
                   private val historyManager: HistoryManager,
-                  private val primaryStage: Stage? = null,
-                  private val stdOutStream: PrintStream = System.out,
-                  private val stdErrStream: PrintStream = System.err) {
-    /** How we plan to find the app's entry point and give it control. */
-    enum class LoadStrategy {
-        /** Look for a subclass of [Application] */
-        SEARCH_FOR_JFX_APP,
-        /** Run it via the main method in a separate JVM process. */
-        RESTART_AND_RUN,
-        /** Just call straight into the main method, in this JVM. Used for simple CLI apps - may go away. */
-        INVOKE_MAIN_DIRECTLY
+                  private val primaryStage: Stage? = null) {
+    companion object : Logging()
+
+    /**
+     * This class implements the Graviton API.
+     */
+    inner class Gateway : Graviton {
+        /**
+         * Returns the integer version of Graviton. This is not the same thing as an API version: it may increase any time
+         * without affecting anything.
+         */
+        override fun getVersion(): Int = gravitonVersion ?: -1
+
+        /**
+         * Returns the width of the drawable area in either pixels or columns, for GUI and terminal apps respectively.
+         * Size your [javafx.scene.Scene] to this width if you want it to fill the browser area, or leave it
+         * smaller to allow the background art to show through. May return zero if there is no attached screen.
+         */
+        override fun getWidth(): Int = primaryStage?.width?.toInt() ?: 0
+
+        /**
+         * Returns the height of the drawable area in either pixels or rows, for GUI and terminal apps respectively.
+         * Size your [javafx.scene.Scene] to this height if you want it to fill the browser area, or leave it
+         * smaller to allow the background art to show through. May return zero if there is no attached screen.
+         */
+        override fun getHeight(): Int = primaryStage?.height?.toInt() ?: 0
     }
 
-    companion object : Logging() {
-        fun selectLoadStrategy(mainClass: Class<*>?, executingFromGUI: Boolean): LoadStrategy {
-            return when {
-                mainClass == null -> LoadStrategy.SEARCH_FOR_JFX_APP
-                executingFromGUI -> // Start a new JVM to avoid all the GUI stuff we've loaded from interfering. In particular this
-                    // is necessary for JavaFX apps that haven't opted into being Graviton apps, as you can't start
-                    // up JavaFX runtime more than once per process.
-                    //
-                    // TODO: Allow developers to override the load strategy.
-                    LoadStrategy.RESTART_AND_RUN
-                else -> // From the command line, so pass control directly to main.
-                    LoadStrategy.INVOKE_MAIN_DIRECTLY
-            }
-        }
+    /** How we plan to find the app's entry point and give it control. */
+    enum class LoadStrategy {
+        /** Run it via the main method in a separate JVM process. */
+        RESTART_AND_RUN,
+        /** Just call straight into the main method, in this JVM. Used when we're run from the CLI. */
+        INVOKE_MAIN_DIRECTLY,
+        /** It knows about us, so run it directly in-process. */
+        GRAVITON_APP
     }
 
     class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
@@ -133,31 +144,123 @@ class AppLauncher(private val options: GravitonCLI,
 
         events?.initializingApp()
 
-        // Apps are started in different ways based on various heuristics
+        // Apps are started in different ways based on various rules.
         //
-        // 1. If the JAR doesn't specify a main class, search for a JavaFX Application class and use that.
-        // 2. If the specified main class doesn't seem to use JavaFX, Swing or AWT then assume it's a console app
-        //    and run it in a separate thread, piped to the UI.
-        // 3. If it does, and the app hasn't opted into Graviton hosting, then run out of process.
-        // 4. Otherwise, give it control over our Scene.
-        //
-        // TODO: Define a "Graviton App" format and allow this to be customised.
+        // 1. If we're run from the command line, locate the main method and invoke it, or bail out.
+        // 2. If we're in GUI mode, and if the JAR specifies a main class, and if it implements the
+        //    GravitonRunInShell interface, then invoke the createScene method and switch to that scene.
+        //    Then invoke the start method to pass in the stage.
+        // 3. If the main class is a regular JavaFX Application class and there's no main method in it, then
+        //    just invoke the start method directly and let it switch out the scene itself. We don't get to do a nice
+        //    transition this way or customise the app in other ways, but it's useful for devs who are getting started.
+        // 4. Otherwise, if there's a main method, then invoke it in a separate JVM. The app can do whatever it
+        //    likes with the new process.
 
         try {
-            val mainClass = loadResult.mainClass
             val args = options.args.drop(1).toTypedArray()
             val isExecutingFromGUI = primaryStage != null
-            val strategy = selectLoadStrategy(mainClass, isExecutingFromGUI)
+            val strategy = selectLoadStrategy(loadResult.startClass, isExecutingFromGUI)
             info { "Load strategy is $strategy" }
             when (strategy) {
-                LoadStrategy.SEARCH_FOR_JFX_APP -> searchForAndInvokeJFXAppClass(loadResult, fetch)
+                // From GUI
                 LoadStrategy.RESTART_AND_RUN -> restartAndRun(loadResult, args)
+                LoadStrategy.GRAVITON_APP -> startGravitonApp(loadResult, fetch)
+                // From CLI
                 LoadStrategy.INVOKE_MAIN_DIRECTLY -> invokeMainMethod(args, loadResult, andWait = !isExecutingFromGUI)
             }
         } catch (e: StartException) {
             throw e
         } catch (e: Throwable) {
             throw StartException("Application failed to start", e)
+        }
+    }
+
+    private fun startGravitonApp(loadResult: GravitonClassLoader, fetch: CodeFetcher.Result) {
+        val primaryStage = primaryStage!!
+        val appClass = loadResult.startClass.asSubclass(Application::class.java)
+        thread(name = "App initialisation thread") {
+            Thread.currentThread().contextClassLoader = appClass.classLoader
+
+            // Create the Application object and cast so Kotlin knows it implements the extra interface.
+            val app: Application = appClass.getConstructor().newInstance()
+            app as GravitonRunInShell
+            ModuleHacks.setParams(app, options.args.drop(1).toTypedArray())
+
+            // Application.init is defined by the JavaFX spec as not being run on the main thread, and it's allowed
+            // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
+            // We could show a splash or logo of the app here.
+            app.init()
+            // Back to the FX thread now the app is initialised.
+            fx {
+                // The context classloader is a confusing concept that was never really meant to happen. It was added
+                // as a quick hack in Java 1.1 for serialization and has haunted us ever since. JavaFX uses it to load
+                // stylesheets, amongst other abuses (it should never be used for real), so we do have to ensure we
+                // configure it properly here.
+                Thread.currentThread().contextClassLoader = appClass.classLoader
+                events?.aboutToStartApp(false)
+                val curWidth = primaryStage.width
+                val curHeight = primaryStage.height
+                // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
+                // or the shell changes e.g. by adding new properties or binding new ones.
+                primaryStage.unbindAllProperties()
+
+                // Switch the scene.
+                val oldScene = primaryStage.scene
+                val newScene = app.createScene(Gateway())
+
+                find<ShellView>().fadeInScene(newScene) {
+                    // Pick a default title. The app may of course override it in Application.start()
+                    primaryStage.title = fetch.artifact.toString()
+                    Platform.setImplicitExit(false)
+
+                    fun restore() {
+                        Thread.currentThread().contextClassLoader = AppLauncher::class.java.classLoader
+                        primaryStage.titleProperty().unbind()
+                        primaryStage.title = "Graviton"
+                        primaryStage.scene = oldScene
+                        Platform.setImplicitExit(true)
+                    }
+
+                    primaryStage.setOnCloseRequest { event ->
+                        event.consume()   // Stop the main window closing.
+                        info { "Inlined application quitting, back to the shell" }
+                        primaryStage.onCloseRequest = null
+                        restore()
+                        events?.appFinished()
+                    }
+
+                    try {
+                        // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
+                        primaryStage.minWidth = curWidth
+                        primaryStage.minHeight = curHeight
+                        // The app is expected to notice it's been called inside Graviton and thus, that the stage
+                        // is visible. In that case start will do very little.
+                        app.start(primaryStage)
+                        if (primaryStage.minWidth == curWidth)
+                            primaryStage.minWidth = 0.0
+                        if (primaryStage.minHeight == curHeight)
+                            primaryStage.minHeight = 0.0
+                        info { "JavaFX application has been invoked inline" }
+                    } catch (e: Exception) {
+                        restore()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun selectLoadStrategy(mainClass: Class<*>, executingFromGUI: Boolean): AppLauncher.LoadStrategy {
+        return if (executingFromGUI) {
+            if (GravitonRunInShell::class.java.isAssignableFrom(mainClass)) {
+                AppLauncher.LoadStrategy.GRAVITON_APP
+            } else {
+                // Start a new JVM to avoid all the GUI stuff we've loaded from interfering. In particular this
+                // is necessary for JavaFX apps that haven't opted into being Graviton apps, as you can't start
+                // up JavaFX runtime more than once per process.
+                AppLauncher.LoadStrategy.RESTART_AND_RUN
+            }
+        } else {
+            AppLauncher.LoadStrategy.INVOKE_MAIN_DIRECTLY
         }
     }
 
@@ -174,8 +277,7 @@ class AppLauncher(private val options: GravitonCLI,
         val startPath = if (gravitonPath != null) {
             arrayOf(gravitonPath)
         } else {
-            // Running not packaged, probably during development. We reflect the name "app.graviton.Graviton"
-            // here in case one day the main method gets moved.
+            // Running not packaged, probably during development. We reflect the start class name here in case one day the main method gets moved.
             arrayOf("java", "-cp", System.getProperty("java.class.path"), ::main.javaMethod!!.declaringClass.name)
         }
         val startArgs = arrayOf(*startPath, *args)
@@ -183,26 +285,16 @@ class AppLauncher(private val options: GravitonCLI,
         val pb = ProcessBuilder(*startArgs)
         pb.environment() += mapOf(
                 "GRAVITON_RUN_CP" to cl.originalClassPath,
-                "GRAVITON_RUN_CLASSNAME" to cl.mainClassName!!
+                "GRAVITON_RUN_CLASSNAME" to cl.startClass.name
         )
         pb.directory(currentOperatingSystem.homeDirectory.toFile())
         events?.aboutToStartApp(true)
-        val proc = pb.start()
+        // TODO: Wire up stdin/stdout/stderr to a GUI terminal emulator.
+        val proc = pb.inheritIO().start()
         thread {
             proc.waitFor()
             info { "Sub-process finished" }
             events?.appFinished()
-        }
-    }
-
-    private fun searchForAndInvokeJFXAppClass(cl: GravitonClassLoader, fetch: CodeFetcher.Result) {
-        info { "No main class, searching for a JavaFX Application subclass" }
-        val clazz = cl.foundJFXClass
-        if (clazz != null) {
-            info { "JavaFX Application class found: $clazz" }
-            invokeJavaFXApplication(clazz, primaryStage, options.args.drop(1), fetch.artifact.toString())
-        } else {
-            throw StartException("Could not locate any way to start the app.")
         }
     }
 
@@ -262,77 +354,6 @@ class AppLauncher(private val options: GravitonCLI,
         return packageName
     }
 
-    private fun invokeJavaFXApplication(jfxApplicationClass: Class<out Application>, primaryStage: Stage?, args: List<String>, artifactName: String) {
-        if (primaryStage == null) {
-            // Being started from the command line, JavaFX wasn't set up yet.
-            events?.aboutToStartApp(false)
-            Application.launch(jfxApplicationClass, *args.toTypedArray())
-        } else {
-            // Being started from the shell, we have already set up JFX and we aren't allowed to initialise it twice.
-            // So we have to do a bit of acrobatics here and create the Application ourselves, then hand it a cleaned
-            // version of our stage.
-            fx {
-                // contextClassLoader is a Java API wart we have to support. It should never be used but some things
-                // do use it.
-                Thread.currentThread().contextClassLoader = jfxApplicationClass.classLoader
-                val app: Application = jfxApplicationClass.getConstructor().newInstance()
-                ModuleHacks.setParams(app, args.toTypedArray())
-                thread(name = "App initialisation thread") {
-                    // Application.init is defined by the JavaFX spec as not being run on the main thread, and it's allowed
-                    // to do slow blocking stuff. This is a convenient place to set up the RPC/server connections.
-                    app.init()
-                    fx {
-                        events?.aboutToStartApp(false)
-                        val curWidth = primaryStage.width
-                        val curHeight = primaryStage.height
-                        // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
-                        // or the shell changes e.g. by adding new properties or binding new ones.
-                        primaryStage.unbindAllProperties()
-                        val oldScene = primaryStage.scene
-                        primaryStage.scene = null
-                        primaryStage.title = artifactName
-                        primaryStage.hide()
-                        Platform.setImplicitExit(false)
-
-                        fun restore() {
-                            primaryStage.titleProperty().unbind()
-                            primaryStage.title = "Graviton"
-                            primaryStage.scene = oldScene
-                            Platform.setImplicitExit(true)
-                        }
-
-                        fun quit() {
-                            info { "Inlined application quitting, back to the shell" }
-                            primaryStage.onCloseRequest = null
-                            restore()
-                            events?.appFinished()
-                        }
-
-                        primaryStage.setOnCloseRequest {
-                            it.consume()   // Stop the main window closing.
-                            quit()
-                        }
-
-                        try {
-                            // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
-                            primaryStage.minWidth = curWidth
-                            primaryStage.minHeight = curHeight
-                            app.start(primaryStage)
-                            if (primaryStage.minWidth == curWidth)
-                                primaryStage.minWidth = 0.0
-                            if (primaryStage.minHeight == curHeight)
-                                primaryStage.minHeight = 0.0
-                            info { "JavaFX application has been invoked inline" }
-                        } catch (e: Exception) {
-                            restore()
-                            primaryStage.show()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private fun Any.unbindAllProperties() {
         javaClass.methods
                 .filter { it.name.endsWith("Property") && Property::class.java.isAssignableFrom(it.returnType) }
@@ -341,25 +362,14 @@ class AppLauncher(private val options: GravitonCLI,
     }
 
     private fun invokeMainMethod(args: Array<String>, cl: GravitonClassLoader, andWait: Boolean) {
-        // Start in a separate thread, so we can continue to intercept IO and render it to the shell.
-        // We'll switch to running it properly out of process in a pty at some point.
-        val oldstdout = System.out
-        val oldstderr = System.err
-        System.setOut(stdOutStream)
-        System.setErr(stdErrStream)
         events?.aboutToStartApp(false)
-        val mainClass = cl.mainClass!!
         val t = thread(contextClassLoader = cl, name = "main") {
-            try {
+            cl.use { cl ->
                 // For me it takes about 0.5 seconds to reach here with a non-optimised build and 0.4 with a jlinked
                 // build, but we're hardly using jlink right now. To get faster I bet we need to AOT most of java.base
                 //
                 // println("Took ${startupStopwatch.elapsedInSec} seconds to reach main()")
-                runMain(mainClass, args)
-            } finally {
-                System.setOut(oldstdout)
-                System.setErr(oldstderr)
-                cl.close()
+                runMain(cl.startClass, args)
             }
         }
         if (andWait) t.join()
@@ -372,6 +382,13 @@ fun runMain(mainClass: Class<*>, args: Array<String>) {
     try {
         val mainMethod = mainClass.getMethod("main", Array<String>::class.java)
         mainMethod.invoke(null, args)
+    } catch (e: NoSuchMethodException) {
+        // Maybe it's a JavaFX class?
+        if (Application::class.java.isAssignableFrom(mainClass)) {
+            Application.launch(mainClass.asSubclass(Application::class.java), *args)
+        } else {
+            throw e
+        }
     } catch (e: InvocationTargetException) {
         throw e.cause!!
     }

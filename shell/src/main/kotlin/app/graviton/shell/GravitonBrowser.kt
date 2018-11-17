@@ -4,8 +4,11 @@ import app.graviton.effects.ThreeDSpinner
 import app.graviton.mac.configureMacWindow
 import app.graviton.mac.setupMacMenuBar
 import javafx.geometry.Pos
+import javafx.scene.Scene
 import javafx.scene.effect.GaussianBlur
 import javafx.scene.image.Image
+import javafx.scene.image.ImageView
+import javafx.scene.image.WritableImage
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
@@ -50,6 +53,7 @@ class ShellView : View() {
     private val appLaunchUI: AppLaunchUI by inject()
     private val loginUI: LoginUI by inject()
     private lateinit var mainStackPane: StackPane
+    private lateinit var screenshotView: ImageView
 
     // The idea of this is to let the shell have multiple 'screens' that nicely transition between them, and
     // maybe Graviton apps can also be a screen. However the support isn't finished yet.
@@ -65,6 +69,28 @@ class ShellView : View() {
     }
 
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
+
+    fun fadeInScene(newScene: Scene, finished: () -> Unit) {
+        // TODO: Finish the animation.
+        primaryStage.scene = newScene
+        finished()
+        return
+
+        var screenshot: WritableImage? = newScene.snapshot(null)
+        screenshotView.image = screenshot
+        screenshotView.opacity = 0.0
+        screenshotView.fitWidth = screenshotView.image.width
+        screenshotView.fitHeight = screenshotView.image.height
+        screenshotView.opacityProperty().animate(1.0, 0.5.seconds) {
+            setOnFinished {
+                // Get rid of all the pointers so the image can be collected.
+                screenshotView.image = null
+                screenshot = null
+                primaryStage.scene = newScene
+                finished()
+            }
+        }
+    }
 
     private val allArt = listOf(
             Art("paris.png", 200, Color.BLUE, Color.WHITE),
@@ -92,12 +118,15 @@ class ShellView : View() {
             alignment = Pos.TOP_CENTER
         }
         artCredits()
+
+        screenshotView = imageview()
     }
 
     private fun StackPane.artCredits() {
         label("Background art by Vexels") {
             style {
                 padding = box(10.px)
+                textFill = Color.LIGHTGRAY
             }
         }.stackpaneConstraints { alignment = Pos.BOTTOM_RIGHT }
     }
