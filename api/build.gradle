@@ -1,14 +1,16 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id "com.jfrog.bintray" version "1.8.4"
 }
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 group = 'app.graviton'
-version '1.0'
+version '0.1'
 
 compileJava {
     options.compilerArgs << '-parameters'
@@ -28,7 +30,8 @@ publishing {
     publications {
         api(MavenPublication) {
             from components.java
-            artifactId = 'graviton-api'
+            artifactId 'graviton-api'
+            groupId 'app.graviton'
 
             artifact sourcesJar
             artifact javadocJar
@@ -36,6 +39,25 @@ publishing {
             pom {
                 name = 'Graviton API'
                 description = 'Interfaces and annotations useful for customising how your app executes in Graviton.'
+
+                licenses {
+                    license {
+                        name = "The Apache Software License, Version 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                        distribution = "repo"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "mikehearn"
+                        name = "Mike Hearn"
+                        email = "mike@plan99.net"
+                    }
+                }
+
+                scm {
+                    url = "https://github.com/mikehearn/graviton-browser"
+                }
             }
         }
     }
@@ -46,4 +68,20 @@ publishing {
             url = "file://${homePath}/.m2/dev-local"
         }
     }
+}
+
+bintray {
+    user = "mikehearn"
+    key = System.getenv('BINTRAY_KEY')
+    pkg {
+        repo = "open-source"
+        name = "graviton-api"
+        licenses = ["Apache-2.0"]
+        vcsUrl = "https://github.com/mikehearn/graviton-browser.git"
+        version {
+            name = "${project.version}"
+            desc = "Graviton API ${project.version}"
+        }
+    }
+    publications = ["api"]
 }
