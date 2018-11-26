@@ -1,6 +1,7 @@
 package app.graviton.shell
 
 import app.graviton.codefetch.CodeFetcher
+import app.graviton.codefetch.RepoSpec
 import com.github.markusbernhardt.proxy.ProxySearch
 import javafx.application.Application
 import me.tongfei.progressbar.ProgressBar
@@ -91,6 +92,11 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
 
     @CommandLine.Option(names = ["--disable-ssl"], description = ["Disables the use of encrypted connections. This is done automatically when a proxy is in use."])
     var disableSSL: Boolean = false
+
+    @CommandLine.Option(names = ["--repositories"], description = [
+        "A comma separated list of Maven repository aliases or URLs, which will be resolved in order."
+    ], showDefaultValue = CommandLine.Help.Visibility.ALWAYS)
+    var repositories: String = RepoSpec.aliases.keys.joinToString(",")
 
     override fun run() {
         // This is where Graviton startup really begins.
@@ -209,6 +215,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
 
             override fun onError(e: Exception) {
                 wipe()
+                pb?.close()
             }
 
             override fun onStartedDownloading(name: String) {
@@ -245,7 +252,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         val stopwatch = Stopwatch()
         repeat(profileDownloads) {
             HistoryManager.create().clearCache()
-            val codeFetcher = CodeFetcher(cachePath.toPath(), createProgressBar())
+            val codeFetcher = CodeFetcher(cachePath.toPath(), createProgressBar(), repoSpec())
             codeFetcher.offline = offline
             codeFetcher.downloadAndBuildClasspath(coordinates)
         }
@@ -253,6 +260,8 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         println("Total runtime was $totalSec, for an average of ${totalSec / profileDownloads} seconds per run.")
         exitProcess(0)
     }
+
+    fun repoSpec() = RepoSpec(repositories, disableSSL)
 
     class VersionProvider : CommandLine.IVersionProvider {
         override fun getVersion() = arrayOf(gravitonShellVersionNum)

@@ -12,8 +12,8 @@ Graviton gives you:
    * ... with support for sandboxed C, C++ and Rust coming in future via Sulong.
 * First class support for cross platform command line apps that also smoothly upgrade, even if the app is running
   at the time (good for servers).
-    * Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform.
-    * Graviton automatically detects proxy settings from the OS or browsers, and can handle proxy auto-config files.
+   * Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform.
+   * Graviton automatically detects proxy settings from the OS or browsers, and can handle proxy auto-config files.
 * Apps can use advanced designed-for-apps GUI toolkits like JavaFX with visual designers, or embed WebKit and use HTML.
 * Run apps directly from GitHub, GitLab and BitBucket repositories. The repository is cloned on a remote server
   in a sandbox, compiled, packaged, downloaded and this process repeats in the background on regular intervals to keep
@@ -66,4 +66,5 @@ terminal output.
    online-update
    command-line
    code-fetching
+   testing
 

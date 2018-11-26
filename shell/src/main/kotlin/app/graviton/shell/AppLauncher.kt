@@ -70,7 +70,7 @@ class AppLauncher(private val options: GravitonCLI,
         open fun onError(e: Exception) {}
     }
 
-    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events, options.disableSSL)
+    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events, options.repoSpec())
 
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any

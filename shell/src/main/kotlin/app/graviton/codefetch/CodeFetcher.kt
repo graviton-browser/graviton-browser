@@ -1,6 +1,9 @@
 package app.graviton.codefetch
 
-import app.graviton.shell.*
+import app.graviton.shell.Logging
+import app.graviton.shell.reversedCoordinates
+import app.graviton.shell.rootCause
+import app.graviton.shell.withNameAndDescription
 import org.apache.http.client.HttpResponseException
 import org.apache.maven.model.Model
 import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate
@@ -18,7 +21,6 @@ import org.eclipse.aether.graph.Dependency
 import org.eclipse.aether.graph.DependencyNode
 import org.eclipse.aether.impl.DefaultServiceLocator
 import org.eclipse.aether.repository.LocalRepository
-import org.eclipse.aether.repository.RemoteRepository
 import org.eclipse.aether.repository.RepositoryPolicy
 import org.eclipse.aether.resolution.ArtifactDescriptorResult
 import org.eclipse.aether.resolution.DependencyRequest
@@ -47,7 +49,9 @@ class StartException(message: String, cause: Throwable? = null) : Exception(mess
  * A wrapper around the Aether library that configures it to download artifacts from various different Maven
  * repositories, reports progress and returns calculated classpaths.
  */
-class CodeFetcher(private val cachePath: Path, private val events: Events?, private val disableSSL: Boolean = true) {
+class CodeFetcher(private val cachePath: Path,
+                  private val events: Events?,
+                  private val repoSpec: RepoSpec) {
     companion object : Logging() {
         fun isPossiblyJitPacked(packageName: String) =
                 packageName.startsWith("com.github.") ||
@@ -305,6 +309,7 @@ class CodeFetcher(private val cachePath: Path, private val events: Events?, priv
         val dependency = Dependency(artifact, "runtime")
         val collectRequest = CollectRequest()
         collectRequest.root = dependency
+        collectRequest.repositories = remoteRepos
         lateinit var node: DependencyNode
         stopwatch("Dependency resolution") {
             node = repoSystem.collectDependencies(session, collectRequest).root
@@ -321,7 +326,7 @@ class CodeFetcher(private val cachePath: Path, private val events: Events?, priv
         if (components.size == 2) {
             // [0,) is magic syntax meaning: any version from 0 to infinity, i.e. all versions.
             val artifact = DefaultArtifact((components + "[0,)").joinToString(":"))
-            val request = VersionRangeRequest(artifact, defaultRepositories, null)
+            val request = VersionRangeRequest(artifact, remoteRepos, null)
             val result: VersionRangeResult = stopwatch("Latest version lookup for " + components.joinToString(":")) {
                 repoSystem.resolveVersionRange(session, request)
             }
@@ -334,49 +339,5 @@ class CodeFetcher(private val cachePath: Path, private val events: Events?, priv
         return components.joinToString(":")
     }
 
-    private val defaultRepositories: List<RemoteRepository> by lazy {
-        val repos = arrayListOf<RemoteRepository>()
-        fun repo(id: String, url: String) {
-            repos += RemoteRepository.Builder(id, "default", url).build()
-        }
-
-        val protocol = if (disableSSL) "http" else "https"
-        repo("central", "$protocol://repo1.maven.org/maven2/")
-        repo("jcenter", "$protocol://jcenter.bintray.com/")
-        repo("jitpack", "$protocol://jitpack.io")
-        // repo("mike", "$protocol://plan99.net/~mike/maven/")
-
-        // Add a local repository that users can deploy to if they want to rapidly iterate on an installation.
-        // This repo is not the same thing as a "local repository" confusingly enough, they have slightly
-        // different layouts and metadata. To use, add something like this to your pom:
-        //
-        //     <distributionManagement>
-        //        <snapshotRepository>
-        //            <id>dev-local</id>
-        //            <url>file:///Users/mike/.m2/dev-local</url>
-        //            <name>My local deployment repository</name>
-        //        </snapshotRepository>
-        //    </distributionManagement>
-        //
-        // or for Gradle users
-        //
-        //   publishing {
-        //     repositories {
-        //       maven {
-        //         url = "/Users/mike/.m2/dev-local"
-        //       }
-        //     }
-        //   }
-        //
-        // Packages placed here are always re-fetched, bypassing the local cache.
-        //
-        // This might not be so useful now we use ~/.m2/repository as our cache by default when it exists.
-        val m2Local = (currentOperatingSystem.homeDirectory / ".m2" / "dev-local").toUri().toString()
-        repos += RemoteRepository.Builder("dev-local", "default", m2Local)
-                .setPolicy(RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_ALWAYS, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
-                .build()
-
-        // We have to pass the repos through this step to ensure proxy and authentication settings apply.
-        repoSystem.newResolutionRepositories(session, repos)
-    }
+    private val remoteRepos by lazy { repoSpec.resolve(repoSystem, session) }
 }
