@@ -3,21 +3,29 @@ package app.graviton.shell
 import app.graviton.effects.addMacStyleScrolling
 import app.graviton.effects.addTopBottomFades
 import app.graviton.mac.stealFocusOnMac
+import javafx.animation.Timeline
+import javafx.beans.InvalidationListener
 import javafx.beans.property.*
 import javafx.concurrent.Task
 import javafx.geometry.Insets
 import javafx.geometry.Pos
+import javafx.scene.Cursor
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonType
 import javafx.scene.control.TextField
+import javafx.scene.effect.BlurType
+import javafx.scene.effect.DropShadow
 import javafx.scene.input.MouseButton
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.VBox
+import javafx.scene.layout.*
+import javafx.scene.paint.Color
+import javafx.scene.shape.Rectangle
 import javafx.scene.text.TextAlignment
 import tornadofx.*
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * The logo, coordinate bar, progress bar and history list. Things the user interacts with on the main screen.
@@ -34,6 +42,7 @@ class AppLaunchUI : View() {
     private val isHistoryVisible = SimpleBooleanProperty(true)
     private val logo = find<LogoView>()
     private lateinit var recentAppsPicker: VBox
+    private lateinit var tracker: StackPane
 
     override val root = scrollpane {
         addClass(Styles.appsPicker)
@@ -54,7 +63,7 @@ class AppLaunchUI : View() {
 
                 pane { minHeight = 25.0 }
 
-                downloadTracker()
+                tracker = downloadTracker()
 
                 pane { minHeight = 25.0 }
 
@@ -64,11 +73,36 @@ class AppLaunchUI : View() {
                     populateRecentAppsPicker()
                 }
 
-                // Just wide enough for 80 chars in the output area at currently chosen font size.
                 maxWidth = 1024.0
                 maxHeight = Double.POSITIVE_INFINITY
                 spacing = 5.0
                 alignment = Pos.TOP_CENTER
+            }
+        }
+    }
+
+    private fun fadeAnim(tiles: List<HBox>, tracker: StackPane, nowWorking: Boolean) {
+        fun tiles(): Timeline {
+            lateinit var timeline: Timeline
+            for ((index, tile) in tiles.withIndex()) {
+                tile.opacityProperty().animate(if (nowWorking) 0.0 else 1.0, 0.1.seconds) {
+                    delay = (index * 0.02).seconds
+                    timeline = this
+                }
+            }
+            return timeline
+        }
+        if (nowWorking) {
+            tiles().setOnFinished {
+                tracker.isManaged = true
+                tracker.opacityProperty().animate(1.0, 0.2.seconds)
+            }
+        } else {
+            tracker.opacityProperty().animate(0.0, 0.2.seconds) {
+                setOnFinished {
+                    tracker.isManaged = false
+                    tiles()
+                }
             }
         }
     }
@@ -90,47 +124,89 @@ class AppLaunchUI : View() {
         }
     }
 
-    private fun VBox.downloadTracker() {
-        stackpane {
-            addClass(Styles.messageBox)
-            progressbar {
-                fitToParentSize()
-                progressProperty().bind(downloadProgress)
+    private fun VBox.downloadTracker(): StackPane {
+        return stackpane {
+            fitToParentWidth()
+            maxHeight = 100.0
+            opacity = 0.0
+
+            rectangle {
+                styleClass += "stripey"
                 style {
-                    opacity = 0.85
+                    opacity = 0.3
                 }
+                widthProperty().bind(this@stackpane.widthProperty())
+                heightProperty().bind(this@stackpane.heightProperty())
             }
+
+            rectangle {
+                styleClass += "stripey"
+                widthProperty().bind(this@stackpane.widthProperty().multiply(downloadProgress))
+                heightProperty().bind(this@stackpane.heightProperty())
+            }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
+
+            // Labels
             vbox {
                 padding = insets(15.0)
                 alignment = Pos.CENTER
                 label {
                     messageText1 = textProperty()
                     textAlignment = TextAlignment.CENTER
+                    effect = DropShadow()
+                    style {
+                        fontSize = 20.pt
+                        textFill = Color.WHITE
+                    }
                 }
                 label {
                     messageText2 = textProperty()
                     textAlignment = TextAlignment.CENTER
                     style {
                         fontSize = 15.pt
+                        textFill = Color.WHITE
                     }
+                    effect = DropShadow()
                 }
             }
-            button("◼") {
-                setOnAction {
+
+            // Stop button.
+            stackpane {
+                circle {
+                    fill = Color.WHITE
+                    radius = 25.0
+                    effect = DropShadow(BlurType.THREE_PASS_BOX, Color.BLACK, 4.5, 0.0, 1.0, 1.0)
+                }
+
+                rectangle {
+                    fill = Color.BLACK
+                    width = 20.0
+                    height = 20.0
+                    arcWidth = 5.0
+                    arcHeight = 5.0
+                }
+
+                setOnMouseClicked {
                     cancelIfDownloading()
                 }
-                style {
-                    fontSize = 20.pt
-                }
-                padding = insets(15.0)
+
+                minWidth = Region.USE_PREF_SIZE
+                minHeight = Region.USE_PREF_SIZE
+                maxWidth = Region.USE_PREF_SIZE
+                maxHeight = Region.USE_PREF_SIZE
                 translateX = 15.0
-                visibleWhen(isWorking)
+                cursor = Cursor.HAND
+                alignment = Pos.CENTER
             }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
 
-            // If we're not downloading, hide this chunk of UI and take it out of layout.
-            val needed = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
-            visibleWhen(needed)
-            managedProperty().bind(needed)
+            isManaged = false
+            isCache = true
+
+            clip = Rectangle().apply {
+                widthProperty().bind(this@stackpane.widthProperty())
+                heightProperty().bind(this@stackpane.heightProperty())
+                arcWidth = 10.0
+                arcHeight = 10.0
+            }
         }
     }
 
@@ -142,28 +218,26 @@ class AppLaunchUI : View() {
         }
     }
 
+    private var lastListener: InvalidationListener? = null
+
     private fun VBox.populateRecentAppsPicker() {
         children.clear()
         alignment = Pos.TOP_CENTER
-
-        for (entry: HistoryEntry in historyManager.history) {
-            createAppTile(entry)
-        }
+        val tiles = historyManager.history.map { createAppTile(it) }
+        // Set up the animation as downloads start and stop.
+        lastListener?.let { isWorking.removeListener(it) }
+        lastListener = InvalidationListener { fadeAnim(tiles, tracker, isWorking.get()) }
+        isWorking.addListener(lastListener)
     }
 
-    private fun VBox.createAppTile(entry: HistoryEntry) {
-        hbox {
+    private fun VBox.createAppTile(entry: HistoryEntry): HBox {
+        return hbox {
             val observableEntry = SimpleObjectProperty(entry)
 
             // Give it a white card look, make it only appear when it should be here.
             addClass(Styles.historyEntry)
             visibleWhen(isHistoryVisible)
             managedProperty().bind(isHistoryVisible)
-
-            isWorking.addListener { _, _, newValue ->
-                val delay = 0.5.seconds
-                opacityProperty().animate(if (newValue) 0.2 else 1.0, delay)
-            }
 
             // Name, description
             vbox {
@@ -186,7 +260,7 @@ class AppLaunchUI : View() {
 
                 item("Refresh") {
                     setOnAction {
-                        isWorking.set(true)
+                        startWorking("Refreshing ...")
                         task {
                             info { "User requested refresh of $entry" }
                             val curEntry = observableEntry.get()
@@ -228,6 +302,8 @@ class AppLaunchUI : View() {
                     it.button == MouseButton.SECONDARY && it.isSecondaryButtonDown -> menu.show(this@hbox, it.screenX, it.screenY)
                 }
             }
+
+            isCache = true
         }
     }
 
@@ -239,6 +315,7 @@ class AppLaunchUI : View() {
         coordinateBar.selectAll()
         coordinateBar.requestFocus()
         isHistoryVisible.set(true)
+        tracker.opacity = 0.0
         recentAppsPicker.populateRecentAppsPicker()
     }
 
@@ -247,10 +324,6 @@ class AppLaunchUI : View() {
 
         val text = coordinateBar.text
         if (text.isBlank()) return
-
-        // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
-        // app can take a bit of time.
-        isWorking.set(true)
 
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
@@ -275,7 +348,25 @@ class AppLaunchUI : View() {
         Thread(launcher).also { it.isDaemon = true }.start()
     }
 
+    private fun startWorking(message: String) {
+        // We animate even if there's no downloading to do because for complex apps, simply resolving dependency graphs and starting the
+        // app can take a bit of time.
+        isWorking.set(true)
+        messageText1.set(message)
+        root.vvalueProperty().animate(0.0, 0.5.seconds)
+    }
+
     private val appLaunchEventHandler = object : AppLauncher.Events() {
+        private val eventLog = ArrayList<String>()
+        private var lastEventTime = System.currentTimeMillis()
+
+        private fun ev(str: String) {
+            val now = System.currentTimeMillis()
+            val elapsed = now - lastEventTime
+            eventLog += "$elapsed $str"
+            lastEventTime = now
+        }
+
         // Make sure we update the UI on the right thread, and ignore any events that come in after
         // cancellation by the user.
         private fun wrap(body: () -> Unit) {
@@ -285,7 +376,12 @@ class AppLaunchUI : View() {
             }
         }
 
+        override fun preparingToDownload() = wrap {
+            startWorking("Locating ...")
+        }
+
         override fun onStartedDownloading(name: String) = wrap {
+            ev("START $name")
             downloadProgress.set(0.0)
             if (name.contains("maven-metadata-")) {
                 messageText1.set("Checking for updates")
@@ -299,6 +395,7 @@ class AppLaunchUI : View() {
         private var progress = 0.0
 
         override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) = wrap {
+            ev("FETCH $name $totalBytesToDownload $totalDownloadedSoFar")
             if (name.contains("maven-metadata-")) {
                 messageText1.set("Checking for updates")
                 messageText2.set("")
@@ -309,11 +406,13 @@ class AppLaunchUI : View() {
             val pr = totalDownloadedSoFar.toDouble() / totalBytesToDownload.toDouble()
             // Need to make sure progress only jumps backwards if we genuinely have a big correction.
             if (pr - progress < 0 && Math.abs(pr - progress) < 0.2) return@wrap
-            progress = pr
+            progress = min(1.0, max(0.0, pr))
             downloadProgress.set(progress)
         }
 
         override fun onStoppedDownloading() = wrap {
+            ev("STOP")
+            //File("/tmp/eventlog").writeText(eventLog.joinToString(System.lineSeparator()))
             downloadProgress.set(1.0)
             messageText1.set("")
             messageText2.set("")
@@ -379,18 +478,24 @@ class AppLaunchUI : View() {
     @Suppress("unused")
     private fun mockDownload() {
         isWorking.set(true)
-        downloadProgress.set(0.0)
-        messageText1.set("Mock downloading ..")
-        thread {
-            Thread.sleep(5000)
-            fx {
-                downloadProgress.animate(1.0, 5000.millis) {
-                    setOnFinished {
-                        isWorking.set(false)
-                        messageText1.set("")
-                        messageText2.set("")
+        messageText1.set("Locating ...")
+        val fetchDelayMsec = 0
+        thread(isDaemon = true) {
+            File("/tmp/eventlog").useLines { seq ->
+                for (line in seq) {
+                    val parts = line.split(' ')
+                    val delayMsec = parts[0].toLong()
+                    val event = parts[1]
+                    Thread.sleep(delayMsec + if(event == "FETCH") fetchDelayMsec else 0)
+                    when (event) {
+                        "START" -> appLaunchEventHandler.onStartedDownloading(parts[2])
+                        "FETCH" -> appLaunchEventHandler.onFetch(parts[2], parts[3].toLong(), parts[4].toLong())
+                        "STOP" -> appLaunchEventHandler.onStoppedDownloading()
                     }
                 }
+            }
+            fx {
+                isWorking.set(false)
             }
         }
     }

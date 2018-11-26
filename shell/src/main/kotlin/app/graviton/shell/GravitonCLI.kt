@@ -96,7 +96,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     @CommandLine.Option(names = ["--repositories"], description = [
         "A comma separated list of Maven repository aliases or URLs, which will be resolved in order."
     ], showDefaultValue = CommandLine.Help.Visibility.ALWAYS)
-    var repositories: String = RepoSpec.aliases.keys.joinToString(",")
+    var repositories: String = (RepoSpec.aliases.keys + "dev-local").joinToString(",")
 
     override fun run() {
         // This is where Graviton startup really begins.
@@ -213,17 +213,20 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
                 havePrintedStartupMessage = true
             }
 
+            @Synchronized
             override fun onError(e: Exception) {
                 wipe()
                 pb?.close()
             }
 
+            @Synchronized
             override fun onStartedDownloading(name: String) {
                 wipe()
                 pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
                 pb!!.extraMessage = name
             }
 
+            @Synchronized
             override fun onFetch(name: String, totalBytesToDownload: Long, totalDownloadedSoFar: Long) {
                 val pb = pb!!
                 if (name.endsWith(".pom"))
@@ -239,6 +242,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             override fun onStoppedDownloading() {
             }
 
+            @Synchronized
             override fun aboutToStartApp(outOfProcess: Boolean) {
                 if (pb != null) {
                     pb!!.close()

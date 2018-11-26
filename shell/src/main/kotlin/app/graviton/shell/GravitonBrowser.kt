@@ -8,7 +8,6 @@ import javafx.scene.Scene
 import javafx.scene.effect.GaussianBlur
 import javafx.scene.image.Image
 import javafx.scene.image.ImageView
-import javafx.scene.image.WritableImage
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.paint.LinearGradient
@@ -77,20 +76,20 @@ class ShellView : View() {
         finished()
         return
 
-        var screenshot: WritableImage? = newScene.snapshot(null)
-        screenshotView.image = screenshot
-        screenshotView.opacity = 0.0
-        screenshotView.fitWidth = screenshotView.image.width
-        screenshotView.fitHeight = screenshotView.image.height
-        screenshotView.opacityProperty().animate(1.0, 0.5.seconds) {
-            setOnFinished {
-                // Get rid of all the pointers so the image can be collected.
-                screenshotView.image = null
-                screenshot = null
-                primaryStage.scene = newScene
-                finished()
-            }
-        }
+//        var screenshot: WritableImage? = newScene.snapshot(null)
+//        screenshotView.image = screenshot
+//        screenshotView.opacity = 0.0
+//        screenshotView.fitWidth = screenshotView.image.width
+//        screenshotView.fitHeight = screenshotView.image.height
+//        screenshotView.opacityProperty().animate(1.0, 0.5.seconds) {
+//            setOnFinished {
+//                // Get rid of all the pointers so the image can be collected.
+//                screenshotView.image = null
+//                screenshot = null
+//                primaryStage.scene = newScene
+//                finished()
+//            }
+//        }
     }
 
     private val allArt = listOf(
