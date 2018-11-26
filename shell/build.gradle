@@ -30,6 +30,7 @@ if (isPostJ8) {
 dependencies {
     // Kotlin - standard library for the Kotlin language
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-reflect:$kotlin_version"
 
     // Maven Resolver - a library for working with Maven repositories.
     if (true) {
@@ -126,11 +127,5 @@ jar {
         attributes(
                 'Implementation-Version': "${project.parent.version}"
         )
-    }
-}
-
-kotlin {
-    experimental {
-        coroutines "enable"
     }
 }

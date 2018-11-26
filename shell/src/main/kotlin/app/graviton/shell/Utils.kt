@@ -13,7 +13,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.util.jar.JarEntry
 import java.util.jar.JarInputStream
-import kotlin.coroutines.experimental.buildIterator
 
 // TODO: Start a utilities project for these sorts of things.
 
@@ -152,7 +151,7 @@ fun reversedCoordinates(coordinates: String): String {
  * underlying entry bytes.
  */
 val JarInputStream.entriesIterator: Iterator<JarEntry>
-    get() = buildIterator {
+    get() = iterator {
         var cursor: JarEntry? = nextJarEntry
         while (cursor != null) {
             if (cursor.realName.contains("..") || cursor.realName.startsWith('/'))

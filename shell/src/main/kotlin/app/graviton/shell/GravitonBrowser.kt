@@ -14,7 +14,6 @@ import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Paint
 import javafx.stage.Stage
 import tornadofx.*
-import kotlin.coroutines.experimental.buildIterator
 
 // TODO: Organise all attribution links for artwork in the about box, once there is one.
 // icons8.com
@@ -56,7 +55,7 @@ class ShellView : View() {
 
     // The idea of this is to let the shell have multiple 'screens' that nicely transition between them, and
     // maybe Graviton apps can also be a screen. However the support isn't finished yet.
-    private val screens = buildIterator {
+    private val screens = iterator {
         // yield(loginUI)
         yield(appLaunchUI)
     }
