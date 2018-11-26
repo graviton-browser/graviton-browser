@@ -30,7 +30,7 @@ class HistoryManagerTest {
         assertEquals(example1.resolvedArtifact, manager.search("com.github.spotbugs")?.resolvedArtifact)
         // Overflow the history list.
         repeat(manager.maxHistorySize + 1) {
-            manager.recordHistoryEntry(example2.copy(resolvedArtifact = "${example2.resolvedArtifact}:$it"))
+            manager.recordHistoryEntry(example2.copy(coordinateFragment = "${example2.coordinateFragment}-$it"))
         }
         assertEquals(manager.maxHistorySize, manager.history.size)
         // Now example 1 can't be found anymore, it's gone.

@@ -127,7 +127,7 @@ class HistoryManager(storagePath: Path,
 
     private fun writeHistory() {
         // Do the writing on a background thread to get out of the way of startup.
-        val snapshot = history
+        val snapshot = history.toList()
         if (blocking) {
             writeToFile(snapshot)
         } else {
