@@ -1,14 +1,21 @@
 package app.graviton.shell
 
+import app.graviton.codefetch.CodeFetcher
+import com.github.markusbernhardt.proxy.ProxySearch
 import javafx.application.Application
 import me.tongfei.progressbar.ProgressBar
 import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import picocli.CommandLine
+import java.io.IOException
 import java.lang.invoke.MethodHandles
+import java.net.Proxy
+import java.net.ProxySelector
+import java.net.SocketAddress
 import java.net.URI
 import kotlin.math.max
 import kotlin.system.exitProcess
+
 
 val gravitonShellVersionNum: String get() = MethodHandles.lookup().lookupClass().`package`.implementationVersion.let { if (it.isNullOrBlank()) "DEV" else it }
 
@@ -76,10 +83,21 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     @CommandLine.Option(names = ["--cache-path"], description = ["If specified, overrides the default cache directory."])
     var cachePath: String = currentOperatingSystem.appCacheDirectory.toString()
 
+    @CommandLine.Option(names = ["--proxy"], description = [
+        "If set, the protocol://host:port pair identifying a proxy server, where protocol is either http or https.",
+        "If unset or 'auto', OS settings are used. If 'none', no proxy is used regardless of auto detection."
+    ])
+    var proxy: String = "auto"
+
+    @CommandLine.Option(names = ["--disable-ssl"], description = ["Disables the use of encrypted connections. This is done automatically when a proxy is in use."])
+    var disableSSL: Boolean = false
+
     override fun run() {
         // This is where Graviton startup really begins.
-        val packageName = packageName
         setupLogging(verboseLogging)
+        setupProxies()
+
+        val packageName = packageName
 
         if (uninstall) {
             lastRun()
@@ -93,14 +111,60 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             mainLog.info("$ls${ls}Starting Graviton $gravitonVersion$ls$ls")
             mainLog.info("Path is $gravitonPath")
         }
+
         if (backgroundUpdate) {
             mainLog.info("BACKGROUND UPDATE")
             BackgroundUpdates().doBackgroundUpdate(cachePath.toPath(), gravitonVersion, gravitonPath?.toPath(), URI.create(updateURL))
+            return
+        }
+
+        if (packageName != null) {
+            handleCommandLineInvocation(packageName[0])
         } else {
-            if (packageName != null) {
-                handleCommandLineInvocation(packageName[0])
-            } else {
-                Application.launch(GravitonBrowser::class.java, *arguments)
+            Application.launch(GravitonBrowser::class.java, *arguments)
+        }
+    }
+
+    private fun setupProxies() {
+        when (proxy) {
+            "auto" -> {
+                // If someone is using the default proxy selector somehow, we still want it to use native proxy
+                // settings on Windows and Gnome 2.x
+                System.setProperty("java.net.useSystemProxies", "true")
+                stopwatch("Proxy search") {
+                    // But we replace the Java proxy selector with a better one, Proxy Vole, which knows how to handle
+                    // PAC files and other advanced features.
+                    val proxySearch = ProxySearch.getDefaultProxySearch()
+                    val proxySelector = proxySearch.proxySelector
+                    // If we seem to want to use a proxy then we need to disable SSL, otherwise HttpClient will try to
+                    // open a CONNECT tunnel through and the proxy would be unable to examine/intercept the request.
+                    if (!proxySelector.select(URI.create("https://repo1.maven.org")).isEmpty())
+                        disableSSL = true
+                    ProxySelector.setDefault(proxySelector)
+                }
+            }
+            "none" -> ProxySelector.setDefault(object : ProxySelector() {
+                private val result = listOf(Proxy.NO_PROXY)
+                override fun select(uri: URI) = result
+                override fun connectFailed(uri: URI?, sa: SocketAddress?, ioe: IOException?) = Unit
+            })
+            else -> {
+                if (proxy.startsWith("http://") || proxy.startsWith("https://")) {
+                    try {
+                        val uri = URI.create(proxy)
+                        System.setProperty("http.proxyHost", uri.host)
+                        System.setProperty("https.proxyHost", uri.host)
+                        System.setProperty("http.proxyPort", (if (uri.port == -1) 80 else uri.port).toString())
+                        System.setProperty("https.proxyPort", (if (uri.port == -1) 80 else uri.port).toString())
+                        // If we seem to want to use a proxy then we need to disable SSL, otherwise HttpClient will try to
+                        // open a CONNECT tunnel through and the proxy would be unable to examine/intercept the request.
+                        disableSSL = true
+                    } catch (e: Exception) {
+                        logger.warn("Couldn't parse proxy specification '$proxy': ${e.message}")
+                    }
+                } else {
+                    logger.warn("Unknown proxy protocol '$proxy' - must be of the form 'http://host:port'")
+                }
             }
         }
     }

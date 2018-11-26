@@ -1,10 +1,13 @@
-package app.graviton.shell
+package app.graviton.codefetch
 
+import app.graviton.shell.*
+import org.apache.http.client.HttpResponseException
 import org.apache.maven.model.Model
 import org.apache.maven.repository.internal.ArtifactDescriptorReaderDelegate
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils
 import org.conscrypt.Conscrypt
 import org.eclipse.aether.DefaultRepositorySystemSession
+import org.eclipse.aether.RepositoryException
 import org.eclipse.aether.RepositorySystem
 import org.eclipse.aether.RepositorySystemSession
 import org.eclipse.aether.artifact.Artifact
@@ -30,18 +33,21 @@ import org.eclipse.aether.transport.file.FileTransporterFactory
 import org.eclipse.aether.transport.http.HttpTransporterFactory
 import org.eclipse.aether.util.graph.transformer.*
 import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator
+import org.eclipse.aether.util.repository.JreProxySelector
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.Security
-import java.util.*
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
+
+class StartException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
 /**
- * A wrapper around the Aether library that configures it to download artifacts from Maven Central, reports progress
- * and returns calculated classpaths.
+ * A wrapper around the Aether library that configures it to download artifacts from various different Maven
+ * repositories, reports progress and returns calculated classpaths.
  */
-class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.Events?) {
+class CodeFetcher(private val cachePath: Path, private val events: Events?, private val disableSSL: Boolean = true) {
     companion object : Logging() {
         fun isPossiblyJitPacked(packageName: String) =
                 packageName.startsWith("com.github.") ||
@@ -70,6 +76,10 @@ class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.E
         val session: DefaultRepositorySystemSession = MavenRepositorySystemUtils.newSession()
         session.isOffline = offline
         session.transferListener = TransferListener()
+
+        // Configure Aether to use the Java proxy selector API by default, which it doesn't do out of the box.
+        // We set up the Proxy Vole library which can read browser settings and use PAC files in the startup code.
+        session.proxySelector = JreProxySelector()
 
         // The separate checksum files are of questionable use in an SSL world and slow down the transfer quite
         // a bit, so we toss them here.
@@ -205,6 +215,62 @@ class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.E
         val description: String? get() = artifact.properties["model.description"]
     }
 
+    fun download(userInput: String): CodeFetcher.Result {
+        fun download1(reverseInput: Boolean): CodeFetcher.Result {
+            val coordinates: String = calculateCoordinates(userInput, reverseInput)
+            info { "Attempt fetch for $coordinates" }
+            return downloadAndBuildClasspath(coordinates)
+        }
+        return try {
+            download1(false)
+        } catch (e: RepositoryException) {
+            info { "User input '$userInput' not found, reversing the coordinates and trying again" }
+            try {
+                download1(true)
+            } catch (_: RepositoryException) {
+                // We deliberately ignore the second exception here, instead we report the first as we
+                // don't want to expose reversed names to the end user in error messages (the Maven
+                // coordinate in its unmolested form is still canonical and seeing unexpectedly reversed
+                // coordinates might be confusing).
+                val rootCause = e.rootCause
+                if (rootCause is MetadataNotFoundException) {
+                    throw StartException("Sorry, no package with those coordinates is known.", e)
+                } else if (rootCause is HttpResponseException && rootCause.statusCode == 401 && CodeFetcher.isPossiblyJitPacked(userInput)) {
+                    // JitPack can return 401 Unauthorized when no repository is found e.g. typo, because it
+                    // might be a private repository that requires authentication.
+                    throw StartException("Sorry, no repository was found with those coordinates.", e)
+                } else {
+                    // Put all the errors together into some sort of coherent story.
+                    val m = StringBuilder()
+                    var cursor: Throwable = e.cause!!
+                    var lastMessage = ""
+                    while (true) {
+                        if (cursor.message != lastMessage) {
+                            lastMessage = cursor.message ?: ""
+                            m.appendln(lastMessage)
+                        }
+                        cursor = cursor.cause ?: break
+                    }
+                    throw StartException(m.toString(), e)
+                }
+            }
+        }
+    }
+
+    private fun calculateCoordinates(userInput: String, reverseInput: Boolean): String {
+        var packageName: String = if (reverseInput) reversedCoordinates(userInput) else userInput
+
+        // If there's no : anywhere in it, it's just a reverse domain name, then assume the artifact ID is the
+        // same as the last component of the group ID.
+        val components = packageName.split(':').toMutableList()
+        if (components.size == 1) {
+            components += components[0].split('.').last()
+        }
+        packageName = components.joinToString(":")
+
+        return packageName
+    }
+
     /**
      * Returns a classpath for the given resolved and dependency-downloaded package. If only two parts of the coordinate
      * are specified, the latest version is assumed.
@@ -239,7 +305,6 @@ class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.E
         val dependency = Dependency(artifact, "runtime")
         val collectRequest = CollectRequest()
         collectRequest.root = dependency
-        defaultRepositories.forEach { collectRequest.addRepository(it) }
         lateinit var node: DependencyNode
         stopwatch("Dependency resolution") {
             node = repoSystem.collectDependencies(session, collectRequest).root
@@ -269,15 +334,16 @@ class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.E
         return components.joinToString(":")
     }
 
-    private val defaultRepositories: ArrayList<RemoteRepository> by lazy {
+    private val defaultRepositories: List<RemoteRepository> by lazy {
         val repos = arrayListOf<RemoteRepository>()
         fun repo(id: String, url: String) {
             repos += RemoteRepository.Builder(id, "default", url).build()
         }
 
-        repo("central", "https://repo1.maven.org/maven2/")
-        repo("jcenter", "https://jcenter.bintray.com/")
-        repo("jitpack", "https://jitpack.io")
+        val protocol = if (disableSSL) "http" else "https"
+        repo("central", "$protocol://repo1.maven.org/maven2/")
+        repo("jcenter", "$protocol://jcenter.bintray.com/")
+        repo("jitpack", "$protocol://jitpack.io")
         // repo("mike", "$protocol://plan99.net/~mike/maven/")
 
         // Add a local repository that users can deploy to if they want to rapidly iterate on an installation.
@@ -310,6 +376,7 @@ class CodeFetcher(private val cachePath: Path, private val events: CodeFetcher.E
                 .setPolicy(RepositoryPolicy(true, RepositoryPolicy.UPDATE_POLICY_ALWAYS, RepositoryPolicy.CHECKSUM_POLICY_IGNORE))
                 .build()
 
-        repos
+        // We have to pass the repos through this step to ensure proxy and authentication settings apply.
+        repoSystem.newResolutionRepositories(session, repos)
     }
 }

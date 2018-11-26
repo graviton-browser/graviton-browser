@@ -1,8 +1,9 @@
 package app.graviton.shell
 
+import app.graviton.codefetch.StartException
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
 import javafx.application.Application
-import tornadofx.App
+import tornadofx.*
 import java.io.File
 import java.net.URL
 import java.net.URLClassLoader
@@ -35,14 +36,14 @@ class GravitonClassLoader private constructor(
                 val manifest = JarFile(files[0]).use { it.manifest }
                 return GravitonClassLoader(urls, manifest, classPath)
             } catch (e: Exception) {
-                throw AppLauncher.StartException("Failed to build classloader given class path: $classPath", e)
+                throw StartException("Failed to build classloader given class path: $classPath", e)
             }
         }
     }
 
     // Don't initialise the main class, until we're in the right classloading context.
     val startClass: Class<*> by lazy {
-        specifiedMainClass() ?: foundMainClass() ?: throw AppLauncher.StartException("Could not locate any way to start the app.")
+        specifiedMainClass() ?: foundMainClass() ?: throw StartException("Could not locate any way to start the app.")
     }
 
     private fun specifiedMainClass() =

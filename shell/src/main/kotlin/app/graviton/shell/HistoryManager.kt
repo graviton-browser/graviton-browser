@@ -1,5 +1,6 @@
 package app.graviton.shell
 
+import app.graviton.codefetch.CodeFetcher
 import com.esotericsoftware.yamlbeans.YamlConfig
 import com.esotericsoftware.yamlbeans.YamlReader
 import com.esotericsoftware.yamlbeans.YamlWriter

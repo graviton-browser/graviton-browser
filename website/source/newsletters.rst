@@ -1,6 +1,17 @@
 Newsletters
 ***********
 
+17th November 2018
+==================
+
+The big new feature this week is the Graviton API, which allows an app to establish communication with the browser
+despite running in an isolated classloader. It has documentation and is extensible to support many future APIs.
+Currently it allows apps to opt back in to running in the main browser window.
+
+I've also integrated the Proxy Vole library which enables automatic usage of proxy settings from the user's operating
+system settings (cross platform), browser settings (Firefox/IE), and can execute the JavaScript in proxy auto-config
+files. This should work for both GUI and command line apps.
+
 4th November 2018
 =================
 

@@ -65,6 +65,7 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
      */
     fun checkForGravitonUpdate(currentVersion: Int, currentInstallDir: Path, baseURL: URI,
                                signingPublicKey: PublicKey = mikePubKey): Result {
+        // OkHttp uses the JRE proxy selector API automatically.
         val client = OkHttpClient.Builder()
                 .followRedirects(true)
                 .followSslRedirects(true)
@@ -201,7 +202,7 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
 
     private fun refreshRecentApps(cachePath: Path) {
         try {
-            val historyManager = HistoryManager(currentOperatingSystem.appCacheDirectory, refreshInterval = Duration.ofHours(12))
+            val historyManager = HistoryManager(cachePath, refreshInterval = Duration.ofHours(12))
             val appLauncher = AppLauncher(GravitonCLI.parse(""), null, historyManager)
             historyManager.refreshRecentlyUsedApps(appLauncher)
         } catch (e: Exception) {

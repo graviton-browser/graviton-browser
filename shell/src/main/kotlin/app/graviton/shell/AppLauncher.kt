@@ -3,15 +3,14 @@ package app.graviton.shell
 import app.graviton.ModuleHacks
 import app.graviton.api.v1.Graviton
 import app.graviton.api.v1.GravitonRunInShell
+import app.graviton.codefetch.CodeFetcher
+import app.graviton.codefetch.StartException
 import app.graviton.shell.GravitonClassLoader.Companion.build
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
 import javafx.stage.Stage
-import org.apache.http.client.HttpResponseException
-import org.eclipse.aether.RepositoryException
-import org.eclipse.aether.transfer.MetadataNotFoundException
-import tornadofx.find
+import tornadofx.*
 import java.io.File
 import java.io.FileNotFoundException
 import java.lang.reflect.InvocationTargetException
@@ -63,10 +62,6 @@ class AppLauncher(private val options: GravitonCLI,
         GRAVITON_APP
     }
 
-    class StartException(message: String, cause: Throwable?) : Exception(message, cause) {
-        constructor(message: String) : this(message, null)
-    }
-
     open class Events : CodeFetcher.Events() {
         open fun preparingToDownload() {}
         open fun initializingApp() {}
@@ -75,7 +70,7 @@ class AppLauncher(private val options: GravitonCLI,
         open fun onError(e: Exception) {}
     }
 
-    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events)
+    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events, options.disableSSL)
 
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
@@ -122,7 +117,7 @@ class AppLauncher(private val options: GravitonCLI,
             //
             // ... so attempt to (re)download from our repositories.
             events?.preparingToDownload()
-            download(userInput, codeFetcher)
+            codeFetcher.download(userInput)
         }
 
         info { "App name: ${fetch.name}" }
@@ -139,7 +134,7 @@ class AppLauncher(private val options: GravitonCLI,
         } catch (e: FileNotFoundException) {
             // We thought we had a fetch result but it's not on disk anymore? Probably the user wiped the cache, which deletes
             // downloaded artifacts but leaves the recent apps list alone. Let's re-resolve and try again.
-            build(download(userInput, codeFetcher).classPath)
+            build(codeFetcher.download(userInput).classPath)
         }
 
         events?.initializingApp()
@@ -296,62 +291,6 @@ class AppLauncher(private val options: GravitonCLI,
             info { "Sub-process finished" }
             events?.appFinished()
         }
-    }
-
-    private fun download(userInput: String, codeFetcher: CodeFetcher): CodeFetcher.Result {
-        fun download1(reverseInput: Boolean): CodeFetcher.Result {
-            val coordinates: String = calculateCoordinates(userInput, reverseInput)
-            info { "Attempt fetch for $coordinates" }
-            return codeFetcher.downloadAndBuildClasspath(coordinates)
-        }
-        return try {
-            download1(false)
-        } catch (e: RepositoryException) {
-            info { "User input '$userInput' not found, reversing the coordinates and trying again" }
-            try {
-                download1(true)
-            } catch (_: RepositoryException) {
-                // We deliberately ignore the second exception here, instead we report the first as we
-                // don't want to expose reversed names to the end user in error messages (the Maven
-                // coordinate in its unmolested form is still canonical and seeing unexpectedly reversed
-                // coordinates might be confusing).
-                val rootCause = e.rootCause
-                if (rootCause is MetadataNotFoundException) {
-                    throw AppLauncher.StartException("Sorry, no package with those coordinates is known.", e)
-                } else if (rootCause is HttpResponseException && rootCause.statusCode == 401 && CodeFetcher.isPossiblyJitPacked(userInput)) {
-                    // JitPack can return 401 Unauthorized when no repository is found e.g. typo, because it
-                    // might be a private repository that requires authentication.
-                    throw AppLauncher.StartException("Sorry, no repository was found with those coordinates.", e)
-                } else {
-                    // Put all the errors together into some sort of coherent story.
-                    val m = StringBuilder()
-                    var cursor: Throwable = e.cause!!
-                    var lastMessage = ""
-                    while (true) {
-                        if (cursor.message != lastMessage) {
-                            lastMessage = cursor.message ?: ""
-                            m.appendln(lastMessage)
-                        }
-                        cursor = cursor.cause ?: break
-                    }
-                    throw AppLauncher.StartException(m.toString(), e)
-                }
-            }
-        }
-    }
-
-    private fun calculateCoordinates(userInput: String, reverseInput: Boolean): String {
-        var packageName: String = if (reverseInput) reversedCoordinates(userInput) else userInput
-
-        // If there's no : anywhere in it, it's just a reverse domain name, then assume the artifact ID is the
-        // same as the last component of the group ID.
-        val components = packageName.split(':').toMutableList()
-        if (components.size == 1) {
-            components += components[0].split('.').last()
-        }
-        packageName = components.joinToString(":")
-
-        return packageName
     }
 
     private fun Any.unbindAllProperties() {

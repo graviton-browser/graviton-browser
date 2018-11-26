@@ -70,6 +70,7 @@ class ShellView : View() {
 
     data class Art(val fileName: String, val topPadding: Int, val animationColor: Color, val topGradient: Paint)
 
+    @Suppress("UNREACHABLE_CODE")
     fun fadeInScene(newScene: Scene, finished: () -> Unit) {
         // TODO: Finish the animation.
         primaryStage.scene = newScene
