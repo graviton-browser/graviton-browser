@@ -124,12 +124,12 @@ class AppLaunchUI : View() {
                 }
                 padding = insets(15.0)
                 translateX = 15.0
-                visibleProperty().bind(isWorking)
+                visibleWhen(isWorking)
             }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
 
             // If we're not downloading, hide this chunk of UI and take it out of layout.
             val needed = messageText1.isNotEmpty.or(messageText2.isNotEmpty)
-            visibleProperty().bind(needed)
+            visibleWhen(needed)
             managedProperty().bind(needed)
         }
     }
