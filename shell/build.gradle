@@ -97,7 +97,7 @@ dependencies {
     compile "com.esotericsoftware.yamlbeans:yamlbeans:1.13"
 
     // Conscrypt - BoringSSL access from Java
-    compile 'org.conscrypt:conscrypt-openjdk:1.3.0:' + osdetector.classifier
+    compile 'org.conscrypt:conscrypt-openjdk:1.4.1:' + osdetector.classifier
 
     // OkHttp - good HTTP client library
     // TODO - Write a Maven Resolver backend that uses OkHttp so we can lose Apache HttpClient

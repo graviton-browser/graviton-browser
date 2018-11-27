@@ -6,18 +6,18 @@ This is the design site for a *prototype* app browser and cross-platform softwar
 Graviton gives you:
 
 * A browser-like shell that downloads and runs desktop apps that target the JVM.
+* Publish software simply using GitHub, GitLab or BitBucket releases! The repository is cloned on a remote server
+  in a sandbox, compiled, packaged, downloaded and this process repeats in the background on regular intervals to keep
+  your app up to date. Push new versions to your users by simply making a new GitHub release.
 * Silent upgrades via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
   Graviton itself are all upgraded regularly, whether or not the user is currently running an app.
 * Apps can be written in any language with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_
    * ... with support for sandboxed C, C++ and Rust coming in future via Sulong.
-* First class support for cross platform command line apps that also smoothly upgrade, even if the app is running
-  at the time (good for servers).
-   * Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform.
-   * Graviton automatically detects proxy settings from the OS or browsers, and can handle proxy auto-config files.
-* Apps can use advanced designed-for-apps GUI toolkits like JavaFX with visual designers, or embed WebKit and use HTML.
-* Run apps directly from GitHub, GitLab and BitBucket repositories. The repository is cloned on a remote server
-  in a sandbox, compiled, packaged, downloaded and this process repeats in the background on regular intervals to keep
-  your app up to date. Push new versions to your users simply by doing GitHub releases.
+* First class support for cross platform command line apps.
+   * They also smoothly upgrade, even if the app is running at the time (good for servers).
+   * Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
+* Detection of proxy settings from the OS or browsers, and can handle proxy auto-config files. Apps automatically benefit.
+* Use advanced designed-for-apps GUI toolkits like JavaFX with visual designers, or embed WebKit and use HTML.
 
 Learn more by reading the :doc:`introduction`.
 

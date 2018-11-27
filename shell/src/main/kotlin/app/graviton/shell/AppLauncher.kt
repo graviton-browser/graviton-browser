@@ -10,6 +10,7 @@ import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
 import javafx.stage.Stage
+import javafx.stage.WindowEvent
 import tornadofx.*
 import java.io.File
 import java.io.FileNotFoundException
@@ -154,7 +155,7 @@ class AppLauncher(private val options: GravitonCLI,
         try {
             val args = options.args.drop(1).toTypedArray()
             val isExecutingFromGUI = primaryStage != null
-            val strategy = selectLoadStrategy(loadResult.startClass, isExecutingFromGUI)
+            val strategy = selectLoadStrategy(loadResult, isExecutingFromGUI)
             info { "Load strategy is $strategy" }
             when (strategy) {
                 // From GUI
@@ -178,7 +179,6 @@ class AppLauncher(private val options: GravitonCLI,
 
             // Create the Application object and cast so Kotlin knows it implements the extra interface.
             val app: Application = appClass.getConstructor().newInstance()
-            app as GravitonRunInShell
             ModuleHacks.setParams(app, options.args.drop(1).toTypedArray())
 
             // Application.init is defined by the JavaFX spec as not being run on the main thread, and it's allowed
@@ -199,11 +199,13 @@ class AppLauncher(private val options: GravitonCLI,
                 // or the shell changes e.g. by adding new properties or binding new ones.
                 primaryStage.unbindAllProperties()
 
-                // Switch the scene.
                 val oldScene = primaryStage.scene
-                val newScene = app.createScene(Gateway())
+                // The app may not implement the Graviton API if it's opted in via manifest attributes. So we have to
+                // handle both codepaths.
+                val newScene = (app as? GravitonRunInShell)?.createScene(Gateway())
+                val implementsAPI = newScene != null
 
-                find<ShellView>().fadeInScene(newScene) {
+                fun proceed() {
                     // Pick a default title. The app may of course override it in Application.start()
                     primaryStage.title = fetch.artifact.toString()
                     Platform.setImplicitExit(false)
@@ -216,10 +218,13 @@ class AppLauncher(private val options: GravitonCLI,
                         Platform.setImplicitExit(true)
                     }
 
-                    primaryStage.setOnCloseRequest { event ->
-                        event.consume()   // Stop the main window closing.
-                        info { "Inlined application quitting, back to the shell" }
+                    primaryStage.addEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST) { event ->
+                        // Stop the main window closing.
+                        event.consume()
+                        // Let the app handle the event as if we had not intervened.
+                        primaryStage.onCloseRequest.handle(event)
                         primaryStage.onCloseRequest = null
+                        info { "Inlined application quitting, back to the shell" }
                         restore()
                         events?.appFinished()
                     }
@@ -228,8 +233,16 @@ class AppLauncher(private val options: GravitonCLI,
                         // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
                         primaryStage.minWidth = curWidth
                         primaryStage.minHeight = curHeight
-                        // The app is expected to notice it's been called inside Graviton and thus, that the stage
-                        // is visible. In that case start will do very little.
+
+                        if (!implementsAPI) {
+                            // Opted in via the manifest attribute, without code changes. So it will try to show the
+                            // stage, which throws if it's already being shown. This doesn't cause any flicker because
+                            // the change only occurs next time we reach the event loop.
+                            primaryStage.hide()
+                        } else {
+                            // The app is expected to notice it's been called inside Graviton and thus, that the stage
+                            // is visible. In that case start will do very little.
+                        }
                         app.start(primaryStage)
                         if (primaryStage.minWidth == curWidth)
                             primaryStage.minWidth = 0.0
@@ -240,13 +253,21 @@ class AppLauncher(private val options: GravitonCLI,
                         restore()
                     }
                 }
+
+                if (implementsAPI) {
+                    find<ShellView>().fadeInScene(newScene!!) {
+                        proceed()
+                    }
+                } else {
+                    proceed()
+                }
             }
         }
     }
 
-    private fun selectLoadStrategy(mainClass: Class<*>, executingFromGUI: Boolean): AppLauncher.LoadStrategy {
+    private fun selectLoadStrategy(cl: GravitonClassLoader, executingFromGUI: Boolean): AppLauncher.LoadStrategy {
         return if (executingFromGUI) {
-            if (GravitonRunInShell::class.java.isAssignableFrom(mainClass)) {
+            if (GravitonRunInShell::class.java.isAssignableFrom(cl.startClass) || "inline" in cl.requestedFeatures) {
                 AppLauncher.LoadStrategy.GRAVITON_APP
             } else {
                 // Start a new JVM to avoid all the GUI stuff we've loaded from interfering. In particular this
