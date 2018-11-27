@@ -16,6 +16,8 @@ import tornadofx.*
 import java.io.File
 import java.io.FileNotFoundException
 import java.lang.reflect.InvocationTargetException
+import java.net.URI
+import java.net.URISyntaxException
 import kotlin.concurrent.thread
 import kotlin.reflect.jvm.javaMethod
 
@@ -99,12 +101,14 @@ class AppLauncher(private val options: GravitonCLI,
      * Performs a download from the user's input, reversing coordinates and filling out missing parts if necessary.
      */
     fun lookupOrDownload(userInput: String, forceRefresh: Boolean): CodeFetcher.Result {
+        val coordinate = maybeConvertURLToCoordinate(userInput)
+
         val historyLookup: HistoryEntry? = if (!forceRefresh) {
             // The user has probably specified a coordinate fragment, missing the artifact name or version number.
             // If we never saw this input before, we'll just continue and clean it up later. If we resolved it
             // before to a specific artifact coordinate, we'll look it up again from our history file. That'll
             // let us skip the latest version check.
-            historyManager.search(userInput)
+            historyManager.search(coordinate)
         } else null
 
         val fetch: CodeFetcher.Result = if (historyLookup != null && entryStillOnDisk(historyLookup)) {
@@ -119,12 +123,31 @@ class AppLauncher(private val options: GravitonCLI,
             //
             // ... so attempt to (re)download from our repositories.
             events?.preparingToDownload()
-            codeFetcher.download(userInput)
+            codeFetcher.download(coordinate)
         }
 
         info { "App name: ${fetch.name}" }
         info { "App description: ${fetch.artifact.properties["model.description"]}" }
         return fetch
+    }
+
+    private fun maybeConvertURLToCoordinate(userInput: String): String {
+        if (!(userInput.startsWith("http://") || userInput.startsWith("https://") || userInput.startsWith("github.com/")))
+            return userInput
+
+        val full = if (userInput.startsWith("github.com/")) "https://$userInput" else userInput
+        try {
+            val uri = URI(full)
+            val pathComponents = uri.path.drop(1).split('/')
+            if (pathComponents.size != 2)
+                return userInput
+            val (username, reponame) = pathComponents
+            val result = "com.github.$username:$reponame"
+            info { "User input $userInput parsed as GitHub coordinate: $result" }
+            return result
+        } catch (e: URISyntaxException) {
+            return userInput
+        }
     }
 
     private fun entryStillOnDisk(historyLookup: HistoryEntry) =

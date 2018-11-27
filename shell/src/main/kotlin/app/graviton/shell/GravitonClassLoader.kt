@@ -1,7 +1,10 @@
 package app.graviton.shell
 
 import app.graviton.codefetch.StartException
-import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner
+import io.github.classgraph.ArrayTypeSignature
+import io.github.classgraph.ClassGraph
+import io.github.classgraph.ClassRefTypeSignature
+import io.github.classgraph.MethodInfo
 import javafx.application.Application
 import tornadofx.*
 import java.io.File
@@ -56,20 +59,42 @@ class GravitonClassLoader private constructor(
 
     private fun foundMainClass(): Class<*>? {
         return stopwatch("Searching for a main class") {
-            // TODO: Scan this classloader instead of the first JAR.
-            val scanner = FastClasspathScanner().overrideClasspath(urls[0])
-            val scanResult = scanner.scan()
-            // Search for a JavaFX main class.
-            // TODO: Scan for any class with a main method as well as just JFX.
-            var appClassName: String? = scanResult.getNamesOfSubclassesOf(App::class.java).firstOrNull()
+            var appClassName: String? = null
+            // Search for a JavaFX or TornadoFX main class in the first JAR.
+            ClassGraph().overrideClasspath(urls[0]).enableClassInfo().scan().use {
+                appClassName = it.getSubclasses(App::class.java.name).firstOrNull()?.name
+                if (appClassName == null)
+                    appClassName = it.getSubclasses(Application::class.java.name).firstOrNull()?.name
+            }
+
+            // Not found? Try re-scanning to find any class with a main method and pick the first.
             if (appClassName == null) {
-                appClassName = scanResult.getNamesOfSubclassesOf(Application::class.java).firstOrNull()
+                ClassGraph().overrideClasspath(urls[0]).enableMethodInfo().scan().use { scanResult ->
+                    appClassName = scanResult
+                            .allStandardClasses
+                            .flatMap {
+                                checkNotNull(it.getMethodInfo("main")) { it }
+                            }
+                            .firstOrNull { methodInfo ->
+                                // getMethodInfo only returns public methods by default
+                                methodInfo.isStatic && takesArrayOfStrings(methodInfo)
+                                // so this is a public static void main(String[] args) method
+                            }
+                            ?.classInfo
+                            ?.name
+                }
             }
             if (appClassName != null)
                 Class.forName(appClassName, false, this)
             else
                 null
         }
+    }
+
+    private fun takesArrayOfStrings(methodInfo: MethodInfo): Boolean {
+        return (methodInfo.parameterInfo.singleOrNull()?.typeDescriptor as? ArrayTypeSignature)?.let {
+            it.numDimensions == 1 && (it.elementTypeSignature as? ClassRefTypeSignature)?.baseClassName == "java.lang.String"
+        } ?: false
     }
 
     /**

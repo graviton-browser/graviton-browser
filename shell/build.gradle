@@ -90,8 +90,7 @@ dependencies {
     compile "net.java.dev.jna:jna-platform:$jna_version"
 
     // FastClasspathScanner - fast search engine over a set of JARs
-    // TODO: Port to ClassGraph
-    compile "io.github.lukehutch:fast-classpath-scanner:2.18.2"
+    compile "io.github.classgraph:classgraph:4.4.12"
 
     // YamlBeans - easy serialisation to and from the human-friendly Yaml text format.
     compile "com.esotericsoftware.yamlbeans:yamlbeans:1.13"
