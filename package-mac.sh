@@ -15,7 +15,6 @@ mkdir -p online-update-packages
 
 srcfiles=$( cd build/install/graviton/lib; echo * | sed 's/ /:/g' )
 
-# TODO: Signing
 # TODO: Configure to use the serial GC.
 
 javapackager -deploy \
