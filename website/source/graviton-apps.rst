@@ -2,9 +2,24 @@ Graviton apps
 *************
 
 Graviton can run any JVM app with a main method or subclass of ``javafx.application.Application``. However, apps can
-opt-in to new features that Graviton makes available to you.
+opt-in to new features that Graviton makes available to you if you agree to run inside its JVM.
 
-There are two ways to opt in to features: by adding an attribute to your app's MANIFEST.MF file, or by implementing
+You can reuse the Graviton window to avoid annoying flicker and disappearing/reappearing shell windows. This may also
+make startup faster because you will also be running in the Graviton JVM. This imposes some requirements on you, but
+they are not onerous. Here are some things to be aware of:
+
+1. The primary requirement is that you test your app thoroughly, and in particular, you test your app after starting it
+   from the same shell twice. At this time Graviton does not provide total isolation between app runs - if you reconfigure
+   the JVM by e.g. registering classes with various APIs, those registered classes may still be there when you restart.
+2. You should avoid making big changes to the primary stage, and accept it how you find it. You can change the title.
+3. Don't use System.exit or explicitly shut down JavaFX. That will quit the browser. You may use ``Window.setOnCloseRequest``
+   to register a callback for when the user closes the window or presses Alt-F4/Cmd-Q.
+4. You should use ``setOnCloseRequest`` to tidy up any threads that you started which may still be running. Otherwise
+   in the current version of Graviton they may hang around and continue executing after your app appears to have quit.
+
+.. note:: Future versions of Graviton will use varying levels of sandboxing to help your app clean up.
+
+There are two ways to opt in to Graviton features: by adding an attribute to your app's MANIFEST.MF file, or by implementing
 the Graviton API.
 
 Using the API
@@ -15,8 +30,9 @@ Using the API
    <a href="_static/api/index.html"><button class="button button2">Read the Graviton API documentation</button></a><br><br>
 
 To use the API add a dependency on the ``app.graviton:graviton-api`` library.
-This provides various types that can be used to opt-in to features and communicate with Graviton. Although this will
-become a runtime dependency, it's very small and adds no overhead when Graviton is not in use.
+This provides various types that can be used to opt-in to features and communicate with the browser. Although this will
+become a runtime dependency, it's very small (contains only interfaces and annotation) and adds no overhead when
+Graviton is not in use.
 
 Testing your app locally
 ------------------------
@@ -80,18 +96,6 @@ Or for Gradle::
    }
 
 This class should contain your static main method.
-
-Reusing the shell window
-------------------------
-
-You can reuse the Graviton window to avoid annoying flicker and disappearing/reappearing shell windows. This may also
-make startup faster because you will also be running in the Graviton JVM. This imposes some requirements on you, but
-they are not onerous.
-
-The primary requirement is that you test your app thoroughly, and in particular, you test your app after starting it
-from the same shell twice. At this time Graviton does not provide total isolation between app runs - if you reconfigure
-the JVM by e.g. registering classes with various APIs, those registered classes may still be there when you restart.
-You should also avoid making big changes to the window, and accept it how you findit.
 
 Reusing the shell window: Manifest
 -------------------------------------

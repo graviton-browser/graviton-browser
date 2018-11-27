@@ -174,7 +174,8 @@ class AppLauncher(private val options: GravitonCLI,
     private fun startGravitonApp(loadResult: GravitonClassLoader, fetch: CodeFetcher.Result) {
         val primaryStage = primaryStage!!
         val appClass = loadResult.startClass.asSubclass(Application::class.java)
-        thread(name = "App initialisation thread") {
+        // TODO: Create a ThreadGroup and then use SecurityManager to ensure that newly started threads are in that group.
+        thread(name = "App init thread: ${fetch.name}") {
             Thread.currentThread().contextClassLoader = appClass.classLoader
 
             // Create the Application object and cast so Kotlin knows it implements the extra interface.
