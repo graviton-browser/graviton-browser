@@ -19,7 +19,6 @@ srcfiles=$( cd build/install/graviton/lib; echo * | sed 's/ /:/g' )
 # TODO: Configure to use the serial GC.
 
 javapackager -deploy \
-             -nosign \
              -native dmg \
              -outdir build/packaged \
              -outfile "Graviton" \
