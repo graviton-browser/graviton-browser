@@ -31,6 +31,14 @@ will be implemented to move beyond the rudimentary Maven repository protocol and
 **JediTerm for Windows users.** The Windows shell is notoriously not very good. Allow CLI apps to be run from the
 Graviton GUI for Windows users, using JetBrains JediTerm.
 
+**View source.** When an artifact has an attached source JAR, allow the user to 'view source' on the app with a simple
+embedded source code viewer for whatever screen the user happens to be on.
+
+**History/navigation.** If an app wants it, expose a form of browser-style page oriented navigation with Graviton
+controlled back button, history list and ability to wrap up current app state in a bookmark/textual form, similar to
+URLs. This would be entirely opt in but may be useful for apps that want to allow users to rapidly share locations and
+context via a URL-like copy/pasteable string.
+
 App discovery
 -------------
 
