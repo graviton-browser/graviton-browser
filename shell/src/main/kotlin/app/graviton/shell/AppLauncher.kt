@@ -9,6 +9,7 @@ import app.graviton.shell.GravitonClassLoader.Companion.build
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
+import javafx.event.EventHandler
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
 import tornadofx.*
@@ -219,16 +220,27 @@ class AppLauncher(private val options: GravitonCLI,
                         Platform.setImplicitExit(true)
                     }
 
-                    primaryStage.addEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST) { event ->
-                        // Stop the main window closing.
-                        event.consume()
-                        // Let the app handle the event as if we had not intervened.
-                        primaryStage.onCloseRequest.handle(event)
-                        primaryStage.onCloseRequest = null
-                        info { "Inlined application quitting, back to the shell" }
-                        restore()
-                        events?.appFinished()
+                    val oldOnCloseRequest = primaryStage.onCloseRequest
+                    val closeFilter = object : EventHandler<WindowEvent> {
+                        /**
+                         * Invoked when a specific event of the type for which this handler is
+                         * registered happens.
+                         *
+                         * @param event the event which occurred
+                         */
+                        override fun handle(event: WindowEvent) {
+                            // Stop the main window closing.
+                            event.consume()
+                            // Let the app handle the event as if we had not intervened.
+                            primaryStage.onCloseRequest?.handle(event)
+                            primaryStage.onCloseRequest = oldOnCloseRequest
+                            primaryStage.removeEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, this)
+                            info { "Inlined application quitting, back to the shell" }
+                            restore()
+                            events?.appFinished()
+                        }
                     }
+                    primaryStage.addEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, closeFilter)
 
                     try {
                         // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
@@ -250,7 +262,9 @@ class AppLauncher(private val options: GravitonCLI,
                         if (primaryStage.minHeight == curHeight)
                             primaryStage.minHeight = 0.0
                         info { "JavaFX application has been invoked inline" }
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
+                        logger.warn("Exception caught from Application.start()", e)
+                        // TODO: Surface the crash in the GUI.
                         restore()
                     }
                 }

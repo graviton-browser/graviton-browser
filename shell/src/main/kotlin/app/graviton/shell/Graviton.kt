@@ -9,7 +9,7 @@ import javafx.scene.image.Image
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
-import tornadofx.Component
+import tornadofx.*
 import java.io.PrintWriter
 import java.nio.file.Files
 import java.nio.file.Path
@@ -22,7 +22,7 @@ import kotlin.concurrent.thread
 //
 
 //region Global variables
-/** The installed path of the browser, when packaged as a native installer. */
+/** The installed path of the versioned startup binary (not the bootstrapped), when packaged as a native installer. */
 val gravitonPath: String? = System.getenv("GRAVITON_PATH")
 
 /** The current version, as discovered by the bootstrapper. */
@@ -157,7 +157,7 @@ private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
         return
     }
     val executePath = when (currentOperatingSystem) {
-        OperatingSystem.MAC -> myPath / "MacOS" / "Graviton Browser"
+        OperatingSystem.MAC -> myPath / "MacOS" / "Graviton"
         OperatingSystem.WIN -> myPath / "GravitonBrowser.exe"
         OperatingSystem.LINUX -> myPath / "GravitonBrowser"
         OperatingSystem.UNKNOWN -> return

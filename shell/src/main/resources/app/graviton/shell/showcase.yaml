@@ -1,0 +1,28 @@
+name: Everest
+description: A beautiful REST workbench.
+last refresh time: 2018-11-27T18:04:04.648Z
+resolved artifact: com.rohitawate:everest:jar:Alpha-1.3
+coordinate: com.rohitawate:everest
+classpath: no-such-file
+---
+name: Tic Tac Toe
+description: A reimplementation of the React.JS tutorial app, so complexity and lines of code can be directly
+  compared.
+last refresh time: 2018-11-27T17:54:13.333Z
+resolved artifact: net.plan99:tictactoe:jar:1.0.8
+coordinate: plan99.net:tictactoe
+classpath: no-such-file
+---
+name: CalendarFX
+description: Sample app for the CalendarFX widget
+last refresh time: 2018-11-27T18:13:42.891Z
+resolved artifact: com.github.dlemmermann.calendarfx:application:jar:v8.5.0
+coordinate: com.github.dlemmermann.calendarfx:application:v8.5.0
+classpath: no-such-file
+---
+name: SpotBugs
+description: 'SpotBugs: Because it''s easy!'
+last refresh time: 2018-11-27T18:11:53.091Z
+resolved artifact: com.github.spotbugs:spotbugs:jar:3.1.9
+coordinate: com.github.spotbugs
+classpath: no-such-file

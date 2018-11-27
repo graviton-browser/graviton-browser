@@ -27,6 +27,7 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
     }
 
     override fun start(stage: Stage) {
+        mainLog.info("GravitonBrowser::start reached")
         stage.icons.addAll(
                 Image(resources["art/icons8-rocket-take-off-128.png"]),
                 Image(resources["art/icons8-rocket-take-off-512.png"]),

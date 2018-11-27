@@ -53,13 +53,28 @@ class HistoryManager(storagePath: Path,
     init {
         info { "Graviton cache is $storagePath" }
         if (Files.exists(historyFile)) {
-            readFromFile(historyFile)
-            info { "Read ${history.size} entries from the history list" }
+            try {
+                readFromFile(historyFile)
+                info { "Read ${history.size} entries from the history list" }
+            } catch (e: Exception) {
+                logger.warn("Failed to read history file", e)     // Not ideal but we don't want to brick ourselves.
+            }
+        } else {
+            try {
+                readFromFile(javaClass.getResourceAsStream("showcase.yaml").reader().use { it.readText() })
+                info { "First run: set up app showcase with ${history.size} entries." }
+            } catch (e: Exception) {
+                logger.warn("Failed to read showcase file", e)    // Not a critical error.
+            }
         }
     }
 
     private fun readFromFile(historyFile: Path) {
         val yaml = String(Files.readAllBytes(historyFile))
+        readFromFile(yaml)
+    }
+
+    private fun readFromFile(yaml: String) {
         val reader = YamlReader(yaml, yamlConfig)
         while (true) {
             @Suppress("UNCHECKED_CAST")

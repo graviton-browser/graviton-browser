@@ -82,8 +82,8 @@ class AppLaunchUI : View() {
     }
 
     private fun fadeAnim(tiles: List<HBox>, tracker: StackPane, nowWorking: Boolean) {
-        fun tiles(): Timeline {
-            lateinit var timeline: Timeline
+        fun tiles(): Timeline? {
+            var timeline: Timeline? = null
             for ((index, tile) in tiles.withIndex()) {
                 tile.opacityProperty().animate(if (nowWorking) 0.0 else 1.0, 0.1.seconds) {
                     delay = (index * 0.02).seconds
@@ -93,10 +93,12 @@ class AppLaunchUI : View() {
             return timeline
         }
         if (nowWorking) {
-            tiles().setOnFinished {
+            val tl = tiles()
+            fun go() {
                 tracker.isManaged = true
                 tracker.opacityProperty().animate(1.0, 0.2.seconds)
             }
+            if (tl == null) go() else tl.setOnFinished { go() }
         } else {
             tracker.opacityProperty().animate(0.0, 0.2.seconds) {
                 setOnFinished {

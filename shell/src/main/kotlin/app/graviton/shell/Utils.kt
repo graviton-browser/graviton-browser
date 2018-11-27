@@ -29,8 +29,8 @@ operator fun Path.div(other: String): Path = resolve(other)
 enum class OperatingSystem {
     MAC {
         private val library = homeDirectory / "Library"
-        override val appCacheDirectory: Path get() = localM2Or(library / "Caches" / "Graviton Browser")
-        override val loggingDirectory: Path get() = library / "Logs" / "Graviton Browser"
+        override val appCacheDirectory: Path get() = localM2Or(library / "Caches" / "Graviton")
+        override val loggingDirectory: Path get() = library / "Logs" / "Graviton"
     },
     WIN {
         override val classPathDelimiter: String = ";"
