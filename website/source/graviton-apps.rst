@@ -137,7 +137,7 @@ with the browser. This feature is not available if you go the manifest route. To
 
 1. Implement a JavaFX app by subclassing ``javafx.application.Application`` as normal. Set this to be your
    main class in your application manifest as above.
-2. Add a dependency on the ``app.graviton:graviton-api` library in your build file.
+2. Add a dependency on the ``app.graviton:graviton-api`` library in your build file.
 3. Implement the ``GravitonRunInShell`` interface on your main class. It requires one method ``createScene``, which
    takes a ``Graviton`` object and returns a JavaFX ``Scene``.
 4. Refactor your ``start(Stage)`` method so the part that configures your ``Scene`` is moved into the ``createScene``

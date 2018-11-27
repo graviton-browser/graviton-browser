@@ -11,11 +11,8 @@ Graviton gives you:
   your app up to date. Push new versions to your users by simply making a new GitHub release.
 * Silent upgrades via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
   Graviton itself are all upgraded regularly, whether or not the user is currently running an app.
-* Apps can be written in any language with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_
-   * ... with support for sandboxed C, C++ and Rust coming in future via Sulong.
-* First class support for cross platform command line apps.
-   * They also smoothly upgrade, even if the app is running at the time (good for servers).
-   * Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
+* Apps can be written in any language with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_, with support for sandboxed C, C++ and Rust coming in future via Sulong.
+* First class support for cross platform command line apps. They also smoothly upgrade, even if the app is running at the time (good for servers). Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
 * Detection of proxy settings from the OS or browsers, and can handle proxy auto-config files. Apps automatically benefit.
 * Use advanced designed-for-apps GUI toolkits like JavaFX with visual designers, or embed WebKit and use HTML.
 
@@ -51,12 +48,13 @@ terminal output.
 
    introduction
    newsletters
-   graviton-apps
+   roadmap
 
 .. toctree::
    :maxdepth: 2
    :caption: Tutorials
 
+   graviton-apps
    tutorial-graphical-hello-world
 
 .. toctree::

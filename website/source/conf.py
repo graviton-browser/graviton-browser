@@ -40,9 +40,9 @@ source_encoding = 'utf-8-sig'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Graviton Browser'
-copyright = u'2018- Graviton Browser Authors'
-author = u'Graviton Browser Authors'
+project = u'Graviton'
+copyright = u'2018- Graviton Authors'
+author = u'Graviton Authors'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
