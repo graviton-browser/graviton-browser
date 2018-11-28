@@ -1,19 +1,21 @@
 Graviton
 ########
 
-This is the design site for a *prototype* app browser and cross-platform software manager.
+Graviton is a *prototype* app browser and cross-platform software manager.
 
-Graviton gives you:
+.. image:: _static/graviton-everest.gif
 
-* A browser-like shell that downloads and runs desktop apps that target the JVM.
-* Publish software simply using GitHub, GitLab or BitBucket releases! The repository is cloned on a remote server
+It gives you:
+
+* A **browser-like shell** that downloads and runs desktop apps, written in languages that can run on the JVM.
+* **Publish software simply** using GitHub, GitLab or BitBucket releases! The repository is cloned on a remote server
   in a sandbox, compiled, packaged, downloaded and this process repeats in the background on regular intervals to keep
   your app up to date. Push new versions to your users by simply making a new GitHub release.
-* Silent upgrades via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
+* **Silent upgrades** via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
   Graviton itself are all upgraded regularly, whether or not the user is currently running an app.
-* Apps can be written in any language with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_, with support for sandboxed C, C++ and Rust coming in future via Sulong.
-* First class support for cross platform command line apps. They also smoothly upgrade, even if the app is running at the time (good for servers). Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
-* Detection of proxy settings from the OS or browsers, and can handle proxy auto-config files. Apps automatically benefit.
+* **Apps can be written in any language** with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_, with support for sandboxed C, C++ and Rust coming in future via Sulong.
+* First class support for **cross platform command line apps**. They also smoothly upgrade, even if the app is running at the time (good for servers). Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
+* **Detection of proxy settings** from the OS or browsers, and can handle proxy auto-config files. Apps automatically benefit.
 * Use advanced designed-for-apps GUI toolkits like JavaFX with visual designers, or embed WebKit and use HTML.
 
 Learn more by reading the :doc:`introduction`.
@@ -21,14 +23,10 @@ Learn more by reading the :doc:`introduction`.
 Current status
 **************
 
-.. raw:: html
-
-   <video autoplay controls><source src="_static/Graviton Initio 480p.mov" type="video/mp4"></video>
-
 The project is alpha software and could benefit from your help. We are currently preparing for our first distributed
 binaries, which we hope to reach by the end of the year. `See remaining tasks <https://github.com/mikehearn/graviton-browser/projects/1>`_.
 
-**Shell**. There is a simple UI that lets you start apps by entering Maven coordinates. The dependencies
+**UI**. There is a simple UI that lets you start apps by entering Maven coordinates. The dependencies
 are downloaded in parallel and then the main class is executed. You can omit the version number and the latest version
 will be used. Packages are cached locally and can run offline. After first run, app startup is always immediate.
 
