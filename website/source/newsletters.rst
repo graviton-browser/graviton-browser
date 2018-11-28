@@ -4,19 +4,23 @@ Newsletters
 27th November 2018
 ==================
 
-Significant work has been done and the first release is nearly here!
+I took my last few days of leave for the year to push Graviton Alpha over the finishing line. Significant work has been
+done and the first release is nearly here! I will be presenting Graviton at JavaFX Days in Zürich next week.
 
-* The big new feature this week is :doc:`graviton-apps`, which allows an app to establish communication with the browser
-  despite running in an isolated classloader. It has `JavaDocs <_static/api/index.html>`_ and is extensible to support many future features.
-  Currently it allows apps to opt back in to running in the main browser window. You can also opt-in to reusing the
-  Graviton JVM and browser window using a manifest entry, for easier setup.
-* I've also integrated the Proxy Vole library which enables automatic usage of proxy settings from the user's operating
+* The big new feature this week is **:doc:`graviton-apps`**, which allows an app to establish communication with the browser
+  despite running in an isolated classloader. It has `JavaDocs <_static/api/index.html>`_ and is extensible to support
+  many future features. Currently it allows apps to opt back in to running in the main browser window. You can also
+  opt-in to reusing the Graviton JVM and browser window using a manifest entry, for easier setup.
+* The Proxy Vole library has been integrated. It enables automatic usage of proxy settings from the user's operating
   system settings (cross platform), browser settings (Firefox/IE), and can execute the JavaScript in proxy auto-config
   files. This should work for both GUI and command line apps.
 * The UI has received some more visual polish.
+* You can now use GitHub URLs as coordinates. It will use JitPack as normal.
+* New installs get a few 'showcase' apps in their recent app pickers, so users have somewhere to start.
+* JARs without a Main-Class manifest entry will now be scanned to locate a main method.
 * A new :doc:`roadmap` page has been added with dozens of feature ideas for where Graviton can go in future.
 * Signing keys have been obtained for Windows and macOS.
-* Upgraded to Kotlin 1.3
+* Upgraded to Kotlin 1.3 and TinyLog 2
 
 4th November 2018
 =================

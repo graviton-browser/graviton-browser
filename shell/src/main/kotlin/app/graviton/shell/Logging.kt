@@ -104,4 +104,9 @@ fun setupLogging(logToConsole: Boolean) {
     SLF4JBridgeHandler.removeHandlersForRootLogger()
     SLF4JBridgeHandler.install()
     java.util.logging.Logger.getLogger("").level = java.util.logging.Level.FINEST
+
+    // Workaround for a bug in Proxy Vole.
+    com.github.markusbernhardt.proxy.util.Logger.setBackend { clazz, loglevel, msg, params ->
+        org.pmw.tinylog.Logger.info(msg, *params)
+    }
 }

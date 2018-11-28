@@ -75,9 +75,9 @@ private fun main1(arguments: Array<String>) {
     var forceAnsi = false
     if (currentOperatingSystem == OperatingSystem.WIN) {
         // Windows has managed to screw up its console handling really, really badly. We need some hacks to
-        // make command line apps and GUI apps work from the same (ish) binary. See the attachToParentConsole
+        // make command line apps and GUI apps work from the same (ish) binary. See the configureWindowsConsole
         // function for the gory details.
-        forceAnsi = attachToParentConsole()
+        forceAnsi = configureWindowsConsole()
     }
 
     commandLineArguments = GravitonCLI(arguments)

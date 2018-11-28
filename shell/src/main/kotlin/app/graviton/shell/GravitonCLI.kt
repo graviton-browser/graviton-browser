@@ -142,6 +142,10 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
                     // PAC files and other advanced features.
                     val proxySearch = ProxySearch.getDefaultProxySearch()
                     val proxySelector = proxySearch.proxySelector
+                    if (proxySelector == null) {
+                        info { "Proxy search failed" }
+                        return
+                    }
                     // If we seem to want to use a proxy then we need to disable SSL, otherwise HttpClient will try to
                     // open a CONNECT tunnel through and the proxy would be unable to examine/intercept the request.
                     if (!proxySelector.select(URI.create("https://repo1.maven.org")).isEmpty())
@@ -222,7 +226,8 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             @Synchronized
             override fun onStartedDownloading(name: String) {
                 wipe()
-                pb = ProgressBar("Update", 1, 100, System.out, ProgressBarStyle.COLORFUL_UNICODE_BLOCK, "kb", 1)
+                val style = if (currentOperatingSystem == OperatingSystem.WIN) ProgressBarStyle.ASCII else ProgressBarStyle.COLORFUL_UNICODE_BLOCK
+                pb = ProgressBar("Update", 1, 100, System.out, style, "kb", 1)
                 pb!!.extraMessage = name
             }
 

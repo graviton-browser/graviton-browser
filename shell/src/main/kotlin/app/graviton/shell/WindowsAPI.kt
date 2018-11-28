@@ -1,16 +1,17 @@
 package app.graviton.shell
 
-import app.graviton.shell.MyUser32.Companion.MB_OK
 import com.sun.jna.Native
+import com.sun.jna.Pointer
 import com.sun.jna.WString
 import com.sun.jna.platform.win32.*
+import com.sun.jna.ptr.IntByReference
 import com.sun.jna.win32.W32APIOptions
 import java.io.*
 
-@Suppress("FunctionName")
+@Suppress("FunctionName", "unused")
 private interface MyUser32 : User32 {
     companion object {
-        val INSTANCE = Native.loadLibrary("user32", MyUser32::class.java, W32APIOptions.DEFAULT_OPTIONS) as MyUser32
+        val INSTANCE = Native.loadLibrary("user32", MyUser32::class.java, W32APIOptions.UNICODE_OPTIONS) as MyUser32
 
         // Message box constants.
         const val MB_OK = 0x00000000L
@@ -34,7 +35,20 @@ private interface MyUser32 : User32 {
     fun MessageBox(hWnd: WinDef.HWND, lpText: WString, lpCaption: WString, uType: Int): Int
 }
 
-fun attachToParentConsole(): Boolean {
+fun windowsAlertBox(title: String, content: String) {
+    MyUser32.INSTANCE.MessageBox(WinDef.HWND(null), WString(content), WString(title), MyUser32.MB_OK.toInt())
+}
+
+private const val ENABLE_PROCESSED_OUTPUT = 1
+private const val ENABLE_VIRTUAL_TERMINAL_PROCESSING = 4
+private const val TERMINAL_FLAGS = ENABLE_PROCESSED_OUTPUT or ENABLE_VIRTUAL_TERMINAL_PROCESSING
+
+@Suppress("FunctionName")
+private interface MyKernel32 : Kernel32 {
+    fun WriteConsole(handle: WinNT.HANDLE, lpBuffer: ByteArray, nNumberOfCharsToWrite :Int, lpNumberOfBytesWritten: IntByReference, lpReserved: Pointer): Boolean
+}
+
+fun configureWindowsConsole(): Boolean {
     // Windows EXEs can be marked either as a console OR a gui app, but not both. Console apps can be invoked from
     // the cmd.com shell successfully but when run from Explorer or the start menu pop up a console window which
     // we don't want. GUI apps however can't print anything or read keyboard input if run from the console.
@@ -61,20 +75,34 @@ fun attachToParentConsole(): Boolean {
     //   to draw to the console.
 
     try {
-        val dll = Native.loadLibrary("kernel32", Kernel32::class.java, W32APIOptions.DEFAULT_OPTIONS) as Kernel32
-        if (!dll.AttachConsole(Wincon.ATTACH_PARENT_PROCESS)) {
+        val kernel32 = Native.loadLibrary("kernel32", MyKernel32::class.java, W32APIOptions.UNICODE_OPTIONS) as MyKernel32
+        if (!kernel32.AttachConsole(Wincon.ATTACH_PARENT_PROCESS)) {
             // Launched from the Windows GUI or the installer.
             return false
         }
 
         // 0x80 - FILE_ATTRIBUTE_NORMAL
-        fun resetWriteHandle(nStdHandle: Int, name: String) {
-            val handle: WinNT.HANDLE = dll.CreateFile(name, WinNT.GENERIC_WRITE, WinNT.FILE_SHARE_WRITE, null, WinNT.OPEN_EXISTING, 0x80, null)
-            dll.SetStdHandle(nStdHandle, handle)
-        }
-        dll.SetStdHandle(-10, dll.CreateFile("CONIN$", WinNT.GENERIC_READ, WinNT.FILE_SHARE_READ, null, WinNT.OPEN_EXISTING, 0x80, null))
-        resetWriteHandle(-11, "CONOUT$")    // standard out
-        resetWriteHandle(-12, "CONOUT$")    // standard error
+        fun openConOut(): WinNT.HANDLE =
+                kernel32.CreateFile("CONOUT$", WinNT.GENERIC_READ or WinNT.GENERIC_WRITE, WinNT.FILE_SHARE_WRITE, null, WinNT.OPEN_EXISTING, 0x80, null)
+        kernel32.SetStdHandle(-10, kernel32.CreateFile("CONIN$", WinNT.GENERIC_READ, WinNT.FILE_SHARE_READ, null, WinNT.OPEN_EXISTING, 0x80, null))
+        val hStdOut = openConOut()
+        val hStdErr = openConOut()
+        kernel32.SetStdHandle(-11, hStdOut)  // standard out
+        kernel32.SetStdHandle(-12, hStdErr)  // standard error
+
+        // This class expects to be wrapped in a BufferedOutputStream and be passed double-byte 'characters'.
+//        class ConsoleOutputStream(val handle: WinNT.HANDLE) : OutputStream() {
+//            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+//
+//            override fun write(b: ByteArray, off: Int, len: Int) {
+//                val bytes = if (off == 0) b else b.copyOfRange(off, off + len)
+//                val bytesWritten = IntByReference()
+//                windowsAlertBox("Console", String(b))
+//                if (!kernel32.WriteConsole(handle, b, bytes.size / 2, bytesWritten, Pointer.NULL)) {
+//                    windowsAlertBox("Failed to write to console", "${kernel32.GetLastError()} / ${bytesWritten.value}")
+//                }
+//            }
+//        }
 
         val fdClass = FileDescriptor::class.java
         val standardStream = fdClass.getDeclaredMethod("standardStream", Int::class.java)
@@ -85,12 +113,26 @@ fun attachToParentConsole(): Boolean {
         System.setOut(PrintStream(FileOutputStream(outFd)))
         val errFd = standardStream.invoke(null, 2) as FileDescriptor
         System.setErr(PrintStream(FileOutputStream(errFd)))
+//        println("before")
+//        System.setOut(PrintStream(BufferedOutputStream(ConsoleOutputStream(hStdOut)), true, "UTF-16"))
+//        println("after")
+//        System.setErr(PrintStream(BufferedOutputStream(ConsoleOutputStream(hStdErr)), true, "UTF-16"))
+
+
+        // Activate ANSI handling.
+        val curMode = IntByReference()
+        if (!kernel32.GetConsoleMode(hStdOut, curMode))
+            println("GetConsoleMode error: " + kernel32.GetLastError())
+        val oldValue = curMode.value
+        if (!kernel32.SetConsoleMode(hStdOut, TERMINAL_FLAGS))
+            println("SetConsoleMode error: " + kernel32.GetLastError())
+        Runtime.getRuntime().addShutdownHook(Thread {
+            if (!kernel32.SetConsoleMode(hStdOut, oldValue))
+                println("SetConsoleMode for restore error: " + kernel32.GetLastError())
+        })
         return true
     } catch (e: Exception) {
+        windowsAlertBox("Error during setup", e.toString())
         return false
     }
-}
-
-fun windowsAlertBox(title: String, content: String) {
-    MyUser32.INSTANCE.MessageBox(WinDef.HWND(null), WString(content), WString(title), MB_OK.toInt())
 }

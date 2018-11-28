@@ -1,6 +1,8 @@
 buildscript {
     ext.slf4j_version = '1.7.25'
+    // Can't upgrade JNA to latest as it breaks Proxy Vole.
     ext.jna_version = '4.5.2'
+    // TinyLog latest isn't on Maven Central yet.
     ext.tinylog_version = '1.3.5'
 
     repositories {
