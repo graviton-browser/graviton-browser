@@ -1,4 +1,4 @@
-package app.graviton.effects
+package app.graviton.ui
 
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.scene.control.ScrollPane
@@ -7,9 +7,7 @@ import javafx.scene.paint.CycleMethod
 import javafx.scene.paint.LinearGradient
 import javafx.scene.paint.Stop
 import javafx.scene.shape.Rectangle
-import tornadofx.animate
-import tornadofx.runLater
-import tornadofx.seconds
+import tornadofx.*
 
 /**
  * Makes the top and bottom of the scroll pane fade to transparency. Only useful if the scroll pane is on top of

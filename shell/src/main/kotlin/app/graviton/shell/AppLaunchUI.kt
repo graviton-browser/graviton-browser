@@ -1,8 +1,8 @@
 package app.graviton.shell
 
-import app.graviton.effects.addMacStyleScrolling
-import app.graviton.effects.addTopBottomFades
 import app.graviton.mac.stealFocusOnMac
+import app.graviton.ui.addMacStyleScrolling
+import app.graviton.ui.addTopBottomFades
 import javafx.animation.Timeline
 import javafx.beans.InvalidationListener
 import javafx.beans.property.*
@@ -127,6 +127,12 @@ class AppLaunchUI : View() {
     }
 
     private fun VBox.downloadTracker(): StackPane {
+        val progressBar = progressBar()
+        add(progressBar)
+        return progressBar
+    }
+
+    private fun progressBar(): StackPane {
         return stackpane {
             fitToParentWidth()
             maxHeight = 100.0

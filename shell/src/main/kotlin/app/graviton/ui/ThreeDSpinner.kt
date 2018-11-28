@@ -1,4 +1,4 @@
-package app.graviton.effects
+package app.graviton.ui
 
 import javafx.animation.Animation
 import javafx.beans.binding.Bindings

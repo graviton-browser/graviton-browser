@@ -1,8 +1,8 @@
 package app.graviton.shell
 
-import app.graviton.effects.ThreeDSpinner
 import app.graviton.mac.configureMacWindow
 import app.graviton.mac.setupMacMenuBar
+import app.graviton.ui.ThreeDSpinner
 import javafx.geometry.Pos
 import javafx.scene.Scene
 import javafx.scene.effect.GaussianBlur
