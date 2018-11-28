@@ -7,7 +7,7 @@ Newsletters
 I took my last few days of leave for the year to push Graviton Alpha over the finishing line. Significant work has been
 done and the first release is nearly here! I will be presenting Graviton at JavaFX Days in Zürich next week.
 
-* The big new feature this week is **:doc:`graviton-apps`**, which allows an app to establish communication with the browser
+* The big new feature this week is :doc:`graviton-apps`, which allows an app to establish communication with the browser
   despite running in an isolated classloader. It has `JavaDocs <_static/api/index.html>`_ and is extensible to support
   many future features. Currently it allows apps to opt back in to running in the main browser window. You can also
   opt-in to reusing the Graviton JVM and browser window using a manifest entry, for easier setup.
