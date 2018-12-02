@@ -192,11 +192,13 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             } else if (e is IndexOutOfBoundsException) {
                 println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
             } else {
+                logger.warn("Exception during start", e)
                 val msg = e.message
-                if (msg != null)
-                    println(msg)
-                else
+                if (msg != null) {
+                    println("Error during startup: $msg")
+                } else {
                     e.printStackTrace()
+                }
             }
         }
     }

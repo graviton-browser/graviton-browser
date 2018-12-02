@@ -82,27 +82,15 @@ fun configureWindowsConsole(): Boolean {
         }
 
         // 0x80 - FILE_ATTRIBUTE_NORMAL
+        // In theory we should open these with READ and WRITE permissions respectively, but some software (like jline)
+        // really wants to call SetConsoleMode on CONIN$ so we have to request read/write perms for both handles.
         fun openConOut(): WinNT.HANDLE =
                 kernel32.CreateFile("CONOUT$", WinNT.GENERIC_READ or WinNT.GENERIC_WRITE, WinNT.FILE_SHARE_WRITE, null, WinNT.OPEN_EXISTING, 0x80, null)
-        kernel32.SetStdHandle(-10, kernel32.CreateFile("CONIN$", WinNT.GENERIC_READ, WinNT.FILE_SHARE_READ, null, WinNT.OPEN_EXISTING, 0x80, null))
+        kernel32.SetStdHandle(-10, kernel32.CreateFile("CONIN$", WinNT.GENERIC_READ or WinNT.GENERIC_WRITE, WinNT.FILE_SHARE_READ, null, WinNT.OPEN_EXISTING, 0x80, null))
         val hStdOut = openConOut()
         val hStdErr = openConOut()
         kernel32.SetStdHandle(-11, hStdOut)  // standard out
         kernel32.SetStdHandle(-12, hStdErr)  // standard error
-
-        // This class expects to be wrapped in a BufferedOutputStream and be passed double-byte 'characters'.
-//        class ConsoleOutputStream(val handle: WinNT.HANDLE) : OutputStream() {
-//            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
-//
-//            override fun write(b: ByteArray, off: Int, len: Int) {
-//                val bytes = if (off == 0) b else b.copyOfRange(off, off + len)
-//                val bytesWritten = IntByReference()
-//                windowsAlertBox("Console", String(b))
-//                if (!kernel32.WriteConsole(handle, b, bytes.size / 2, bytesWritten, Pointer.NULL)) {
-//                    windowsAlertBox("Failed to write to console", "${kernel32.GetLastError()} / ${bytesWritten.value}")
-//                }
-//            }
-//        }
 
         val fdClass = FileDescriptor::class.java
         val standardStream = fdClass.getDeclaredMethod("standardStream", Int::class.java)
@@ -113,11 +101,6 @@ fun configureWindowsConsole(): Boolean {
         System.setOut(PrintStream(FileOutputStream(outFd)))
         val errFd = standardStream.invoke(null, 2) as FileDescriptor
         System.setErr(PrintStream(FileOutputStream(errFd)))
-//        println("before")
-//        System.setOut(PrintStream(BufferedOutputStream(ConsoleOutputStream(hStdOut)), true, "UTF-16"))
-//        println("after")
-//        System.setErr(PrintStream(BufferedOutputStream(ConsoleOutputStream(hStdErr)), true, "UTF-16"))
-
 
         // Activate ANSI handling.
         val curMode = IntByReference()
