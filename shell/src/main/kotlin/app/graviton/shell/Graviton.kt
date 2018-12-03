@@ -1,8 +1,6 @@
 @file:JvmName("Graviton")
 package app.graviton.shell
 
-import app.graviton.scheduler.OSScheduledTaskDefinition
-import app.graviton.scheduler.OSTaskScheduler
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.scene.effect.Effect
 import javafx.scene.image.Image
@@ -10,11 +8,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import tornadofx.*
-import java.io.PrintWriter
-import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
-import java.time.Duration
 import kotlin.concurrent.thread
 
 //
@@ -22,11 +17,23 @@ import kotlin.concurrent.thread
 //
 
 //region Global variables
-/** The installed path of the versioned startup binary (not the bootstrapped), when packaged as a native installer. */
-val gravitonPath: String? = System.getenv("GRAVITON_PATH")
+class BootstrapperEnvVars {
+    /**
+     * The base directory in which the versioned subdirectories are found: $GRAVITON_PATH/$GRAVITON_VERSION will contain the
+     * versioned installation.
+     */
+    val gravitonPath: Path = Paths.get(System.getenv("GRAVITON_PATH"))
 
-/** The current version, as discovered by the bootstrapper. */
-val gravitonVersion: Int? = System.getenv("GRAVITON_VERSION")?.toInt()
+    /**
+     * Path to the actual versioned binary the bootstrapped invoked (if we were run via the bootstrapper).
+     */
+    val gravitonExePath: Path = Paths.get(System.getenv("GRAVITON_EXE"))
+
+    /** The current version, as discovered by the bootstrapper. */
+    val gravitonVersion: Int = System.getenv("GRAVITON_VERSION")!!.toInt()
+}
+
+val envVars: BootstrapperEnvVars? = if (System.getenv("GRAVITON_PATH") != null) BootstrapperEnvVars() else null
 
 /** The top level logger for the app. */
 val mainLog: Logger by lazy { LoggerFactory.getLogger("main") }
@@ -127,79 +134,5 @@ private fun getTermWidth(): Int {
         }
     } catch (t: Throwable) {
         80
-    }
-}
-
-fun startupChecks(myPath: String, myVersion: Int) {
-    // Do it in the background to keep the slow file IO away from blocking startup.
-    thread(start = true) {
-        try {
-            val appPath: Path = Paths.get(myPath)
-            val versionPath = appPath / "last-run-version"
-            val taskSchedulerErrorFile = appPath / "task-scheduler-error-log.txt"
-            if (!versionPath.exists || taskSchedulerErrorFile.exists)
-                firstRun(appPath, taskSchedulerErrorFile)
-            Files.write(versionPath, listOf("$myVersion"))
-        } catch (e: Exception) {
-            // Log but don't block startup.
-            mainLog.error("Failed to do background startup checks", e)
-        }
-    }
-}
-
-private const val taskName = "app.graviton.update"
-
-private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
-    mainLog.info("First run, attempting to register scheduled task")
-    val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
-    if (scheduler == null) {
-        mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
-        return
-    }
-    val executePath = when (currentOperatingSystem) {
-        OperatingSystem.MAC -> myPath / "MacOS" / "Graviton"
-        OperatingSystem.WIN -> myPath / "GravitonBrowser.exe"
-        OperatingSystem.LINUX -> myPath / "GravitonBrowser"
-        OperatingSystem.UNKNOWN -> return
-    }
-    // Poll the server four times a day. This is a pretty aggressive interval but is useful in the project's early
-    // life where I want to be able to update things quickly and users may be impatient.
-    val scheduledTask = OSScheduledTaskDefinition(
-            executePath = executePath,
-            arguments = listOf("--background-update"),
-            frequency = when (currentOperatingSystem) {
-                // I couldn't make the Windows task scheduler do non-integral numbers of days, see WindowsTaskScheduler.kt
-                OperatingSystem.WIN -> Duration.ofHours(24)
-                else -> Duration.ofHours(6)
-            },
-            description = "Graviton background upgrade task. If you disable this, Graviton Browser may become insecure.",
-            networkSensitive = true
-    )
-    try {
-        Files.deleteIfExists(taskSchedulerErrorFile)
-        scheduler.register(taskName, scheduledTask)
-        mainLog.info("Registered background task successfully with name '$taskName'")
-    } catch (e: Exception) {
-        // If we failed to register the task we will store the error to a dedicated file, which will act
-        // as a marker to retry next time.
-        taskSchedulerErrorFile.toFile().writer().use {
-            e.printStackTrace(PrintWriter(it))
-        }
-        mainLog.error("Failed to register background task", e)
-    }
-}
-
-fun lastRun() {
-    mainLog.info("Uninstallation requested, removing scheduled task")
-    try {
-        val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
-        if (scheduler == null) {
-            mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
-            return
-        }
-        scheduler.deregister(taskName)
-    } catch (e: Throwable) {
-        // Don't want to spam the user with errors.
-        mainLog.error("Exception during uninstall", e)
     }
 }

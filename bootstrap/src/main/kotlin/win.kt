@@ -58,6 +58,7 @@ fun main(args: Array<String>) {
         val execDir = "$fullBinaryPath\\$highestVersionFound"
         val execPath = "$execDir\\GravitonBrowser.exe"
         putenv("GRAVITON_PATH=$fullBinaryPath")
+        putenv("GRAVITON_EXE=$execPath")
         putenv("GRAVITON_VERSION=$highestVersionFound")
 
         // Enable VT-100 ANSI escape sequence handling on Windows 10.

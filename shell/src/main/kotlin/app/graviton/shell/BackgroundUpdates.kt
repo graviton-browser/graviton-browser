@@ -31,12 +31,13 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
 
     fun doBackgroundUpdate(cachePath: Path, currentVersion: Int?, currentInstallDir: Path?, baseUpdateURL: URI) {
         try {
-            stopwatch("Background update") {
+            stopwatch("Application update") {
                 refreshRecentApps(cachePath)
             }
             // We won't check for online updates unless run from the main install image, as otherwise we may not have
             // a version or installation path.
             if (currentVersion != null && currentInstallDir != null) {
+                check(Files.isDirectory(currentInstallDir)) { "$currentInstallDir is not a directory" }
                 this@BackgroundUpdates.currentVersion = currentVersion
                 stopwatch("Graviton update") {
                     checkForGravitonUpdate(currentVersion, currentInstallDir, baseUpdateURL)

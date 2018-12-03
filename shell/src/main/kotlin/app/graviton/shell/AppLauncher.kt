@@ -39,7 +39,7 @@ class AppLauncher(private val options: GravitonCLI,
          * Returns the integer version of Graviton. This is not the same thing as an API version: it may increase any time
          * without affecting anything.
          */
-        override fun getVersion(): Int = gravitonVersion ?: -1
+        override fun getVersion(): Int = envVars?.gravitonVersion ?: -1
 
         /**
          * Returns the width of the drawable area in either pixels or columns, for GUI and terminal apps respectively.
@@ -328,8 +328,8 @@ class AppLauncher(private val options: GravitonCLI,
         //
         // Force a full GC to release memory back to the OS (G1 doesn't do that but we don't use it)
         System.gc()
-        val startPath = if (gravitonPath != null) {
-            arrayOf(gravitonPath)
+        val startPath = if (envVars != null) {
+            arrayOf(envVars.gravitonExePath.toString())
         } else {
             // Running not packaged, probably during development. We reflect the start class name here in case one day the main method gets moved.
             arrayOf("java", "-cp", System.getProperty("java.class.path"), ::main.javaMethod!!.declaringClass.name)

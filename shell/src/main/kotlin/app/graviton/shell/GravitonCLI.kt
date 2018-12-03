@@ -2,6 +2,8 @@ package app.graviton.shell
 
 import app.graviton.codefetch.CodeFetcher
 import app.graviton.codefetch.RepoSpec
+import app.graviton.scheduler.OSScheduledTaskDefinition
+import app.graviton.scheduler.OSTaskScheduler
 import com.github.markusbernhardt.proxy.ProxySearch
 import javafx.application.Application
 import me.tongfei.progressbar.ProgressBar
@@ -9,14 +11,18 @@ import me.tongfei.progressbar.ProgressBarStyle
 import org.eclipse.aether.transfer.MetadataNotFoundException
 import picocli.CommandLine
 import java.io.IOException
+import java.io.PrintWriter
 import java.lang.invoke.MethodHandles
 import java.net.Proxy
 import java.net.ProxySelector
 import java.net.SocketAddress
 import java.net.URI
+import java.nio.file.Files
+import java.nio.file.Path
+import java.time.Duration
+import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.system.exitProcess
-
 
 val gravitonShellVersionNum: String get() = MethodHandles.lookup().lookupClass().`package`.implementationVersion.let { if (it.isNullOrBlank()) "DEV" else it }
 
@@ -101,7 +107,6 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     override fun run() {
         // This is where Graviton startup really begins.
         setupLogging(verboseLogging)
-        setupProxies()
 
         val packageName = packageName
 
@@ -110,17 +115,15 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
             return
         }
 
-        if (gravitonPath != null && gravitonVersion != null) {
-            // This will execute asynchronously.
-            startupChecks(gravitonPath, gravitonVersion)
-            val ls = System.lineSeparator()
-            mainLog.info("$ls${ls}Starting Graviton $gravitonVersion$ls$ls")
-            mainLog.info("Path is $gravitonPath")
-        }
+        // This will execute asynchronously, only if run from an installed package (via the bootstrapper).
+        startupChecks()
+
+        setupProxies()
 
         if (backgroundUpdate) {
+            checkNotNull(envVars)
             mainLog.info("BACKGROUND UPDATE")
-            BackgroundUpdates().doBackgroundUpdate(cachePath.toPath(), gravitonVersion, gravitonPath?.toPath(), URI.create(updateURL))
+            BackgroundUpdates().doBackgroundUpdate(cachePath.toPath(), envVars.gravitonVersion, envVars.gravitonPath, URI.create(updateURL))
             return
         }
 
@@ -273,6 +276,85 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
     }
 
     fun repoSpec() = RepoSpec(repositories, disableSSL)
+
+    private fun startupChecks() {
+        // Do it in the background to keep the slow file IO away from blocking startup.
+        val envVars = envVars ?: return
+        val ls = System.lineSeparator()
+        mainLog.info("$ls${ls}Starting Graviton ${envVars.gravitonVersion}$ls$ls")
+        mainLog.info("Versioned install path is ${envVars.gravitonPath}")
+        mainLog.info("Binary path is ${envVars.gravitonExePath}")
+        thread {
+            try {
+                Files.createDirectories(currentOperatingSystem.appCacheDirectory)
+                val versionPath = currentOperatingSystem.appCacheDirectory / "last-run-version"
+                val taskSchedulerErrorFile = currentOperatingSystem.appCacheDirectory / "task-scheduler-error-log.txt"
+                if (!versionPath.exists || taskSchedulerErrorFile.exists)
+                    firstRun(envVars.gravitonPath, taskSchedulerErrorFile)
+                Files.write(versionPath, listOf("${envVars.gravitonVersion}"))
+            } catch (e: Exception) {
+                // Log but don't block startup.
+                mainLog.error("Failed to do background startup checks", e)
+            }
+        }
+    }
+
+    private val taskName = "app.graviton.update"
+
+    private fun firstRun(myPath: Path, taskSchedulerErrorFile: Path) {
+        mainLog.info("First run, attempting to register scheduled task")
+        val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
+        if (scheduler == null) {
+            mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
+            return
+        }
+        val executePath = when (currentOperatingSystem) {
+            OperatingSystem.MAC -> myPath / "MacOS" / "Graviton"
+            OperatingSystem.WIN -> myPath / "GravitonBrowser.exe"
+            OperatingSystem.LINUX -> myPath / "GravitonBrowser"
+            OperatingSystem.UNKNOWN -> return
+        }
+        // Poll the server four times a day. This is a pretty aggressive interval but is useful in the project's early
+        // life where I want to be able to update things quickly and users may be impatient.
+        val scheduledTask = OSScheduledTaskDefinition(
+                executePath = executePath,
+                arguments = listOf("--background-update"),
+                frequency = when (currentOperatingSystem) {
+                    // I couldn't make the Windows task scheduler do non-integral numbers of days, see WindowsTaskScheduler.kt
+                    OperatingSystem.WIN -> Duration.ofHours(24)
+                    else -> Duration.ofHours(6)
+                },
+                description = "Graviton background upgrade task. If you disable this, Graviton Browser may become insecure.",
+                networkSensitive = true
+        )
+        try {
+            Files.deleteIfExists(taskSchedulerErrorFile)
+            scheduler.register(taskName, scheduledTask)
+            mainLog.info("Registered background task successfully with name '$taskName'")
+        } catch (e: Exception) {
+            // If we failed to register the task we will store the error to a dedicated file, which will act
+            // as a marker to retry next time.
+            taskSchedulerErrorFile.toFile().writer().use {
+                e.printStackTrace(PrintWriter(it))
+            }
+            mainLog.error("Failed to register background task", e)
+        }
+    }
+
+    private fun lastRun() {
+        mainLog.info("Uninstallation requested, removing scheduled task")
+        try {
+            val scheduler: OSTaskScheduler? = OSTaskScheduler.get()
+            if (scheduler == null) {
+                mainLog.info("No support for task scheduling on this OS: $currentOperatingSystem")
+                return
+            }
+            scheduler.deregister(taskName)
+        } catch (e: Throwable) {
+            // Don't want to spam the user with errors.
+            mainLog.error("Exception during uninstall", e)
+        }
+    }
 
     class VersionProvider : CommandLine.IVersionProvider {
         override fun getVersion() = arrayOf(gravitonShellVersionNum)
