@@ -44,6 +44,9 @@ class AppLaunchUI : View() {
     private lateinit var recentAppsPicker: VBox
     private lateinit var tracker: StackPane
 
+    /** Object that loads and manages the user's history list. */
+    private val historyManager: HistoryManager by lazy { HistoryManager.create() }
+
     override val root = scrollpane {
         addClass(Styles.appsPicker)
         addClass("scroll-pane-thin")
@@ -514,7 +517,7 @@ class AppLaunchUI : View() {
 }
 
 fun clearCache() {
-    historyManager.clearCache()
+    HistoryManager.create().clearCache()
     Alert(Alert.AlertType.INFORMATION, "Cache has been cleared. Apps will re-download next time they are " +
             "invoked or a background update occurs.", ButtonType.CLOSE).showAndWait()
 }

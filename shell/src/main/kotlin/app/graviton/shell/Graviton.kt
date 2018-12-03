@@ -41,9 +41,6 @@ val mainLog: Logger by lazy { LoggerFactory.getLogger("main") }
 /** Global access to parsed command line flags. */
 var commandLineArguments = GravitonCLI(arrayOf(""))
 
-/** Object that loads and manages the user's history list. */
-val historyManager: HistoryManager by lazy { HistoryManager.create() }
-
 /** Controls whether the spinner animation is active or not. */
 val isWorking by lazy { SimpleBooleanProperty() }
 
