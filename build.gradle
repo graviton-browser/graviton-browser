@@ -84,9 +84,7 @@ task printVersion {
     }
 }
 
-// Run like this: gradlew "-Dorg.gradle.java.home=C:\Program Files\Java\jdk-10" packageWin
-// on a system with InnoSetup installed.
-task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
+task makeWinInstaller(type: Exec, dependsOn: [copyBootstrapToLibs]) {
     workingDir project.projectDir
     def outDir = "${buildDir}/packaged"
     outputs.dir(outDir)
@@ -96,9 +94,6 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
 
     // Export it so the InnoSetup pre-processor can use it.
     environment "GRAVITON_VERSION", project.version
-
-    // TODO: Signing
-    // TODO: Icons
 
     commandLine = [
             'javapackager',
@@ -121,6 +116,15 @@ task packageWin(type: Exec, dependsOn: [copyBootstrapToLibs]) {
             '-Bwin.menuGroup=Graviton Browser',
             '-v'
     ]
+}
+
+// You need InnoSetup and the Windows SDK to run this task. For code signing you also need a valid certificate and
+// accessible private key.
+task packageWin(type: Exec, dependsOn: [makeWinInstaller]) {
+    inputs.files("build/packaged/GravitonBrowser.exe")
+
+    // Now sign the EXE to help reduce warnings from IE.
+    commandLine = ['signtool', 'sign', '/a', '/t', 'http://time.certum.pl', '/fd', 'sha256', '/v', '/debug', 'build\\packaged\\bundles\\GravitonBrowser.exe']
 }
 
 // TODO: Use the bootstrapper tool. Lay out files in numbered directories.
