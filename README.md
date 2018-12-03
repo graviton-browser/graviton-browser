@@ -4,7 +4,8 @@ This repository contains a prototype application browser for multi-language JVM 
 
 **[Visit graviton.app to learn more](https://graviton.app/)**
 
-We discuss these ideas in the #graviton-browser channel of the [Kotlin Slack](http://slack.kotlinlang.org/).
+We discuss these ideas in the #graviton-browser channel of the [Kotlin Slack](http://slack.kotlinlang.org/), and on
+[the graviton-dev mailing list](https://groups.google.com/forum/#!forum/graviton-dev).
 
 # What's implemented?
 

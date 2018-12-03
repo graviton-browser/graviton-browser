@@ -26,6 +26,9 @@ Current status
 The project is alpha software and could benefit from your help. We are currently preparing for our first distributed
 binaries, which we hope to reach by the end of the year. `See remaining tasks <https://github.com/mikehearn/graviton-browser/projects/1>`_.
 
+You can talk to us on the `graviton-dev mailing list <https://groups.google.com/forum/#!forum/graviton-dev>`_ or in
+`the #graviton-browser channel on the Kotlin Slack <https://surveys.jetbrains.com/s3/kotlin-slack-sign-up>`_.
+
 **UI**. There is a simple UI that lets you start apps by entering Maven coordinates. The dependencies
 are downloaded in parallel and then the main class is executed. You can omit the version number and the latest version
 will be used. Packages are cached locally and can run offline. After first run, app startup is always immediate.
