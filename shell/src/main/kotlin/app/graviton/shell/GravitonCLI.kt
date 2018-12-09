@@ -210,6 +210,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         return object : AppLauncher.Events() {
             private val stopwatch = Stopwatch()
             private var pb: ProgressBar? = null
+
             private val startupMessage = "Please wait ... "
             private var havePrintedStartupMessage = false
             private fun wipe() {
@@ -254,6 +255,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
 
             @Synchronized
             override fun aboutToStartApp(outOfProcess: Boolean) {
+                wipe()
                 if (pb != null) {
                     pb!!.close()
                     println("Downloaded successfully in ${stopwatch.elapsedInSec} seconds")
