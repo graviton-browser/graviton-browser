@@ -96,7 +96,7 @@ open class WindowsTaskScheduler : OSTaskScheduler() {
     // Converts from e.g. graviton.browser.app to GravitonBrowserApp
     private fun convertDNSNameToTaskName(taskName: String): String {
         var components = taskName.split('.')
-        if (components[0] in setOf("com", "net", "org", "co", "io"))
+        if (components[0] in setOf("com", "net", "org", "co", "io", "app"))
             components = components.drop(1)
         return components.joinToString(" ") { it.capitalize() }
     }
