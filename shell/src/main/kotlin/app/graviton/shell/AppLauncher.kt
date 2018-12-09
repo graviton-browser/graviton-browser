@@ -369,12 +369,13 @@ class AppLauncher(private val options: GravitonCLI,
     private fun invokeMainMethod(args: Array<String>, cl: GravitonClassLoader, andWait: Boolean) {
         events?.aboutToStartApp(false)
         val tg = ThreadGroup("Application")
+        val mainClass = cl.startClass  // Don't inline this: we want the exception to escape on this thread.
         val t = Thread(tg, Runnable {
             // For me it takes about 0.5 seconds to reach here with a non-optimised build and 0.4 with a jlinked
             // build, but we're hardly using jlink right now. To get faster I bet we need to AOT most of java.base
             //
             // println("Took ${startupStopwatch.elapsedInSec} seconds to reach main()")
-            runMain(cl.startClass, args)
+            runMain(mainClass, args)
         }, "main")
         t.contextClassLoader = cl
         t.start()
