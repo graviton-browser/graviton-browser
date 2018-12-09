@@ -75,21 +75,6 @@ class ShellView : View() {
         primaryStage.scene = newScene
         finished()
         return
-
-//        var screenshot: WritableImage? = newScene.snapshot(null)
-//        screenshotView.image = screenshot
-//        screenshotView.opacity = 0.0
-//        screenshotView.fitWidth = screenshotView.image.width
-//        screenshotView.fitHeight = screenshotView.image.height
-//        screenshotView.opacityProperty().animate(1.0, 0.5.seconds) {
-//            setOnFinished {
-//                // Get rid of all the pointers so the image can be collected.
-//                screenshotView.image = null
-//                screenshot = null
-//                primaryStage.scene = newScene
-//                finished()
-//            }
-//        }
     }
 
     private val allArt = listOf(
@@ -153,11 +138,11 @@ class ShellView : View() {
             // Background image.
             imageview {
                 image = Image(resources["art/${art.fileName}"])
-                fitWidthProperty().bind(this@artVBox.widthProperty())
+                // We have to bind to the stage width directly here and not to, for example, the vbox width, as
+                // otherwise we get a strange bug on Windows only when switching scenes back from an inlined app
+                // that causes the scene to exceed the stage extents, driven by this image.
+                fitWidthProperty().bind(primaryStage.widthProperty())
                 isPreserveRatio = true
-
-                // This line is useful when fiddling with the animation:
-                // setOnMouseClicked { isDownloading.set(!isDownloading.value) }
             }.stackpaneConstraints {
                 alignment = Pos.BOTTOM_CENTER
             }
