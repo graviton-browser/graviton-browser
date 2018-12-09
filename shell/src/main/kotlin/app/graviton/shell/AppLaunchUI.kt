@@ -262,7 +262,7 @@ class AppLaunchUI : View() {
             // Push the next bit to the right.
             pane { HBox.setHgrow(this, Priority.ALWAYS) }
 
-            val isFromHistory = observableEntry.selectBoolean { SimpleBooleanProperty(it.origEntry != null) }
+            val isFromHistory = entry.origEntry != null
 
             // Right click menu.
             val menu = contextmenu {
@@ -275,7 +275,7 @@ class AppLaunchUI : View() {
                 }
 
                 item("Refresh") {
-                    visibleWhen(isFromHistory)
+                    isVisible = isFromHistory
                     setOnAction {
                         startWorking("Refreshing ...")
                         task {
@@ -299,7 +299,7 @@ class AppLaunchUI : View() {
                 }
 
                 item("Remove") {
-                    visibleWhen(isFromHistory)
+                    isVisible = isFromHistory
                     setOnAction {
                         historyManager.removeEntry(observableEntry.get().origEntry!!)
                         recentAppsPicker.populateRecentAppsPicker()
