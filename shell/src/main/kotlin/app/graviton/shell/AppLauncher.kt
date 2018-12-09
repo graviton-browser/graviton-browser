@@ -218,8 +218,8 @@ class AppLauncher(private val options: GravitonCLI,
                 // configure it properly here.
                 Thread.currentThread().contextClassLoader = appClass.classLoader
                 events?.aboutToStartApp(false)
-                val curWidth = primaryStage.width
-                val curHeight = primaryStage.height
+                val widthBeforeStart = primaryStage.width
+                val heightBeforeStart = primaryStage.height
                 // We use reflection here to unbind all the Stage properties to avoid having to change this codepath if JavaFX
                 // or the shell changes e.g. by adding new properties or binding new ones.
                 primaryStage.unbindAllProperties()
@@ -238,7 +238,7 @@ class AppLauncher(private val options: GravitonCLI,
                     fun restore() {
                         Thread.currentThread().contextClassLoader = AppLauncher::class.java.classLoader
                         primaryStage.titleProperty().unbind()
-                        primaryStage.title = "Graviton"
+                        primaryStage.title = ""
                         primaryStage.scene = oldScene
                         Platform.setImplicitExit(true)
                     }
@@ -267,8 +267,8 @@ class AppLauncher(private val options: GravitonCLI,
 
                     try {
                         // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
-                        primaryStage.minWidth = curWidth
-                        primaryStage.minHeight = curHeight
+                        primaryStage.minWidth = widthBeforeStart
+                        primaryStage.minHeight = heightBeforeStart
 
                         if (!implementsAPI) {
                             // Opted in via the manifest attribute, without code changes. So it will try to show the
@@ -280,9 +280,10 @@ class AppLauncher(private val options: GravitonCLI,
                             // is visible. In that case start will do very little.
                         }
                         app.start(primaryStage)
-                        if (primaryStage.minWidth == curWidth)
+
+                        if (primaryStage.minWidth == widthBeforeStart)
                             primaryStage.minWidth = 0.0
-                        if (primaryStage.minHeight == curHeight)
+                        if (primaryStage.minHeight == heightBeforeStart)
                             primaryStage.minHeight = 0.0
                         info { "JavaFX application has been invoked inline" }
                     } catch (e: Throwable) {
