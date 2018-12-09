@@ -51,16 +51,12 @@ Name: "{commondesktop}\Graviton Browser"; Filename: "{app}\GravitonBrowser.exe";
 [Run]
 Filename: "{app}\GravitonBrowser.exe"; Parameters: "-Xappcds:generatecache";
 Filename: "{app}\GravitonBrowser.exe"; Description: "{cm:LaunchProgram,GravitonBrowser}"; Parameters: "-from-installer"; Flags: nowait postinstall skipifsilent
-; Filename: "{app}\GravitonBrowser.exe"; Parameters: "-install -svcName ""GravitonBrowser"" -svcDesc ""GravitonBrowser"" -mainExe ""GravitonBrowser.exe""  "; Check: returnFalse()
 Filename: "{app}\GravitonBrowser.exe"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-; Filename: "{app}\GravitonBrowser.exe "; Parameters: "-uninstall -svcName GravitonBrowser -stopOnUninstall"; Check: returnFalse()
 Filename: "{app}\GravitonBrowser.exe"; Parameters: "--uninstall"
 
 [UninstallDelete]
-Type: files; Name: "{app}\last-run-version"
-Type: files; Name: "{app}\task-scheduler-error-log.txt"
 Type: filesandordirs; Name: "{app}\*"
 
 [Code]
