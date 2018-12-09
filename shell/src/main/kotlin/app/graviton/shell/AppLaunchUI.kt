@@ -161,34 +161,37 @@ class AppLaunchUI : View() {
                 }
             }
 
-            // Stop button.
-            stackpane {
-                circle {
-                    fill = Color.WHITE
-                    radius = 25.0
-                    effect = DropShadow(BlurType.THREE_PASS_BOX, Color.BLACK, 4.5, 0.0, 1.0, 1.0)
-                }
+            // Stop button. Temporarily disabled because using thread interruptions doesn't work well enough.
+            // TODO: Switch to my own HTTP plugin to Maven Resolver and implement cancellation properly.
+            if (false) {
+                stackpane {
+                    circle {
+                        fill = Color.WHITE
+                        radius = 25.0
+                        effect = DropShadow(BlurType.THREE_PASS_BOX, Color.BLACK, 4.5, 0.0, 1.0, 1.0)
+                    }
 
-                rectangle {
-                    fill = Color.BLACK
-                    width = 20.0
-                    height = 20.0
-                    arcWidth = 5.0
-                    arcHeight = 5.0
-                }
+                    rectangle {
+                        fill = Color.BLACK
+                        width = 20.0
+                        height = 20.0
+                        arcWidth = 5.0
+                        arcHeight = 5.0
+                    }
 
-                setOnMouseClicked {
-                    cancelIfDownloading()
-                }
+                    setOnMouseClicked {
+                        cancelIfDownloading()
+                    }
 
-                minWidth = Region.USE_PREF_SIZE
-                minHeight = Region.USE_PREF_SIZE
-                maxWidth = Region.USE_PREF_SIZE
-                maxHeight = Region.USE_PREF_SIZE
-                translateX = 15.0
-                cursor = Cursor.HAND
-                alignment = Pos.CENTER
-            }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
+                    minWidth = Region.USE_PREF_SIZE
+                    minHeight = Region.USE_PREF_SIZE
+                    maxWidth = Region.USE_PREF_SIZE
+                    maxHeight = Region.USE_PREF_SIZE
+                    translateX = 15.0
+                    cursor = Cursor.HAND
+                    alignment = Pos.CENTER
+                }.stackpaneConstraints { alignment = Pos.CENTER_LEFT }
+            }
 
             isManaged = false
             isCache = true
