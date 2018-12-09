@@ -14,12 +14,19 @@ Build the packages for Mac and Windows. Alternatively use `gradle installDist` a
 
 Ensure there are no Graviton cache directories anywhere and remove them if so.
 
+# Test plan: v1
+
 ## Installers
+
+### Mac
 
 - [ ] Make sure your Mac security settings are configured to be the default, i.e. Gatekeeper is active.
 - [ ] Ensure there are no Graviton installs or data directories already. 
 - [ ] Open the mac DMG and drag it to the Applications folder. Ensure the icon and DMG background look right.
 - [ ] Start the app from the Applications folder and ensure it starts, that the menu bar shows the name Graviton.
+
+### Windows
+
 - [ ] Click the Windows installer. Ensure it installs automatically and with no user interaction.
 - [ ] Find the app in the start menu and start it. Shut it down.
 - [ ] Go into the control panel and uninstall Graviton. Ensure the uninstall completes without errors (this is a common failure point!)
@@ -30,6 +37,8 @@ Ensure there are no Graviton cache directories anywhere and remove them if so.
 - [ ] Run `graviton --version` and ensure the version number is correct.
 - [ ] Run `graviton com.github.ricksbrown:cowsay --cowthink moo!` and ensure it downloads and runs correctly.
 - [ ] Run it again and ensure there's no download or other UI text this time, just the cow.
+- [ ] Go offline (disable wifi) and run `graviton --clear-cache com.github.ricksbrown:cowsay "cannot work"`. Check
+      the error message you get is sensible and helpful.
 - [ ] Run `graviton --clear-cache com.github.ricksbrown:cowsay "Downloaded again!"` and ensure it re-downloads and runs like before.
 - [ ] Run `graviton -r com.github.ricksbrown:cowsay moo` and ensure it checks for an update again.
 - [ ] Edit the history file to set the time of the last update to more than 24 hours ago. Then run 
@@ -38,7 +47,20 @@ Ensure there are no Graviton cache directories anywhere and remove them if so.
 
 ## GUI shell
 
-- [ ] Start the GUI. Run `com.github.startbugs` and ensure it downloads properly, the main window disappears, SpotBugs starts.
+### Mac
+
+Cancellation failed and was disabled in this update.
+
+- [ ] Start the GUI. Run Tic-Tac-Toe and ensure it downloads properly, the main window disappears, TTT starts. Quit and ensure GUI is restored.
+- [ ] Ensure the history list populates with an app tile for it.
+- [ ] Start `com.github.rohitawate:everest` and click cancel during the download. Make sure it stops.
+- [ ] Start Everest again, this time, quit during the download and ensure Graviton properly quits.
+- [ ] Start it for a third time and this time let it succeed.
+- [ ] Right click on one of the tiles and ensure each item works.
+
+### Windows
+
+- [ ] Start the GUI. Run Tic-Tac-Toe and ensure it downloads properly, the main window disappears, TTT starts. Quit and ensure GUI is restored.
 - [ ] Ensure the history list populates with an app tile for it.
 - [ ] Start `com.github.rohitawate:everest` and click cancel during the download. Make sure it stops.
 - [ ] Start Everest again, this time, quit during the download and ensure Graviton properly quits.
@@ -53,3 +75,15 @@ Ensure there are no Graviton cache directories anywhere and remove them if so.
       Start Graviton GUI. Now from the command line run `graviton --background-update`
       and check the log file to ensure it updated you to the latest version of tictactoe. Start the app
       in the GUI ensure it's now the latest version.
+
+# Next steps to improve testing
+
+1. Implement or find a recording HTTP proxy that can simulate errors and slowness. WireMock isn't quite there for us,
+   I could never make its browser proxy mode really work. Make recordings of installing various apps. The manual
+   test cases should now be executable entirely offline.
+2. Write an integration test tool that verifies, given a random/clean cache directory: 
+   * the CLI tool can be used to install and run basic programs
+   * when run against the proxy recordings
+3. Write a basic TestFX test that generates a clean cache directory and installs/runs TicTacToe from the
+   proxy recordings.
+4. Extend the test to ensure that the clear cache function works.
