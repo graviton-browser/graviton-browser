@@ -13,10 +13,7 @@ import picocli.CommandLine
 import java.io.IOException
 import java.io.PrintWriter
 import java.lang.invoke.MethodHandles
-import java.net.Proxy
-import java.net.ProxySelector
-import java.net.SocketAddress
-import java.net.URI
+import java.net.*
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
@@ -118,6 +115,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         // This will execute asynchronously, only if run from an installed package (via the bootstrapper).
         startupChecks()
 
+        // TODO: Run this step async.
         setupProxies()
 
         if (backgroundUpdate) {
@@ -186,7 +184,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         if (profileDownloads > 1) downloadWithProfiling(coordinates)
         try {
             val manager = HistoryManager.create()
-            val launcher = AppLauncher(this@GravitonCLI, createProgressBar(), manager, null)
+            val launcher = AppLauncher(this, createProgressBar(), manager, null)
             launcher.start()
         } catch (original: Throwable) {
             val e = original.rootCause
@@ -194,6 +192,8 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
                 println("Sorry, that package is unknown. Check for typos? (${e.metadata})")
             } else if (e is IndexOutOfBoundsException) {
                 println("Sorry, could not understand that coordinate. Use groupId:artifactId syntax.")
+            } else if (e is UnknownHostException) {
+                println("Sorry, could not look up ${e.message}. Are you offline? If so try the --offline flag.")
             } else {
                 logger.warn("Exception during start", e)
                 val msg = e.message
@@ -268,8 +268,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         val stopwatch = Stopwatch()
         repeat(profileDownloads) {
             HistoryManager.create().clearCache()
-            val codeFetcher = CodeFetcher(cachePath.toPath(), createProgressBar(), repoSpec())
-            codeFetcher.offline = offline
+            val codeFetcher = CodeFetcher(cachePath.toPath(), createProgressBar(), repoSpec(), offline)
             codeFetcher.downloadAndBuildClasspath(coordinates)
         }
         val totalSec = stopwatch.elapsedInSec

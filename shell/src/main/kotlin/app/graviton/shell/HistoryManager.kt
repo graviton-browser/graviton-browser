@@ -119,10 +119,12 @@ class HistoryManager(storagePath: Path,
      * the front. Otherwise the new entry pushes the oldest entry off the list.
      */
     fun recordHistoryEntry(entry: HistoryEntry): HistoryEntry {
-        val toWrite = maybeTouchExistingEntry(entry) ?: entry
-        info { "Recording history entry: $toWrite" }
+        // Maybe remove the existing entry from the list if found, so we can replace it with the new one.
+        indexFromUserInput(entry.coordinateFragment)?.let { history.removeAt(it) }
 
-        history.add(0, toWrite)
+        info { "Recording history entry: $entry" }
+
+        history.add(0, entry)
         if (history.size > maxHistorySize) {
             val removed = history.removeAt(history.lastIndex)
             info { "Forgetting old history entry $removed because we have more than $maxHistorySize entries" }
@@ -130,7 +132,7 @@ class HistoryManager(storagePath: Path,
 
         writeHistory()
 
-        return toWrite
+        return entry
     }
 
     private fun writeHistory() {
@@ -145,14 +147,6 @@ class HistoryManager(storagePath: Path,
         }
     }
 
-    private fun maybeTouchExistingEntry(entry: HistoryEntry): HistoryEntry? {
-        val i = history.indexOfFirst { it.coordinateFragment.toLowerCase() == entry.coordinateFragment.toLowerCase() }
-        if (i == -1) return null
-        val copy = entry.copy(lastRefreshTime = clock.instant())
-        history.removeAt(i)
-        return copy
-    }
-
     fun removeEntry(entry: HistoryEntry) {
         val found = history.remove(entry)
         if (found) {
@@ -160,28 +154,33 @@ class HistoryManager(storagePath: Path,
         }
     }
 
+    data class LookupResult(val entry: HistoryEntry, val old: Boolean, val age: Duration)
+
     /**
      * Given a user input, matches it against the history list to locate the last fully resolved artifact coordinates
      * we used.
      *
      * @return the artifact, or null if not found or if the history entry is too old.
      */
-    fun search(packageName: String): HistoryEntry? {
+    fun search(packageName: String): LookupResult? {
         info { "Searching for a cached resolution in our history list for '$packageName'" }
-        val sameCoordinates = history.find {
-            val otherCli = GravitonCLI.parse(it.coordinateFragment)
+        val i = indexFromUserInput(packageName) ?: return null
+        val sameCoordinates: HistoryEntry = history[i]!!
+        val (age, tooOld) = ageCheck(sameCoordinates)
+        return LookupResult(sameCoordinates, tooOld, age)
+    }
+
+    private fun indexFromUserInput(packageName: String): Int? {
+        val lowerCase = packageName.toLowerCase()
+        val i = history.indexOfFirst {
             try {
-                otherCli.packageName!![0] == packageName
+                val otherCli = GravitonCLI.parse(it.coordinateFragment)
+                otherCli.packageName!![0].toLowerCase() == lowerCase
             } catch (e: Exception) {
                 false
             }
-        } ?: return null
-        val (age, tooOld) = ageCheck(sameCoordinates)
-        if (tooOld) {
-            info { "Found a history entry match for $packageName but it's too old (${age.seconds} secs)" }
-            return null
         }
-        return sameCoordinates
+        return if (i == -1) null else i
     }
 
     private fun ageCheck(entry: HistoryEntry): Pair<Duration, Boolean> {
@@ -258,7 +257,7 @@ data class HistoryEntry(
         val description: String?
 ) {
     constructor(coordinateFragment: String, fetch: CodeFetcher.Result) :
-            this(coordinateFragment, Instant.now(), fetch.artifact.toString(), fetch.classPath, fetch.name, fetch.description)
+            this(coordinateFragment, fetch.refreshTime, fetch.artifact.toString(), fetch.classPath, fetch.name, fetch.description)
 
     private val splitCP get() = classPath.split(currentOperatingSystem.classPathDelimiter)
     override fun toString() = "$coordinateFragment -> $resolvedArtifact @ $lastRefreshTime (${splitCP.size} cp entries)"

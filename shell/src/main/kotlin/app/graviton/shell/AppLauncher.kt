@@ -74,7 +74,7 @@ class AppLauncher(private val options: GravitonCLI,
         open fun onError(e: Exception) {}
     }
 
-    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events, options.repoSpec())
+    private val codeFetcher: CodeFetcher = CodeFetcher(options.cachePath.toPath(), events, options.repoSpec(), options.offline)
 
     /**
      * Takes a 'command' in the form of a partial Graviton command line, extracts the coordinates, flags, and any
@@ -88,7 +88,7 @@ class AppLauncher(private val options: GravitonCLI,
             val userInput = (options.packageName ?: throw StartException("No coordinates specified"))[0]
             check(userInput.isNotBlank())
             val fetch: CodeFetcher.Result = lookupOrDownload(userInput, options.refresh)
-            // Update the entry in the history list to move it to the top.
+            // Update the entry in the history list to move it to the top, if not offline.
             historyManager.recordHistoryEntry(HistoryEntry(userInput, fetch))
             runApp(userInput, fetch)
         } catch (e: Exception) {
@@ -103,26 +103,31 @@ class AppLauncher(private val options: GravitonCLI,
     fun lookupOrDownload(userInput: String, forceRefresh: Boolean): CodeFetcher.Result {
         val coordinate = maybeConvertURLToCoordinate(userInput)
 
-        val historyLookup: HistoryEntry? = if (!forceRefresh) {
-            // The user has probably specified a coordinate fragment, missing the artifact name or version number.
-            // If we never saw this input before, we'll just continue and clean it up later. If we resolved it
-            // before to a specific artifact coordinate, we'll look it up again from our history file. That'll
-            // let us skip the latest version check.
-            historyManager.search(coordinate)
-        } else null
+        // Check if we've seen it before, and if so, if we can/should use the cached entry from
+        // the history list. The user might have asked us to be offline (always use) or force
+        // a refresh (never use) but mostly we'll do an update check if the entry is old. On a
+        // well used system that shouldn't happen often because we'll do nightly update checks.
+        // Will be null if not found.
+        val historyLookup: HistoryManager.LookupResult? = historyManager.search(coordinate)
 
-        val fetch: CodeFetcher.Result = if (historyLookup != null && entryStillOnDisk(historyLookup)) {
+        val canUsePrior = historyLookup != null && entryStillOnDisk(historyLookup.entry)
+        val wantUsePrior = canUsePrior && !historyLookup!!.old && !forceRefresh
+        val shouldUsePrior = wantUsePrior || (canUsePrior && codeFetcher.offline)
+
+        val fetch: CodeFetcher.Result = if (shouldUsePrior) {
             // The history entry contains the classpath to avoid a local POM walk, which is slow (about 0.2 seconds for
             // a very simple app like cowsay, as we're still mostly in the interpreter at this point).
-            info { "Used previously resolved coordinates $historyLookup" }
-            CodeFetcher.Result(historyLookup.classPath, historyLookup.artifact)
+            info { "Used previously resolved coordinates: $historyLookup" }
+            CodeFetcher.Result(historyLookup!!.entry.classPath, historyLookup.entry.artifact, historyLookup.entry.lastRefreshTime)
         } else {
             // Either:
             //   1. Not found in the history list, or
             //   2. Found in history list but not on disk, which can happen if the user wiped the cache.
+            //   3. Entry is old or a refresh is being forced, time to check for updates.
             //
             // ... so attempt to (re)download from our repositories.
-            events?.preparingToDownload()
+            if (!codeFetcher.offline)
+                events?.preparingToDownload()
             codeFetcher.download(coordinate)
         }
 
@@ -135,6 +140,7 @@ class AppLauncher(private val options: GravitonCLI,
         if (!(userInput.startsWith("http://") || userInput.startsWith("https://") || userInput.startsWith("github.com/")))
             return userInput
 
+        // TODO: Support BitBucket and GitLab URLs too.
         val full = if (userInput.startsWith("github.com/")) "https://$userInput" else userInput
         try {
             val uri = URI(full)

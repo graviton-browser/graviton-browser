@@ -39,6 +39,8 @@ import org.eclipse.aether.util.repository.JreProxySelector
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.Security
+import java.time.Clock
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
@@ -51,7 +53,9 @@ class StartException(message: String, cause: Throwable? = null) : Exception(mess
  */
 class CodeFetcher(private val cachePath: Path,
                   private val events: Events?,
-                  private val repoSpec: RepoSpec) {
+                  private val repoSpec: RepoSpec,
+                  val offline: Boolean = false,
+                  private val clock: Clock = Clock.systemUTC()) {
     companion object : Logging() {
         fun isPossiblyJitPacked(packageName: String) =
                 packageName.startsWith("com.github.") ||
@@ -207,11 +211,8 @@ class CodeFetcher(private val cachePath: Path,
         open fun onStoppedDownloading() {}
     }
 
-    /** If set to true, Aether will be configured to not use the network. */
-    var offline: Boolean = false
-
-    /** The result of resolving the given coordinates */
-    data class Result(val classPath: String, val artifact: Artifact) {
+    /** The result of resolving the given coordinates. */
+    data class Result(val classPath: String, val artifact: Artifact, val refreshTime: Instant) {
         /** The contents of the POM name field or the artifact ID if no name was specified. */
         val name: String get() = artifact.properties["model.name"] ?: artifact.artifactId
 
@@ -302,7 +303,7 @@ class CodeFetcher(private val cachePath: Path,
         info { "Classpath for ${classPath.split(':').joinToString(System.lineSeparator())}" }
         // node.artifact has been enhanced with name/description properties as part of collectDependencies
         // so we must use it, rather than 'artifact' even though they may appear to be the same.
-        return Result(classPath, node.artifact)
+        return Result(classPath, node.artifact, clock.instant())
     }
 
     private fun resolveArtifact(artifact: DefaultArtifact): DependencyNode {
