@@ -203,7 +203,7 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
 
     private fun refreshRecentApps(cachePath: Path) {
         try {
-            val historyManager = HistoryManager(cachePath, refreshInterval = Duration.ofHours(12), showcaseFile = null)
+            val historyManager = HistoryManager(cachePath, refreshInterval = Duration.ofHours(12))
             val appLauncher = AppLauncher(GravitonCLI.parse(""), null, historyManager)
             historyManager.refreshRecentlyUsedApps(appLauncher)
         } catch (e: Exception) {

@@ -30,10 +30,9 @@ class HistoryManager(storagePath: Path,
                      private val refreshInterval: Duration = Duration.ofHours(24),
                      val maxHistorySize: Int = 20,
                      var clock: Clock = Clock.systemUTC(),
-                     val blocking: Boolean = false,
-                     private val showcaseFile: String? = null) {
+                     val blocking: Boolean = false) {
     companion object : Logging() {
-        fun create(): HistoryManager = HistoryManager(commandLineArguments.cachePath.toPath(), showcaseFile = "showcase.yaml")
+        fun create(): HistoryManager = HistoryManager(commandLineArguments.cachePath.toPath())
 
         // If we don't do this then we get ugly and unnecessary !java.util.LinkedHashMap type tags, or
         // we have to use HashMap and then the keys are stored in random order.
@@ -59,16 +58,6 @@ class HistoryManager(storagePath: Path,
                 info { "Read ${history.size} entries from the history list" }
             } catch (e: Exception) {
                 logger.warn("Failed to read history file", e)     // Not ideal but we don't want to brick ourselves.
-            }
-        } else {
-            try {
-                if (showcaseFile != null) {
-                    readFromFile(javaClass.getResourceAsStream(showcaseFile).reader().use { it.readText() })
-                    info { "First run: set up app showcase with ${history.size} entries." }
-                    writeHistory()
-                }
-            } catch (e: Exception) {
-                logger.warn("Failed to read showcase file", e)    // Not a critical error.
             }
         }
     }

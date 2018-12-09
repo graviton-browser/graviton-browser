@@ -22,6 +22,7 @@ import javafx.scene.shape.Rectangle
 import javafx.scene.text.TextAlignment
 import tornadofx.*
 import java.io.File
+import java.util.*
 import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 import kotlin.math.max
@@ -32,6 +33,13 @@ import kotlin.math.min
  */
 class AppLaunchUI : View() {
     companion object : Logging()
+
+    private val showcaseApps = linkedSetOf(
+            AppEntry("Everest", "A beautiful REST workbench.", "com.rohitawate:everest"),
+            AppEntry("Tic Tac Toe", "A reimplementation of the React.JS tutorial app, so complexity and lines of code can be directly compared.", "plan99.net:tictactoe"),
+            AppEntry("CalendarFX", "Sample app for the CalendarFX widget", "com.github.dlemmermann.calendarfx:application:v8.5.0"),
+            AppEntry("SpotBugs", "SpotBugs: Because it's easy!", "com.github.spotbugs")
+    )
 
     private lateinit var messageText1: StringProperty
     private lateinit var messageText2: StringProperty
@@ -84,34 +92,6 @@ class AppLaunchUI : View() {
         }
     }
 
-    private fun fadeAnim(tiles: List<HBox>, tracker: StackPane, nowWorking: Boolean) {
-        fun tiles(): Timeline? {
-            var timeline: Timeline? = null
-            for ((index, tile) in tiles.withIndex()) {
-                tile.opacityProperty().animate(if (nowWorking) 0.0 else 1.0, 0.1.seconds) {
-                    delay = (index * 0.02).seconds
-                    timeline = this
-                }
-            }
-            return timeline
-        }
-        if (nowWorking) {
-            val tl = tiles()
-            fun go() {
-                tracker.isManaged = true
-                tracker.opacityProperty().animate(1.0, 0.2.seconds)
-            }
-            if (tl == null) go() else tl.setOnFinished { go() }
-        } else {
-            tracker.opacityProperty().animate(0.0, 0.2.seconds) {
-                setOnFinished {
-                    tracker.isManaged = false
-                    tiles()
-                }
-            }
-        }
-    }
-
     @Suppress("JoinDeclarationAndAssignment")
     private fun VBox.coordinateBar() {
         coordinateBar = textfield {
@@ -129,6 +109,7 @@ class AppLaunchUI : View() {
         }
     }
 
+    //region Progress tracking
     private fun VBox.downloadTracker(): StackPane {
         val progressBar = progressBar()
         add(progressBar)
@@ -228,20 +209,39 @@ class AppLaunchUI : View() {
             launcher = null
         }
     }
+    //endregion
+
+    //region App tiles
+
+    /**
+     * A clickable entry, from either the history list or example (showcase) entries, which is considered to be equal
+     * to any other entry with the same name and description.
+     */
+    private class AppEntry(val name: String, val description: String, val userInput: String, val origEntry: HistoryEntry? = null) {
+        constructor(from: HistoryEntry) : this(from.name, from.description ?: "", from.coordinateFragment, from)
+
+        override fun equals(other: Any?) = other is AppEntry && name == other.name && description == other.description && userInput == other.userInput
+        override fun hashCode() = Objects.hash(name, description, userInput)
+    }
 
     private var lastListener: InvalidationListener? = null
 
     private fun VBox.populateRecentAppsPicker() {
         children.clear()
         alignment = Pos.TOP_CENTER
-        val tiles = historyManager.history.map { createAppTile(it) }
+        val numShowcaseEntries = historyManager.maxHistorySize - historyManager.history.size
+        // Duplicates will be eliminated here due to the use of sets and the definition of AppEntry.equals,
+        // so if the user clicks a showcase entry, it will become a part of the history list and the version
+        // from the showcase will drop away.
+        val entries = historyManager.history.map { AppEntry(it) }.toSet() + showcaseApps.take(numShowcaseEntries)
+        val tiles = entries.map { createAppTile(it) }
         // Set up the animation as downloads start and stop.
         lastListener?.let { isWorking.removeListener(it) }
         lastListener = InvalidationListener { fadeAnim(tiles, tracker, isWorking.get()) }
         isWorking.addListener(lastListener)
     }
 
-    private fun VBox.createAppTile(entry: HistoryEntry): HBox {
+    private fun VBox.createAppTile(entry: AppEntry): HBox {
         return hbox {
             val observableEntry = SimpleObjectProperty(entry)
 
@@ -253,32 +253,35 @@ class AppLaunchUI : View() {
             // Name, description
             vbox {
                 label(observableEntry.select { SimpleStringProperty(it.name) }) { addClass(Styles.historyTitle) }
-                label(observableEntry.select { SimpleStringProperty(it.description ?: "") }) { addClass(Styles.historyDescription) }
+                label(observableEntry.select { SimpleStringProperty(it.description) }) { addClass(Styles.historyDescription) }
             }
 
             // Push the next bit to the right.
             pane { HBox.setHgrow(this, Priority.ALWAYS) }
+
+            val isFromHistory = observableEntry.selectBoolean { SimpleBooleanProperty(it.origEntry != null) }
 
             // Right click menu.
             val menu = contextmenu {
                 item("Copy coordinates") {
                     action {
                         val curEntry = observableEntry.get()
-                        coordinateBar.text = curEntry.coordinateFragment
+                        coordinateBar.text = curEntry.userInput
                         resetUI()
                     }
                 }
 
                 item("Refresh") {
+                    visibleWhen(isFromHistory)
                     setOnAction {
                         startWorking("Refreshing ...")
                         task {
                             info { "User requested refresh of $entry" }
                             val curEntry = observableEntry.get()
                             val fetcher = AppLauncher(GravitonCLI.parse(""), appLaunchEventHandler, historyManager)
-                            historyManager.refresh(fetcher, curEntry)
+                            historyManager.refresh(fetcher, curEntry.origEntry!!)
                         } success { newEntry: HistoryEntry ->
-                            observableEntry.set(newEntry)
+                            observableEntry.set(AppEntry(newEntry))
                         } finally {
                             isWorking.set(false)
                         }
@@ -293,8 +296,9 @@ class AppLaunchUI : View() {
                 }
 
                 item("Remove") {
+                    visibleWhen(isFromHistory)
                     setOnAction {
-                        historyManager.removeEntry(entry)
+                        historyManager.removeEntry(observableEntry.get().origEntry!!)
                         recentAppsPicker.populateRecentAppsPicker()
                     }
                 }
@@ -305,7 +309,7 @@ class AppLaunchUI : View() {
                 if (isWorking.get()) return@setOnMouseClicked
                 when {
                     it.button == MouseButton.PRIMARY -> {
-                        coordinateBar.text = entry.coordinateFragment
+                        coordinateBar.text = observableEntry.get().userInput
                         beginLaunch()
                     }
                     // For some reason without checking if the secondary button is down, this gets duplicated and
@@ -318,7 +322,36 @@ class AppLaunchUI : View() {
         }
     }
 
-    //region Event handling
+    private fun fadeAnim(tiles: List<HBox>, tracker: StackPane, nowWorking: Boolean) {
+        fun tiles(): Timeline? {
+            var timeline: Timeline? = null
+            for ((index, tile) in tiles.withIndex()) {
+                tile.opacityProperty().animate(if (nowWorking) 0.0 else 1.0, 0.1.seconds) {
+                    delay = (index * 0.02).seconds
+                    timeline = this
+                }
+            }
+            return timeline
+        }
+        if (nowWorking) {
+            val tl = tiles()
+            fun go() {
+                tracker.isManaged = true
+                tracker.opacityProperty().animate(1.0, 0.2.seconds)
+            }
+            if (tl == null) go() else tl.setOnFinished { go() }
+        } else {
+            tracker.opacityProperty().animate(0.0, 0.2.seconds) {
+                setOnFinished {
+                    tracker.isManaged = false
+                    tiles()
+                }
+            }
+        }
+    }
+    //endregion
+
+    //region Launch and reset
     fun resetUI() {
         isWorking.set(false)
         messageText1.set("")
@@ -335,6 +368,8 @@ class AppLaunchUI : View() {
 
         val text = coordinateBar.text
         if (text.isBlank()) return
+
+        info { "User requested launch of $text" }
 
         // Parse what the user entered as if it were a command line: this feature is a bit of an easter egg,
         // but makes testing a lot easier, e.g. to force a re-download just put --clear-cache at the front.
@@ -514,6 +549,7 @@ class AppLaunchUI : View() {
     fun stop() {
         cancelIfDownloading()
     }
+    //endregion
 }
 
 fun clearCache() {
