@@ -1,6 +1,26 @@
 Newsletters
 ***********
 
+10th December 2018
+==================
+
+Rampdown continues in preparation for the first release. Mac and Windows builds have passed the test plans, and testing
+has now moved on to Linux (which has already revealed a strange visual bug). Many bugs have been fixed during this test phase.
+Unfortunately, download cancellation had to be disabled, as it needs more work.
+
+A new mailing list has been created in preparation for launch. Please join the `graviton-dev mailing list <https://groups.google.com/forum/#!forum/graviton-dev>`_.
+
+I presented Graviton at JavaFX Days Zürich, which was a great conference. Feedback was overwhelmingly positive, and
+some firms expressed interest in using it as a replacement for Java Web Start. Collaboration with Karakun on their
+planned reimplementation of Web Start is a possibility in future. I have re-recorded the talk I gave; it can be viewed
+here:
+
+.. raw:: html
+
+   <center>
+   <iframe width="700" height="393" src="https://www.youtube.com/embed/cyBN_ILkAtg" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+   </center><br>
+
 27th November 2018
 ==================
 

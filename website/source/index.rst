@@ -3,7 +3,11 @@ Graviton
 
 Graviton is a *prototype* app browser and cross-platform software manager.
 
-.. image:: _static/graviton-everest.gif
+.. raw:: html
+
+   <center>
+   <iframe width="700" height="393" src="https://www.youtube.com/embed/cyBN_ILkAtg" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+   </center><br>
 
 It gives you:
 
