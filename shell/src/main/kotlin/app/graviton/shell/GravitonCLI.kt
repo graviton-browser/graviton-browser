@@ -115,7 +115,7 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         // This will execute asynchronously, only if run from an installed package (via the bootstrapper).
         startupChecks()
 
-        // TODO: Run this step async.
+        // TODO: Run these steps async.
         setupProxies()
 
         if (backgroundUpdate) {

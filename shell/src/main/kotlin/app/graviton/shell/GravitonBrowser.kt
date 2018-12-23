@@ -3,6 +3,8 @@ package app.graviton.shell
 import app.graviton.mac.configureMacWindow
 import app.graviton.mac.setupMacMenuBar
 import app.graviton.ui.ThreeDSpinner
+import javafx.application.ConditionalFeature
+import javafx.application.Platform
 import javafx.geometry.Pos
 import javafx.scene.Scene
 import javafx.scene.effect.GaussianBlur
@@ -39,6 +41,16 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
         }
         stage.title = "Graviton"
         super.start(stage)
+        logJFXFeatures()
+    }
+
+    private fun logJFXFeatures() {
+        val features = mutableListOf<String>()
+        for (feature in ConditionalFeature.values()) {
+            if (Platform.isSupported(feature))
+                features += feature.name
+        }
+        GravitonCLI.info { "JavaFX supports ${features.joinToString()}" }
     }
 }
 
@@ -48,9 +60,8 @@ class GravitonBrowser : App(ShellView::class, Styles::class) {
 class ShellView : View() {
     companion object : Logging()
 
-    private lateinit var spinnerAnimation: ThreeDSpinner
+    private var spinnerAnimation: ThreeDSpinner? = null
     private val appLaunchUI: AppLaunchUI by inject()
-    private val loginUI: LoginUI by inject()
     private lateinit var mainStackPane: StackPane
     private lateinit var screenshotView: ImageView
 
@@ -117,12 +128,15 @@ class ShellView : View() {
     }
 
     private fun StackPane.createSpinnerAnimation() {
-        spinnerAnimation = ThreeDSpinner(art.animationColor)
-        spinnerAnimation.root.maxWidth = 600.0
-        spinnerAnimation.root.maxHeight = 600.0
-        spinnerAnimation.root.translateY = 0.0
-        children += spinnerAnimation.root
-        spinnerAnimation.visible.bind(isWorking)
+        if (Platform.isSupported(ConditionalFeature.SCENE3D)) {
+            val spinnerAnimation = ThreeDSpinner(art.animationColor)
+            spinnerAnimation.root.maxWidth = 600.0
+            spinnerAnimation.root.maxHeight = 600.0
+            spinnerAnimation.root.translateY = 0.0
+            children += spinnerAnimation.root
+            spinnerAnimation.visible.bind(isWorking)
+            this@ShellView.spinnerAnimation = spinnerAnimation
+        }
     }
 
     private fun StackPane.artVBox() {
