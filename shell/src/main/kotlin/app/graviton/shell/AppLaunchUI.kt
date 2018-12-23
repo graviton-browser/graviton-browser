@@ -519,9 +519,14 @@ class AppLaunchUI : View() {
     private fun onStartError(e: Throwable) {
         isWorking.set(false)
         downloadProgress.set(0.0)
-        messageText1.set("Start failed")
-        messageText2.set(e.message)
         ShellView.logger.error("Start failed", e)
+        with (Alert(Alert.AlertType.ERROR)) {
+            width = 1024.0
+            height = 720.0
+            contentText = e.message
+            title = "Start failed"
+            showAndWait()
+        }
     }
 
     @Suppress("unused")
