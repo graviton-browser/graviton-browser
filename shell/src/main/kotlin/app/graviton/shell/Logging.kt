@@ -106,7 +106,7 @@ fun setupLogging(logToConsole: Boolean) {
     java.util.logging.Logger.getLogger("").level = java.util.logging.Level.FINEST
 
     // Workaround for a bug in Proxy Vole.
-    com.github.markusbernhardt.proxy.util.Logger.setBackend { clazz, loglevel, msg, params ->
+    com.github.markusbernhardt.proxy.util.Logger.setBackend { _, _, msg, params ->
         org.pmw.tinylog.Logger.info(msg, *params)
     }
 }
