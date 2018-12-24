@@ -28,9 +28,8 @@ private fun findHighestVersion(): Int {
     var highestVersionFound = 0
     while (true) {
         val entry = (readdir(d) ?: break).pointed
-        // Skip entries that aren't directories.
-        if (entry.d_type != DT_DIR.toUByte()) continue
-        // Skip entries that don't have integer names.
+        // Skip entries that don't have integer names. We can't use the d_type field because it's not
+        // always set on every filesystem.
         val entryName = entry.d_name.toKString()
         if (entryName.any { !it.isDigit() }) continue
         // Is this higher than any version number found so far?
@@ -38,5 +37,6 @@ private fun findHighestVersion(): Int {
         highestVersionFound = max(highestVersionFound, versionNumber)
     }
     closedir(d)
+    check(highestVersionFound > 0) { "Could not locate versioned directories" }
     return highestVersionFound
 }

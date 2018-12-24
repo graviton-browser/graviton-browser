@@ -10,8 +10,8 @@ import platform.posix.readlink
 val fullBinaryPath: String
     get() {
         memScoped {
-            val length = PATH_MAX.toLong()
-            val pathBuf = allocArray<ByteVar>(length)
+            val length = PATH_MAX.toULong()
+            val pathBuf = allocArray<ByteVar>(length.toInt())
             val myPid = getpid()
             val res = readlink("/proc/$myPid/exe", pathBuf, length)
             if (res < 1)
@@ -21,4 +21,4 @@ val fullBinaryPath: String
         }
     }
 
-val exeFile: String get() = "GravitonBrowser"
+val exeFile: String get() = "graviton"

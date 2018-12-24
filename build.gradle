@@ -50,13 +50,15 @@ compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }
 
+def allJars = configurations.runtime.collect { it.getName() }
+
 jar {
     inputs.property("moduleName", moduleName)
     manifest {
         attributes(
                 'Automatic-Module-Name': moduleName,
                 'Main-Class': mainClassName,
-                'Class-Path': configurations.runtime.collect { it.getName() }.join(' ')
+                'Class-Path': allJars.join(' ')
         )
     }
 }
@@ -72,7 +74,7 @@ task copyBootstrapToLibs(type: Copy, dependsOn: [installDist, tasks.getByPath(':
     else if (os.contains('win'))
         from 'bootstrap/build/konan/bin/mingw_x64'
     else if (os.contains('linux'))
-        from 'bootstrap/build/konan/bin/linux'
+        from 'bootstrap/build/konan/bin/linux_x64'
     from 'LICENSE'
     into('build/install/graviton/lib')
 }
@@ -121,46 +123,13 @@ task makeWinInstaller(type: Exec, dependsOn: [copyBootstrapToLibs]) {
 // You need InnoSetup and the Windows SDK to run this task. For code signing you also need a valid certificate and
 // accessible private key.
 task packageWin(type: Exec, dependsOn: [makeWinInstaller]) {
+    group = "Packaging"
+    description = "Build the EXE installer for Windows and sign it"
+
     inputs.files("build/packaged/GravitonBrowser.exe")
 
     // Now sign the EXE to help reduce warnings from IE.
     commandLine = ['signtool', 'sign', '/a', '/t', 'http://time.certum.pl', '/fd', 'sha256', '/v', '/debug', 'build\\packaged\\bundles\\GravitonBrowser.exe']
-}
-
-// TODO: Use the bootstrapper tool. Lay out files in numbered directories.
-task packageLinux(type: Exec, dependsOn: [copyBootstrapToLibs]) {
-    workingDir project.projectDir
-    def outDir = "${buildDir}/packaged"
-    outputs.dir(outDir)
-    inputs.files(copyBootstrapToLibs.outputs)
-    inputs.files('package/linux')
-
-    environment "GRAVITON_VERSION", project.version
-
-    commandLine = [
-            'javapackager',
-            '-deploy',
-            '-nosign',
-            '-native', 'deb',
-            '-outdir', outDir,
-            '-outfile', 'GravitonBrowser',
-            '-name', 'Graviton Browser',
-            '-appclass', mainClassName,
-            '-srcdir', 'build/install/graviton/lib',
-            '-Bidentifier=app.graviton.browser',
-            "-BmainJar=graviton-${project.version}.jar",
-            "-BappVersion=${project.version}",
-            "-Bcategory=Network",
-            "-Bemail=mike@plan99.net",
-            "-Bcopyright=Graviton",
-            "-BlicenseType=Apache-2.0",
-            "-BlicenseFile=LICENSE",
-            "-Bvendor=Mike Hearn",
-            "-v"
-    ]
-
-    // TODO: Signing
-    // TODO: Icons
 }
 
 task refreshAPIDocs(type: Copy) {
