@@ -31,7 +31,7 @@ abstract class OSTaskScheduler {
             return when {
                 osName.contains("win") -> WindowsTaskScheduler()
                 osName.contains("mac") -> MacTaskScheduler()
-                osName.contains("linux") -> LinuxTaskScheduler()
+                osName.contains("linux") -> CronTaskScheduler()
                 else -> null
             }
         }
@@ -50,7 +50,7 @@ abstract class OSTaskScheduler {
 class UnknownTaskException(message: String) : Exception(message)
 
 /**
- * A structure describing a scheduled task. Not all feature are supported on all operating systems.
+ * A structure describing a scheduled task. Not all features are supported on all operating systems.
  *
  * @property executePath  A [Path] to a file to be executed, which must exist.
  * @property arguments A list of command line parameters to pass to the executed program.

@@ -1,5 +1,6 @@
 package app.graviton.scheduler
 
+import app.graviton.scheduler.internal.toCronExpression
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Duration
@@ -8,7 +9,7 @@ import java.time.Duration
  *
  * @author Anindya Chatterjee
  */
-class LinuxTaskSchedulerTest {
+class CronTaskSchedulerTest {
 
     @Test
     fun testCronTabExpression() {

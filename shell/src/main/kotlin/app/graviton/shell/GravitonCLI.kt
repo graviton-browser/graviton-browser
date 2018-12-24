@@ -312,11 +312,13 @@ class GravitonCLI(private val arguments: Array<String>) : Runnable {
         val executePath = when (currentOperatingSystem) {
             OperatingSystem.MAC -> myPath / "MacOS" / "Graviton"
             OperatingSystem.WIN -> myPath / "GravitonBrowser.exe"
-            OperatingSystem.LINUX -> myPath / "GravitonBrowser"
+            OperatingSystem.LINUX -> myPath / "graviton"
             OperatingSystem.UNKNOWN -> return
         }
         // Poll the server four times a day. This is a pretty aggressive interval but is useful in the project's early
-        // life where I want to be able to update things quickly and users may be impatient.
+        // life where I want to be able to update things quickly and users may be impatient. It's also needed on Linux
+        // where cron won't run catchup tasks if the machine is off, so we need to try frequently to be able to update.
+        // Once we switch to SystemD for task scheduling on Linux we can back off to less frequent checks safely.
         val scheduledTask = OSScheduledTaskDefinition(
                 executePath = executePath,
                 arguments = listOf("--background-update"),
