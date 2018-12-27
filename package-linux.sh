@@ -5,13 +5,19 @@
 
 set -e
 
+if [[ `uname` != "Linux" ]]; then
+    echo "This script must be run on Linux"
+    exit 1
+fi
+
 v=$( ./gradlew -q printVersion )
 export GRAVITON_VERSION=$v
 
 echo "Building Linux package for Graviton $v"
 echo
 
-updatejar=`pwd`/online-update-packages/$v.linux.jar
+onlineupdates="`pwd`/online-update-packages"
+updatejar=$onlineupdates/$v.linux.jar
 mkdir -p online-update-packages
 
 ./gradlew copyBootstrapToLibs
@@ -47,6 +53,9 @@ if [[ "$1" != "--skip-jar" ]]; then
     cd -
     rm -rf $bundles/graviton/
     [[ -e keystore.p12 ]] && jarsigner -keystore keystore.p12 -tsa http://time.certum.pl $updatejar mike
+
+    [[ ! -d $onlineupdates/linux ]] && mkdir -p $onlineupdates/linux
+    echo "Latest-Version-URL: /$GRAVITON_VERSION.linux.jar" >$onlineupdates/linux/control
 fi
 
 echo

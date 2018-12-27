@@ -44,9 +44,9 @@ enum class OperatingSystem {
         private val appDirectory: Path
             get() {
                 return if (System.getenv("XDG_CACHE_HOME").isNullOrBlank()) {
-                    homeDirectory / ".cache" / "GravitonBrowser"
+                    homeDirectory / ".cache" / "graviton"
                 } else {
-                    System.getenv("XDG_CACHE_HOME").toPath() / "GravitonBrowser"
+                    System.getenv("XDG_CACHE_HOME").toPath() / "graviton"
                 }
             }
         override val appCacheDirectory: Path get() = localM2Or(appDirectory / "repository")

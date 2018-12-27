@@ -2,6 +2,11 @@
 
 set -e
 
+if [[ `uname` != "Darwin" ]]; then
+    echo "This script must be run on macOS"
+    exit 1
+fi
+
 v=$( ./gradlew -q printVersion )
 export GRAVITON_VERSION=$v
 
