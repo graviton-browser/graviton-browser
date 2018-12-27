@@ -9,6 +9,7 @@ fun main(args: Array<String>) {
     setenv("GRAVITON_PATH", fullBinaryPath, 1)
     setenv("GRAVITON_EXE", exePath, 1)
     setenv("GRAVITON_VERSION", "$highestVersionFound", 1)
+    prepare()
     if (execl(exePath, exePath, *args, null) == -1) {
         printf("bootstrap: Could not start $exePath\n")
         perror("bootstrap")

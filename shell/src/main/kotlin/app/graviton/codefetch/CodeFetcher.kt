@@ -66,8 +66,7 @@ class CodeFetcher(private val cachePath: Path,
     init {
         // Ensure the local Maven repo exists.
         Files.createDirectories(cachePath)
-
-        // Override built-in security using Open/BoringSSL via the Conscrypt provider. The index here is 1-based.
+        // Override built-in security using Open/BoringSSL via the Conscrypt provider.
         // This essentally eliminates the overhead of enabling SSL using JSSE and doubles download performance.
         Security.insertProviderAt(Conscrypt.newProvider(), 1)
     }

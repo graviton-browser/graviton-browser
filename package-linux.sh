@@ -34,11 +34,22 @@ mv $bundles/graviton /tmp/graviton-image
 mkdir $bundles/graviton
 mv /tmp/graviton-image $bundles/graviton/$GRAVITON_VERSION
 mv $bundles/graviton/$GRAVITON_VERSION/app/bootstrap.kexe $bundles/graviton/graviton
-tar czvf $bundles/graviton.tar.gz $bundles/graviton
+cd $bundles
+chmod -R +w graviton
+tar czvf graviton.tar.gz graviton
+cd -
 
 # Now make the update JAR.
-cd $bundles/graviton/$GRAVITON_VERSION
-[[ -e $updatejar ]] && rm $updatejar
-jar cvf $updatejar .
-cd -
-[[ -e keystore.p12 ]] && jarsigner -keystore keystore.p12 -tsa http://time.certum.pl $updatejar mike
+if [[ "$1" != "--skip-jar" ]]; then
+    cd $bundles/graviton/$GRAVITON_VERSION
+    [[ -e $updatejar ]] && rm $updatejar
+    jar cvf $updatejar .
+    cd -
+    rm -rf $bundles/graviton/
+    [[ -e keystore.p12 ]] && jarsigner -keystore keystore.p12 -tsa http://time.certum.pl $updatejar mike
+fi
+
+echo
+echo "User-distributable package is in $bundles/graviton.tar.gz"
+echo "Online update package is in $updatejar"
+
