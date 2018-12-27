@@ -8,7 +8,7 @@ export GRAVITON_VERSION=$v
 echo "Building macOS package for Graviton $v"
 echo
 
-jarname=`pwd`/online-update-packages/$v.mac.jar
+updatejar=`pwd`/online-update-packages/$v.mac.jar
 mkdir -p online-update-packages
 
 ./gradlew copyBootstrapToLibs
@@ -38,7 +38,8 @@ fi
 
 hdiutil attach "build/packaged/bundles/Graviton-$v.dmg"
 cd "/Volumes/Graviton/Graviton.app/Contents/$v"
-jar cvf $jarname .
+jar cvf $updatejar .
 cd -
 umount "/Volumes/Graviton"
-jarsigner -keystore keystore.p12 $jarname $USER
+
+[[ -e keystore.p12 ]] && jarsigner -keystore keystore.p12 $updatejar mike

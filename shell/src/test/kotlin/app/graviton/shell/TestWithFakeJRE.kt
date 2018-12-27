@@ -8,16 +8,18 @@ import java.nio.file.FileSystem
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.KeyStore
+import java.security.PublicKey
 
 open class TestWithFakeJRE {
     // Shared file system that is left alone between tests.
-    protected val fs: FileSystem = Jimfs.newFileSystem(
+    private val fs: FileSystem = Jimfs.newFileSystem(
             Configuration.unix().toBuilder().setAttributeViews("basic", "posix").build()
     )
     protected val root: Path = fs.rootDirectories.first()
 
-    // fakeJreDir is the directory produced by javapackager, before version mangling.
-    protected val fakeJreDir = root / "fake-jre"
+    // fakeMacJreDir is the directory produced by javapackager, before version mangling.
+    val fakeMacJreDir = root / "fake-jre-mac"
+    val fakeLinuxJreDir = root / "fake-jre-linux"
 
     // We have to load a pre-generated private key and cert because the Java crypto API is incomplete. There's no
     // API for building a certificate. We could probably do it with Bouncy Castle but I don't have that on the plane.
@@ -27,21 +29,27 @@ open class TestWithFakeJRE {
         ks
     }
     val priv1 = testKeyStore.getEntry("mykey", KeyStore.PasswordProtection("testtest".toCharArray())) as KeyStore.PrivateKeyEntry
-    val pub1 = priv1.certificate.publicKey
-    val testUpdate = RuntimeUpdate(javaClass.getResource("/test-update.jar").toPath(), pub1)
+    val pub1: PublicKey = priv1.certificate.publicKey
+    val testUpdateMac = RuntimeUpdate(javaClass.getResource("/test-update-mac.jar").toPath(), pub1)
+    val testUpdateLinux = RuntimeUpdate(javaClass.getResource("/test-update-linux.jar").toPath(), pub1)
 
     enum class FileOrDirectory { FILE, DIRECTORY }
 
-    fun createFakeJREImage(location: Path) {
-        // The fake image isn't that realistic, but it has roughly the right structure.
-        RuntimeUpdateTest::class.java.getResourceAsStream("/example-runtime-files.txt").bufferedReader().useLines { lines ->
+    init {
+        // The fake images aren't that realistic, but it has roughly the right structure.
+        createFakeJREImage("/example-runtime-files-mac.txt", fakeMacJreDir)
+        createFakeJREImage("/example-runtime-files-linux.txt", fakeLinuxJreDir)
+    }
+
+    private fun createFakeJREImage(layoutResourcePath: String, destinationPath: Path) {
+        RuntimeUpdateTest::class.java.getResourceAsStream(layoutResourcePath).bufferedReader().useLines { lines ->
             // Use a heuristic to figure out if each line is supposed to be a file or directory.
             val types = LinkedHashMap<Path, FileOrDirectory>()
             for (line in lines) {
-                val path = location / line
+                val path = destinationPath / line
                 // Assume a file unless we see a following entry that is underneath it.
                 types[path] = FILE
-                if (path.parent?.let { types[it] } == FILE) {
+                if (path.toString().endsWith("/") || path.parent?.let { types[it] } == FILE) {
                     types[path.parent] = DIRECTORY
                 }
             }
@@ -54,7 +62,8 @@ open class TestWithFakeJRE {
         }
     }
 
-    /* - requires java 9+ for the JarSigner API, run manually and the result checked into git
+    /* - requires java 9+ for the JarSigner API, run manually and the result checked into git.
+         TODO: Once we're upgraded to Java 11 uncomment this and generate it each time.
 
     fun createFrom(from: Path, signingKey: KeyStore.PrivateKeyEntry, outputPath: Path): RuntimeUpdate {
         val tempZip = Files.createTempFile("graviton-runtimeupdate-test", ".zip")
@@ -83,11 +92,5 @@ open class TestWithFakeJRE {
         } finally {
             Files.deleteIfExists(tempZip)
         }
-    }
-
-    */
-
-    init {
-        createFakeJREImage(fakeJreDir)
-    }
+    } */
 }

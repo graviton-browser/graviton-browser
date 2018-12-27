@@ -126,7 +126,8 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
         val controlProps = Properties().apply { load(response.body()!!.charStream()) }
         val redirect = controlProps.getProperty(LATEST_VERSION_URL)
                 ?: error("No $LATEST_VERSION_URL property in control file:\n$controlProps")
-        val latestVersionURL = (baseURL.newBuilder(redirect) ?: error("Failed to parse $redirect as link URL")).build()
+        val latestVersionURL = (baseURL.newBuilder(redirect)
+                ?: error("Failed to parse $redirect as link URL")).build()
         info { "Update JAR URL is $latestVersionURL" }
         // We expect the redirect to take us to a file of the form X.jar where X is an integer
         val remoteFileName = latestVersionURL.pathSegments().last()

@@ -17,16 +17,28 @@ import kotlin.test.assertTrue
 
 class RuntimeUpdateTest : TestWithFakeJRE() {
     @Test
-    fun createAndApply() {
-        val update: RuntimeUpdate = testUpdate
+    fun mac() {
+        withOverriddenOperatingSystem(OperatingSystem.MAC) {
+            createAndApply(testUpdateMac, fakeMacJreDir, "Contents")
+        }
+    }
+
+    @Test
+    fun linux() {
+        withOverriddenOperatingSystem(OperatingSystem.LINUX) {
+            createAndApply(testUpdateLinux, fakeLinuxJreDir, "graviton")
+        }
+    }
+
+    private fun createAndApply(update: RuntimeUpdate, jreDir: Path, testPath: String) {
         val jarEntries = update.jar.readAsJar().entriesIterator.asSequence().toList()
         // Check we have the same names but order doesn't matter.
         val jarFileNames = jarEntries.map {
             if (it.isDirectory) it.realName.dropLast(1) else it.realName
         }.toSortedSet()
         val expected = (
-                walk(fakeJreDir).toList().drop(1).map { fakeJreDir.relativize(it).toString() } +
-                        listOf("META-INF/SIGNER.SF", "META-INF/SIGNER.EC")
+                walk(jreDir).toList().drop(1).map { jreDir.relativize(it).toString() } +
+                        listOf("META-INF/MYKEY.SF", "META-INF/MYKEY.EC", "META-INF")
                 ).toSortedSet()
         assertEquals(expected, jarFileNames)
         // Now check every file is correctly signed by the proper signing key.
@@ -40,7 +52,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
         val installDir = root / "install-dir"
         update.install(installDir)
         // Check it was unpacked.
-        assertTrue((installDir / "Contents").exists)
+        assertTrue((installDir / testPath).exists)
         val installedFiles = walk(installDir).map { installDir.relativize(it).toString() }.toList().drop(1)
         assertEquals(jarFileNames.filterNot { it.startsWith("META-INF") }.toSet(), installedFiles.toSet())
     }
@@ -59,7 +71,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
     fun notSigned() {
         // Create an update but drop the signature files, then try to apply it.
         val badPath = root / "bad.update.jar"
-        editJar(badPath, testUpdate.jar) { entry, newJarStream, oldJarStream ->
+        editJar(badPath, testUpdateMac.jar) { entry, newJarStream, oldJarStream ->
             if (".SF" !in entry.realName) {
                 newJarStream.putNextEntry(entry)
                 oldJarStream.copyTo(newJarStream)
@@ -74,7 +86,7 @@ class RuntimeUpdateTest : TestWithFakeJRE() {
     @Test
     fun fileCorrupted() {
         val badPath = root / "bad.update.jar"
-        editJar(badPath, testUpdate.jar) { entry, newJarStream, oldJarStream ->
+        editJar(badPath, testUpdateMac.jar) { entry, newJarStream, oldJarStream ->
             newJarStream.putNextEntry(entry)
             if (".class" !in entry.realName) {
                 oldJarStream.copyTo(newJarStream)

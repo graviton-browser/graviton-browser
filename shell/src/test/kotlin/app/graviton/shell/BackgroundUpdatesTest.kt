@@ -40,7 +40,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
     @Test
     fun serveUpdateMac() {
         withOverriddenOperatingSystem(OperatingSystem.MAC) {
-            withServer(testUpdate.jar) { baseUrl ->
+            withServer(testUpdateMac.jar) { baseUrl ->
                 val updates = BackgroundUpdates()
                 assertEquals(BackgroundUpdates.Result.AlreadyFresh, doCheck(updates, baseUrl, 2))
                 val result = doCheck(updates, baseUrl, 1)
@@ -78,6 +78,9 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         }
     }
 
+    // TODO: Test with Linux, this is identical to the Mac test but with a different directory structure,
+    //       so unit testing it isn't that helpful at the moment. Integration test would be more useful.
+
     @Test
     fun canParseMikesKey() {
         BackgroundUpdates.mikePubKey
@@ -88,7 +91,7 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
         // We could re-create the jimfs with a small size, but it's easier to just change the required disk space
         // free threshold and then re-run the check.
         val updates = BackgroundUpdates(requiredFreeSpaceMB = 8000)  // JimFS default size is 4 GB
-        withServer(testUpdate.jar) { baseUrl ->
+        withServer(testUpdateMac.jar) { baseUrl ->
             assertEquals(BackgroundUpdates.Result.InsufficientDiskSpace, doCheck(updates, baseUrl, 1))
         }
     }
@@ -103,10 +106,10 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
                 .build()
         Files.write(root / "control-file-mac", "Latest-Version-URL: /2.mac.update.jar".toByteArray())
         Files.write(root / "control-file-win", "Latest-Version-URL: /3.win.update.exe".toByteArray())
-        Files.write(root / "control-file-bad", "<html>some garbage that won't parse</html".toByteArray())
+        Files.write(root / "control-file-linux", "Latest-Version-URL /2.linux.update.jar".toByteArray())
         serveFile(httpServer, root / "control-file-mac", "/mac/control")
         serveFile(httpServer, root / "control-file-win", "/win/control")
-        serveFile(httpServer, root / "control-file-bad", "/linux/control")
+        serveFile(httpServer, root / "control-file-linux", "/linux/control")
         serveFile(httpServer, updatePath, "/2.mac.update.jar")
 
         if (windowsV3Missing) {
@@ -116,16 +119,18 @@ class BackgroundUpdatesTest : TestWithFakeJRE() {
             serveFile(httpServer, updatePath, "/3.win.update.exe")
         }
 
+        serveFile(httpServer, updatePath, "/2.linux.update.jar")
+
         httpServer.executor = Executors.newSingleThreadExecutor()
         httpServer.start()
         return Pair(httpServer, baseUrl)
     }
 
-    private fun serveFile(httpServer: HttpServer, updatePath: Path, url: String) {
+    private fun serveFile(httpServer: HttpServer, path: Path, url: String) {
         httpServer.createContext(url) { exchange ->
             try {
-                exchange.sendResponseHeaders(200, size(updatePath))
-                newInputStream(updatePath).use { stream ->
+                exchange.sendResponseHeaders(200, size(path))
+                newInputStream(path).use { stream ->
                     stream.copyTo(exchange.responseBody)
                 }
             } finally {

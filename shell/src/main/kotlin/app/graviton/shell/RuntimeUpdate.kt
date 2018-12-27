@@ -38,14 +38,15 @@ class RuntimeUpdate(val jar: Path, private val signingKey: PublicKey) {
         try {
             jar.readAsJar().use { stream ->
                 for (entry in stream.entriesIterator) {
+                    if (entry.realName.startsWith("META-INF")) {
+                        // Don't unpack metadata or manifest files, as they're only used for signing.
+                        continue
+                    }
+
                     check(entry.realName.first() != '/') { entry.realName }
                     val target = tmpTargetDir / entry.realName
                     if (entry.isDirectory) {
                         target.createDirectories()
-                        continue
-                    }
-                    if (entry.realName.startsWith("META-INF") && (entry.realName.endsWith(".SF") || entry.realName.endsWith(".EC"))) {
-                        // Don't unpack the signature files.
                         continue
                     }
 
@@ -67,7 +68,7 @@ class RuntimeUpdate(val jar: Path, private val signingKey: PublicKey) {
                 OperatingSystem.MAC -> setExecuteBit(tmpTargetDir / "Contents" / "MacOS" / "Graviton Browser")
                 OperatingSystem.WIN -> {
                 }
-                OperatingSystem.LINUX -> TODO()
+                OperatingSystem.LINUX -> setExecuteBit(tmpTargetDir / "graviton")
                 OperatingSystem.UNKNOWN -> TODO()
             }
 

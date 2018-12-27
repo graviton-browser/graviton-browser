@@ -11,6 +11,9 @@ export GRAVITON_VERSION=$v
 echo "Building Linux package for Graviton $v"
 echo
 
+updatejar=`pwd`/online-update-packages/$v.linux.jar
+mkdir -p online-update-packages
+
 ./gradlew copyBootstrapToLibs
 bundles=build/packaged/bundles
 srcfiles=$( ls build/install/graviton/lib )
@@ -32,3 +35,10 @@ mkdir $bundles/graviton
 mv /tmp/graviton-image $bundles/graviton/$GRAVITON_VERSION
 mv $bundles/graviton/$GRAVITON_VERSION/app/bootstrap.kexe $bundles/graviton/graviton
 tar czvf $bundles/graviton.tar.gz $bundles/graviton
+
+# Now make the update JAR.
+cd $bundles/graviton/$GRAVITON_VERSION
+[[ -e $updatejar ]] && rm $updatejar
+jar cvf $updatejar .
+cd -
+[[ -e keystore.p12 ]] && jarsigner -keystore keystore.p12 -tsa http://time.certum.pl $updatejar mike
