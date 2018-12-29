@@ -35,7 +35,7 @@ class AppLaunchUI : View() {
     companion object : Logging()
 
     private val showcaseApps = linkedSetOf(
-            AppEntry("Everest", "A beautiful REST workbench.", "com.rohitawate:everest"),
+            AppEntry("Everest", "A beautiful, cross-platform REST client.", "com.github.rohitawate:Everest"),
             AppEntry("Tic Tac Toe", "A reimplementation of the React.JS tutorial app, so complexity and lines of code can be directly compared.", "plan99.net:tictactoe"),
             AppEntry("CalendarFXApp", "The parent project for the various CalendarFX modules.", "com.github.dlemmermann.calendarfx:application:v8.5.0"),
             AppEntry("SpotBugs", "SpotBugs: Because it's easy!", "com.github.spotbugs")

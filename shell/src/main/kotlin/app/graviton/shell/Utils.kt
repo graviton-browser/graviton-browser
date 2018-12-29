@@ -3,8 +3,6 @@ package app.graviton.shell
 import javafx.application.Platform
 import okhttp3.HttpUrl
 import org.eclipse.aether.artifact.Artifact
-import java.io.IOException
-import java.io.InputStream
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.net.URL
@@ -193,82 +191,4 @@ fun Artifact.withNameAndDescription(name: String, description: String?): Artifac
     props["model.name"] = name
     props["model.description"] = description
     return setProperties(props)
-}
-
-/**
- * If instantiated, allows a block of code to be protected in a thread safe manner such that it can only be entered
- * once. Any other attempt to enter the block will throw [IllegalStateException]. Instances can be used as functions:
- *
- * val once = Once()
- *
- * once {
- *    .. can't re-enter here ..
- * }
- */
-class Once {
-    private var consumed: Boolean = false
-
-    @Synchronized fun consume() {
-        check(!consumed) { "Operation can only be performed once" }
-        consumed = true
-    }
-
-    inline operator fun <T> invoke(block: () -> T): T {
-        consume()
-        return block()
-    }
-}
-
-/**
- * An efficient stream searching class based on the Knuth-Morris-Pratt algorithm. Based on code from Twitter's
- * Elephant-Bird library.
- */
-class StreamSearcher(val pattern: ByteArray) {
-    private val borders = IntArray(pattern.size + 1)
-
-    init {
-        var i = 0
-        var j = -1
-        borders[i] = j
-        while (i < pattern.size) {
-            while (j >= 0 && pattern[i] != pattern[j])
-                j = borders[j]
-            borders[++i] = ++j
-        }
-    }
-
-    /**
-     * Searches for the next occurrence of the pattern in the stream, starting from the current stream position. Note
-     * that the position of the stream is changed. If a match is found, the stream points to the end of the match -- i.e. the
-     * byte AFTER the pattern. Else, the stream is entirely consumed. The latter is because InputStream semantics make it difficult to have
-     * another reasonable default, i.e. leave the stream unchanged.
-     *
-     * @return bytes consumed if found, -1 otherwise.
-     * @throws IOException
-     */
-    fun search(stream: InputStream): Long {
-        var bytesRead: Long = 0
-
-        var b: Int
-        var j = 0
-
-        while (true) {
-            b = stream.read()
-            if (b == -1) break
-
-            bytesRead++
-
-            while (j >= 0 && b.toByte() != pattern[j])
-                j = borders[j]
-
-            // Move to the next character in the pattern.
-            ++j
-
-            // If we've matched up to the full pattern length, we found it.
-            if (j == pattern.size)
-                return bytesRead
-        }
-
-        return -1
-    }
 }

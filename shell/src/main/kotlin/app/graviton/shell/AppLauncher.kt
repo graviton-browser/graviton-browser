@@ -6,6 +6,7 @@ import app.graviton.api.v1.GravitonRunInShell
 import app.graviton.codefetch.CodeFetcher
 import app.graviton.codefetch.StartException
 import app.graviton.shell.GravitonClassLoader.Companion.build
+import com.sun.javafx.stage.StageHelper
 import javafx.application.Application
 import javafx.application.Platform
 import javafx.beans.property.Property
@@ -204,7 +205,38 @@ class AppLauncher(private val options: GravitonCLI,
     private fun startGravitonApp(loadResult: GravitonClassLoader, fetch: CodeFetcher.Result) {
         val primaryStage = primaryStage!!
         val appClass = loadResult.startClass.asSubclass(Application::class.java)
+
         // TODO: Create a ThreadGroup and then use SecurityManager to ensure that newly started threads are in that group.
+        // Then we can interrupt them at termination time to enable more app code to be GCd out.
+
+        fun registerForWindowClose(stage: Stage, restore: () -> Unit) {
+            val oldOnCloseRequest = stage.onCloseRequest
+            val closeFilter = object : EventHandler<WindowEvent> {
+                /**
+                 * Invoked when a specific event of the type for which this handler is
+                 * registered happens.
+                 *
+                 * @param event the event which occurred
+                 */
+                override fun handle(event: WindowEvent) {
+                    // Stop the window closing.
+                    event.consume()
+                    if (stage != primaryStage) {
+                        stage.hide()
+                        primaryStage.show()
+                    }
+                    // Let the app handle the event as if we had not intervened.
+                    stage.onCloseRequest?.handle(event)
+                    stage.onCloseRequest = oldOnCloseRequest
+                    stage.removeEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, this)
+                    info { "Inlined application quitting, back to the shell" }
+                    restore()
+                    events?.appFinished()
+                }
+            }
+            stage.addEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, closeFilter)
+        }
+
         thread(name = "App init thread: ${fetch.name}") {
             Thread.currentThread().contextClassLoader = appClass.classLoader
 
@@ -236,40 +268,19 @@ class AppLauncher(private val options: GravitonCLI,
                 val newScene = (app as? GravitonRunInShell)?.createScene(Gateway())
                 val implementsAPI = newScene != null
 
+                fun restore() {
+                    Thread.currentThread().contextClassLoader = AppLauncher::class.java.classLoader
+                    primaryStage.titleProperty().unbind()
+                    primaryStage.title = ""
+                    primaryStage.scene = oldScene
+                    Platform.setImplicitExit(true)
+                    ModuleHacks.removeParams(app)
+                }
+
                 fun proceed() {
                     // Pick a default title. The app may of course override it in Application.start()
                     primaryStage.title = fetch.artifact.toString()
                     Platform.setImplicitExit(false)
-
-                    fun restore() {
-                        Thread.currentThread().contextClassLoader = AppLauncher::class.java.classLoader
-                        primaryStage.titleProperty().unbind()
-                        primaryStage.title = ""
-                        primaryStage.scene = oldScene
-                        Platform.setImplicitExit(true)
-                    }
-
-                    val oldOnCloseRequest = primaryStage.onCloseRequest
-                    val closeFilter = object : EventHandler<WindowEvent> {
-                        /**
-                         * Invoked when a specific event of the type for which this handler is
-                         * registered happens.
-                         *
-                         * @param event the event which occurred
-                         */
-                        override fun handle(event: WindowEvent) {
-                            // Stop the main window closing.
-                            event.consume()
-                            // Let the app handle the event as if we had not intervened.
-                            primaryStage.onCloseRequest?.handle(event)
-                            primaryStage.onCloseRequest = oldOnCloseRequest
-                            primaryStage.removeEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, this)
-                            info { "Inlined application quitting, back to the shell" }
-                            restore()
-                            events?.appFinished()
-                        }
-                    }
-                    primaryStage.addEventFilter(WindowEvent.WINDOW_CLOSE_REQUEST, closeFilter)
 
                     try {
                         // This messing around with minWidth/Height is to avoid an ugly window resize on macOS.
@@ -285,7 +296,16 @@ class AppLauncher(private val options: GravitonCLI,
                             // The app is expected to notice it's been called inside Graviton and thus, that the stage
                             // is visible. In that case start will do very little.
                         }
+
                         app.start(primaryStage)
+
+                        // Compatibility hack: some apps ignore the primary stage and open up a fresh one, like Everest 1.4
+                        // so we check for that here and register close handling on the new stage as well. INTERNAL API.
+                        val stages = StageHelper.getStages()
+                        if (stages[0] != primaryStage)
+                            registerForWindowClose(stages[0], ::restore)
+                        else
+                            registerForWindowClose(primaryStage, ::restore)
 
                         if (primaryStage.minWidth == widthBeforeStart)
                             primaryStage.minWidth = 0.0
