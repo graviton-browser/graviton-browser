@@ -165,7 +165,15 @@ open class BackgroundUpdates(private val requiredFreeSpaceMB: Int = 500,
 
     private fun windowsUpgrade(currentInstallDir: Path, updateFilePath: Path, verNum: Int): Result {
         // TODO: Check the signature of the installer against signingPublicKey, not only the regular code signing cert.
-        val pb = ProcessBuilder(updateFilePath.toString(), "/VERYSILENT", "/DIR=\"$currentInstallDir\"", "/NORESTART", "/NOICONS", "/SUPPRESSMSGBOXES")
+        val pb = ProcessBuilder(
+                updateFilePath.toString(),
+                "/VERYSILENT",
+                "/DIR=\"$currentInstallDir\"",
+                "/NORESTART",
+                "/NOICONS",
+                "/SUPPRESSMSGBOXES",
+                "/LOG=\"$currentInstallDir\\Logs\\upgrade.log\""
+        )
         info { "Execute: " + pb.command().joinToString(" ") }
         val result = executeProcess(pb)
         if (result != 0) {

@@ -68,7 +68,7 @@ fun main(args: Array<String>) {
         GetConsoleMode(stdout, dwMode.ptr)
         SetConsoleMode(stdout, dwMode.value or 0x0004u or 0x0008u)
 
-        // Start up the versioned binary and wait for it.
+        // Start up the versioned binary.
         val startupInfo = alloc<_STARTUPINFOW>()
         startupInfo.cb = sizeOf<_STARTUPINFOW>().toUInt()
         val processInfo = alloc<_PROCESS_INFORMATION>()
@@ -79,6 +79,11 @@ fun main(args: Array<String>) {
             val lastError = GetLastError()
             error("CreateProcess returned $lastError")
         }
-        WaitForSingleObject(processInfo.hProcess, INFINITE)
+
+        // We may want to wait for it, if there's an attached console. Otherwise we should
+        // quit to ensure this binary can be updated in-place by a background update. There's
+        // no point in waiting if there's no cmd.com to keep hanging around.
+        if (GetConsoleWindow() != null)
+            WaitForSingleObject(processInfo.hProcess, INFINITE)
     }
 }
