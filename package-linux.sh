@@ -29,7 +29,7 @@ srcfiles=$( ls build/install/graviton/lib )
 # We can't pass -srcfiles "$srcfiles" in the obvious and correct way because I get
 # an out of memory error regardless of what heap size I use. Not sure why but I'll
 # copy the files manually afterwards.
-rm -rf $bundles || true
+rm -rf $bundles/graviton $bundles/graviton.tar.gz || true
 javapackager -deploy -nosign -native image -outdir build/packaged/ -outfile graviton-$GRAVITON_VERSION -name graviton  -appclass app.graviton.shell.Graviton  -srcdir build/install/graviton/lib -Bidentifier=app.graviton.browser  -BmainJar=graviton-$GRAVITON_VERSION.jar -BappVersion=$GRAVITON_VERSION -Bcategory=Network  -Bemail=mike@plan99.net  -Bcopyright=Graviton  -BlicenseType=Apache-2.0  -BlicenseFile=build/install/graviton/lib/LICENSE -v
 for f in $srcfiles; do
     cp build/install/graviton/lib/$f $bundles/graviton/app/$f
