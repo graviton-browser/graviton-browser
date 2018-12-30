@@ -1,7 +1,11 @@
 Graviton
 ########
 
-Graviton is a *prototype* app browser and cross-platform software manager.
+Graviton is an app browser and cross-platform software manager.
+
+.. raw:: html
+
+   <center><a href="_static/download.html"><button class="button button2">Download now</button></a></center><br><br>
 
 .. raw:: html
 
@@ -9,43 +13,41 @@ Graviton is a *prototype* app browser and cross-platform software manager.
    <iframe width="700" height="393" src="https://www.youtube.com/embed/cyBN_ILkAtg" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
    </center><br>
 
+
 It gives you:
 
 * A **browser-like shell** that downloads and runs desktop apps, written in languages that can run on the JVM.
+* **Silent upgrades** via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
+  Graviton itself are all upgraded regularly, whether or not the user is currently running an app.
+* First class support for **cross platform command line apps**. They also smoothly upgrade, even if the app is running at the time (good for servers). Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
 * **Publish software simply** using GitHub, GitLab or BitBucket releases! The repository is cloned on a remote server
   in a sandbox, compiled, packaged, downloaded and this process repeats in the background on regular intervals to keep
   your app up to date. Push new versions to your users by simply making a new GitHub release.
-* **Silent upgrades** via a regular scheduled background task, like in Chrome. Apps, dependencies, the JVM and
-  Graviton itself are all upgraded regularly, whether or not the user is currently running an app.
 * **Apps can be written in any language** with a JVM backend, such as Java, `JavaScript <https://www.youtube.com/watch?v=OUo3BFMwQFo>`_, Python, Scala, Kotlin, `Haskell <https://eta-lang.org/>`_, `Ruby <https://github.com/oracle/truffleruby>`_, with support for sandboxed C, C++ and Rust coming in future via Sulong.
-* First class support for **cross platform command line apps**. They also smoothly upgrade, even if the app is running at the time (good for servers). Graviton enables colour terminal handling on Windows 10, so ANSI escapes can be used on any platform with confidence.
 * **Detection of proxy settings** from the OS or browsers, and can handle proxy auto-config files. Apps automatically benefit.
 * Use advanced designed-for-apps GUI toolkits like JavaFX with visual designers, or embed WebKit and use HTML.
 
 Learn more by reading the :doc:`introduction`.
 
-Current status
-**************
+Get involved
+************
 
-The project is alpha software and could benefit from your help. We are currently preparing for our first distributed
-binaries, which we hope to reach by the end of the year. `See remaining tasks <https://github.com/mikehearn/graviton-browser/projects/1>`_.
+The project is alpha software and could benefit from your help.
 
-You can talk to us on the `graviton-dev mailing list <https://groups.google.com/forum/#!forum/graviton-dev>`_ or in
-`the #graviton-browser channel on the Kotlin Slack <https://surveys.jetbrains.com/s3/kotlin-slack-sign-up>`_.
+* Talk to us on the `graviton-dev mailing list <https://groups.google.com/forum/#!forum/graviton-dev>`_
+* Or on `the #graviton-browser channel on the Kotlin Slack <https://surveys.jetbrains.com/s3/kotlin-slack-sign-up>`_.
+* Or on `our GitHub repository <https://github.com/graviton-browser/graviton-browser>`_.
 
-**UI**. There is a simple UI that lets you start apps by entering Maven coordinates. The dependencies
-are downloaded in parallel and then the main class is executed. You can omit the version number and the latest version
-will be used. Packages are cached locally and can run offline. After first run, app startup is always immediate.
+Graviton needs you! We're looking for people with:
 
-**Online update**. Graviton updates both itself and the last 20 recently used apps in the background, silently, whether or
-not Graviton itself is running. It uses a Chrome-style approach in which the OS native task scheduler is used to invoke
-Graviton invisibly in the background. Therefore apps run via Graviton can assume the JRE is always up to date (we currently
-run on Java 8, but will upgrade to Java 11 in future), and that they are also up to date.
+* Web design skills, to make a nicer site for the project (these pages would remain as developer docs).
+* Evangelism skills, to find projects that can run on the JVM and convince them to use Graviton as a distribution mechanism.
+* Developer skills:
+    * Journeyman level, `to create a beautiful showcase for both GUI and CLI apps <https://github.com/graviton-browser/graviton-browser/issues/79>`_. This would be a good student project.
+    * Intermediate level, `to improve the start page shell GUI <https://github.com/graviton-browser/graviton-browser/issues?q=is%3Aissue+is%3Aopen+label%3Ashell>`_.
+    * Expert level, to work on improved app streaming formats, JVM isolation, OpenGL, network discovery, OS integration tasks and more. See the :doc:`roadmap` for ideas.
 
-**Command line**. There is a ``graviton`` command line tool that lets you run apps by coordinate.
-
-**Cross platform**. It all runs on Windows, Mac and Linux. On Windows 10, command line apps benefit from support for colour
-terminal output.
+**Commercial version?** Would you like a Pro/Enterprise level version of Graviton? `Let me know! <https://docs.google.com/forms/d/e/1FAIpQLSdl-5xSHdspPLWjMRBjqiCEPlzDsr4CNHoNRarp9nGC6UY5JA/viewform?usp=sf_link>`_
 
 .. toctree::
    :maxdepth: 2

@@ -1,0 +1,52 @@
+<html>
+<head>
+    <title>Downloading Graviton ...</title>
+</head>
+<body>
+<script>
+    var OSName = "Unknown OS";
+    if (navigator.appVersion.indexOf("Win")!==-1)
+        OSName = "Windows";
+    else if (navigator.appVersion.indexOf("Mac")!==-1)
+        OSName = "macOS";
+    else if (navigator.appVersion.indexOf("Linux") !==-1 )
+        OSName = "Linux";
+    else if (navigator.appVersion.indexOf("X11") !==-1 )
+        OSName = "UNIX";
+
+    function osToURL(osname) {
+        var url;
+        switch (osname) {
+            case "Windows":
+                url = "https://update.graviton.app/win/Graviton.exe";
+                break;
+            case "macOS":
+                url = "https://update.graviton.app/Graviton.dmg";
+                break;
+            case "Linux":
+            case "UNIX":
+                url = "https://update.graviton.app/graviton.tar.gz"
+        }
+        return url;
+    }
+</script>
+
+<font face="sans-serif">
+<center>
+    <p>
+    <font size="xx-large"><script>document.write(OSName)</script> download should start automatically ...</font><p>
+
+        Download for
+        <script>document.write("<a href=\"" + osToURL("Windows") + "\">Windows</a>");</script> |
+        <script>document.write("<a href=\"" + osToURL("macOS") + "\">macOS</a>");</script> |
+        <script>document.write("<a href=\"" + osToURL("Linux") + "\">Linux</a>");</script>
+
+</center>
+</font>
+
+<script>
+    //window.location = osToURL(OSName);
+</script>
+
+</body>
+</html>
