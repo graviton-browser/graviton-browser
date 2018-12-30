@@ -1,6 +1,16 @@
 Newsletters
 ***********
 
+30th December 2018
+==================
+
+The first release is finally ready! Bugs have been fixed, a download page created and signed binaries uploaded.
+The next step is to request some testing from people following the project, before announcing it in a few Java
+related forums after the New Year, when people are returning to work.
+
+Beyond eating mince pies the bulk of the work in the last 20 days has been bug fixes to the Linux and Windows
+online update engines, filing more ideas in the issue tracker and investigating app compatibility issues.
+
 10th December 2018
 ==================
 

@@ -34,6 +34,15 @@
 <font face="sans-serif">
 <center>
     <p>
+    <div style="width: 30em; height: 30em;">
+        <svg version="1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" enable-background="new 0 0 48 48">
+            <circle fill="#B3E5FC" cx="24" cy="30" r="15"/>
+            <g fill="#1565C0">
+                <polygon points="24,38.7 15,28 33,28"/>
+                <rect x="21" y="5" width="6" height="26"/>
+            </g>
+        </svg>
+    </div>
     <font size="xx-large"><script>document.write(OSName)</script> download should start automatically ...</font><p>
 
         Download for
@@ -41,6 +50,14 @@
         <script>document.write("<a href=\"" + osToURL("macOS") + "\">macOS</a>");</script> |
         <script>document.write("<a href=\"" + osToURL("Linux") + "\">Linux</a>");</script>
 
+        <p><p>
+
+        <script>
+            if (OSName == "Windows") {
+                document.writeln("Please click 'More Info' and then 'Run anyway' if Windows tells you the app is unrecognised.<br>");
+                document.writeln("Because Graviton is new, Microsoft hasn't learned yet that it's not a virus. The download is safe nonetheless.<br>");
+            }
+        </script>
 </center>
 </font>
 
