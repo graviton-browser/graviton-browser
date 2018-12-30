@@ -10,9 +10,9 @@ buildscript {
 }
 
 plugins {
-    // id 'com.zyxist.chainsaw' version '0.3.1'
     id 'se.patrikerdes.use-latest-versions' version '0.2.3'
     id 'com.github.ben-manes.versions' version '0.20.0'
+    id 'org.hidetake.ssh' version '2.9.0'
 }
 
 group 'app.graviton'
@@ -120,16 +120,56 @@ task makeWinInstaller(type: Exec, dependsOn: [copyBootstrapToLibs]) {
     ]
 }
 
+def winInstallerPath = "build/packaged/bundles/GravitonBrowser.exe"
+
 // You need InnoSetup and the Windows SDK to run this task. For code signing you also need a valid certificate and
 // accessible private key.
 task packageWin(type: Exec, dependsOn: [makeWinInstaller]) {
     group = "Packaging"
     description = "Build the EXE installer for Windows and sign it"
 
-    inputs.files("build/packaged/GravitonBrowser.exe")
+    inputs.files(winInstallerPath)
 
     // Now sign the EXE to help reduce warnings from IE.
     commandLine = ['signtool', 'sign', '/a', '/t', 'http://time.certum.pl', '/fd', 'sha256', '/v', '/debug', 'build\\packaged\\bundles\\GravitonBrowser.exe']
+}
+
+remotes {
+    updateSite {
+        host = 'plan99.net'
+        user = 'graviton'
+        identity = new File("${System.properties['user.home']}/.ssh/id_rsa")
+    }
+}
+
+task uploadUpdates {
+    inputs.files(winInstallerPath, "online-update-packages/${version}.linux.jar", "online-update-packages/${version}.mac.jar")
+    doLast {
+        ssh.run {
+            session(remotes.updateSite) {
+                // Windows
+                println("Uploading Windows files ...")
+                put from: winInstallerPath, into: "updates/${version}.win.exe"
+                put text: "Latest-Version-URL: /${version}.win.exe", into: "updates/win/control"
+                execute """#!/bin/sh
+                           cd ~/updates/win/
+                           ln -sf ../${version}.win.exe Graviton.exe
+                        """
+
+                // Linux
+                println("Uploading Linux files ...")
+                put from: "online-update-packages/${version}.linux.jar", into: "updates/${version}.linux.jar"
+                put from: "build/packaged/bundles/graviton.tar.gz", into: "updates/graviton.tar.gz"
+                put text: "Latest-Version-URL: /${version}.linux.jar", into: "updates/linux/control"
+
+                // macOS
+                println("Uploading macOS files ...")
+                put from: "online-update-packages/${version}.mac.jar", into: "updates/${version}.mac.jar"
+                put from: "build/packaged/bundles/Graviton-${version}.dmg", into: "updates/Graviton.dmg"
+                put text: "Latest-Version-URL: /${version}.mac.jar", into: "updates/mac/control"
+            }
+        }
+    }
 }
 
 task refreshAPIDocs(type: Copy) {
