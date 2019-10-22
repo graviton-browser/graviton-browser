@@ -10,7 +10,7 @@ Jinja2==2.10
 MarkupSafe==1.0
 packaging==17.1
 pdfrw==0.4
-Pillow==5.0.0
+Pillow==6.2.0
 Pygments==2.2.0
 pyparsing==2.2.0
 pytz==2018.3
